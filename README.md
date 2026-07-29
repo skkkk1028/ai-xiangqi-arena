@@ -32,6 +32,10 @@ pnpm dev
 缺失时从官方网络仓库下载 NNUE。下载结果必须通过固定 SHA-256，生产构建会把验证
 后的 NNUE 作为同源静态资源分发。
 
+Windows 日常测试可直接双击 `start-local-preview.cmd`。它会在首次缺少生产构建时
+自动构建，再打开 `http://127.0.0.1:4173/`；预览服务只在本机可访问，重启 Windows 后
+再次双击即可。
+
 ## 公开部署（Cloudflare Pages）
 
 本项目不能使用 GitHub Pages 作为专业引擎的生产托管：该平台不能为静态响应配置
