@@ -32,6 +32,27 @@ pnpm dev
 缺失时从官方网络仓库下载 NNUE。下载结果必须通过固定 SHA-256，生产构建会把验证
 后的 NNUE 作为同源静态资源分发。
 
+## 公开部署（Cloudflare Pages）
+
+本项目不能使用 GitHub Pages 作为专业引擎的生产托管：该平台不能为静态响应配置
+COOP/COEP，而 `SharedArrayBuffer` 与跨源隔离是 Fairy-Stockfish 多线程 WASM 的必需
+条件。仓库内的 GitHub Actions 只负责验证构建，不再部署 Pages。
+
+推荐使用免费的 Cloudflare Pages。项目已提供 `public/_headers`，Vite 构建时会将它
+复制到 `.vite-output/_headers`，以同源设置 COOP、COEP 和 CORP。部署时在 Cloudflare
+Pages 中连接此 GitHub 仓库，并设置：
+
+```text
+Production branch: main
+Build command: pnpm build
+Build output directory: .vite-output
+Node.js version: 24
+```
+
+首次发布后，访问 `https://<你的项目>.pages.dev`，确认响应头包含
+`Cross-Origin-Opener-Policy: same-origin` 与
+`Cross-Origin-Embedder-Policy: require-corp`，再开始对局。
+
 ## 验证
 
 ```bash
@@ -68,6 +89,7 @@ Sites 项目的编辑权限。
 | 日期 | 变更内容 | 操作人 |
 | --- | --- | --- |
 | 2026-07-29 | 完成100盘新旧引擎基准：98胜2和0负、非法着法0 | Codex |
+| 2026-07-29 | 改用 Cloudflare Pages 公开部署配置，保留 NNUE 所需 COOP/COEP 响应头；GitHub Actions 改为构建验证 | Codex |
 | 2026-07-29 | 用 Fairy-Stockfish NNUE + UCCI 替换生产对局 AI，加入真实搜索信息、资源校验、跨源隔离与公开部署配置 | Codex |
 | 2026-07-29 | 提亮首页；增强旧自研搜索并延长思考时间 | Codex |
 | 2026-07-29 | 项目创建并完成首版实现 | Codex |
