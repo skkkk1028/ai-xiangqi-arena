@@ -15,11 +15,12 @@ const reasonLabels: Record<GameResult['reason'], string> = {
   resignation: '认输',
   repetition: '三次重复',
   'no-capture': '自然限着',
+  technical: '技术中止',
 }
 
 export function ResultModal({ result, plies, onNewGame, onHome }: ResultModalProps) {
   const isDraw = !result.winner
-  const winnerName = result.winner === 'red' ? '红方 · 赤焰' : '黑方 · 玄甲'
+  const winnerName = result.winner === 'red' ? '红方' : '黑方'
 
   return (
     <div className="modal-backdrop" role="presentation">
@@ -33,6 +34,7 @@ export function ResultModal({ result, plies, onNewGame, onHome }: ResultModalPro
           本局经过 <strong>{Math.ceil(plies / 2)}</strong> 个回合，
           因“{reasonLabels[result.reason]}”结束。
         </p>
+        {result.detail && <p className="result-detail">{result.detail}</p>}
         <div className="result-rule">
           <span>终局裁定</span>
           <strong>{reasonLabels[result.reason]}</strong>

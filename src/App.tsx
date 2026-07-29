@@ -10,11 +10,13 @@ import { MoveHistory } from './components/MoveHistory'
 import { PlayerCard } from './components/PlayerCard'
 import { ResultModal } from './components/ResultModal'
 import { StartScreen } from './components/StartScreen'
+import { sideLabel } from './engine/ucci'
 import { useAiMatch } from './hooks/useAiMatch'
 
 function App() {
   const {
     state,
+    engineState,
     soundEnabled,
     setSoundEnabled,
     start,
@@ -22,17 +24,20 @@ function App() {
     resume,
     newGame,
     returnHome,
+    retryEngine,
   } = useAiMatch()
 
-  if (state.phase === 'ready') return <StartScreen onStart={start} />
+  if (state.phase === 'ready') {
+    return <StartScreen onStart={start} engine={engineState} onRetry={() => void retryEngine()} />
+  }
 
   const fullRound = Math.floor(state.history.length / 2) + 1
   const statusText =
     state.phase === 'paused'
       ? '对局暂停'
       : state.checkColor
-        ? `${state.checkColor === 'red' ? '红方' : '黑方'}被将军`
-        : `${state.turn === 'red' ? '红方 · 赤焰' : '黑方 · 玄甲'}思考中`
+        ? `${sideLabel(state.checkColor)}被将军`
+        : `${sideLabel(state.turn)} · ${state.thinking ? '深度搜索中' : '准备行棋'}`
 
   return (
     <div className="match-page">
@@ -44,7 +49,7 @@ function App() {
           <span className="brand-mark">弈</span>
           <span>
             <strong>AI 象棋</strong>
-            <small>楚河汉界 · 智见胜负</small>
+            <small>专业 NNUE 引擎对弈</small>
           </span>
         </a>
         <div className="match-status">
@@ -84,13 +89,19 @@ function App() {
             remainingMs={state.clocks.red}
             turnElapsedMs={state.turn === 'red' ? state.clocks.turn : 0}
             active={state.turn === 'red' && state.phase === 'running'}
-            thinking={state.thinking}
-            depth={state.turn === 'black' ? state.searchDepth : 0}
-            nodes={state.turn === 'black' ? state.searchNodes : 0}
+            thinking={state.turn === 'red' && state.thinking}
+            info={state.turn === 'red' ? state.liveInfo : null}
           />
-          <div className="side-quote">
-            <span>先</span>
-            <p>攻如烈火，落子无悔</p>
+          <div className="side-quote engine-build">
+            <span>核</span>
+            <p>
+              {engineState.profile?.version ?? 'Fairy-Stockfish'}
+              <small>
+                {engineState.profile
+                  ? `${engineState.profile.threads} 线程 · ${engineState.profile.hashMb} MB Hash`
+                  : '专业引擎'}
+              </small>
+            </p>
           </div>
         </aside>
 
@@ -98,7 +109,7 @@ function App() {
           <div className="board-title-row">
             <span>九路十行 · 楚河汉界</span>
             <span>
-              {state.checkColor ? '将军' : state.thinking ? '正在推演最佳着法' : '等待行棋'}
+              {state.checkColor ? '将军' : state.thinking ? '真实搜索进行中' : '等待行棋'}
             </span>
           </div>
           <ChessBoard
@@ -111,7 +122,7 @@ function App() {
           <div className="board-footnote">
             <span>红方视角</span>
             <i />
-            <span>AI 评估仅用于行棋，不代表最终胜负</span>
+            <span>NNUE 评估以当前行棋方为视角</span>
           </div>
         </section>
 
@@ -121,17 +132,16 @@ function App() {
             remainingMs={state.clocks.black}
             turnElapsedMs={state.turn === 'black' ? state.clocks.turn : 0}
             active={state.turn === 'black' && state.phase === 'running'}
-            thinking={state.thinking}
-            depth={state.turn === 'red' ? state.searchDepth : 0}
-            nodes={state.turn === 'red' ? state.searchNodes : 0}
+            thinking={state.turn === 'black' && state.thinking}
+            info={state.turn === 'black' ? state.liveInfo : null}
           />
           <MoveHistory history={state.history} />
         </aside>
       </main>
 
       <footer className="match-footer">
-        <span>规则：将死 · 困毙 · 超时 · 自动认输 · 简化和棋</span>
-        <span>所有搜索均在本机浏览器内完成</span>
+        <span>裁定：将死 · 困毙 · 超时 · 保守认输 · 简化和棋</span>
+        <span>Fairy-Stockfish NNUE · UCCI · 所有计算均在本机完成</span>
       </footer>
 
       {state.result && (

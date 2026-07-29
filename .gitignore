@@ -6,3 +6,7 @@ coverage/
 *.tsbuildinfo
 .DS_Store
 .openai/hosting.json
+public/engine/stockfish.js
+public/engine/stockfish.wasm
+public/engine/stockfish.worker.js
+public/engine/xiangqi-c07e94a5c7cb.nnue
