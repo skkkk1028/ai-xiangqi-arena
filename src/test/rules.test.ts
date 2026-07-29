@@ -122,13 +122,15 @@ describe('中国象棋规则引擎', () => {
     expect(isClockExpired({ red: 500_000, black: 600_000, turn: 59_999 }, 'red')).toBe(false)
   })
 
-  it('连续三次严重劣势后自动认输且和棋规则有固定优先级', () => {
+  it('连续三次败率达到99.5%后自动认输且和棋规则有固定优先级', () => {
     let streak = 0
-    streak = updateResignationStreak(streak, 40, -1800)
-    streak = updateResignationStreak(streak, 42, -1900)
-    streak = updateResignationStreak(streak, 44, -2200)
+    streak = updateResignationStreak(streak, 40, 995)
+    streak = updateResignationStreak(streak, 42, 999)
+    streak = updateResignationStreak(streak, 44, 1000)
     expect(streak).toBe(3)
-    expect(updateResignationStreak(streak, 46, -500)).toBe(0)
+    expect(updateResignationStreak(streak, 46, 994)).toBe(0)
+    expect(updateResignationStreak(0, 39, 1000, true)).toBe(0)
+    expect(updateResignationStreak(0, 40, 0, true)).toBe(1)
     expect(getSimplifiedDrawReason(3, 120)).toBe('repetition')
     expect(getSimplifiedDrawReason(2, 120)).toBe('no-capture')
     expect(getSimplifiedDrawReason(2, 119)).toBeNull()

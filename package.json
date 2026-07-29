@@ -4,16 +4,22 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "postinstall": "node scripts/sync-engine-assets.mjs",
+    "predev": "node scripts/sync-engine-assets.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/sync-engine-assets.mjs",
     "build": "tsc -b && vite build",
     "build:sites": "pnpm build && node scripts/prepare-sites-build.mjs",
     "test": "vitest run",
+    "verify:engine": "node scripts/verify-engine.cjs",
+    "benchmark:100": "vitest run --config vitest.benchmark.config.ts",
     "test:watch": "vitest",
     "typecheck": "tsc -b --pretty false",
     "preview": "vite preview --outDir .vite-output",
     "lint": "tsc -b --pretty false"
   },
   "dependencies": {
+    "fairy-stockfish-nnue.wasm": "1.1.11",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

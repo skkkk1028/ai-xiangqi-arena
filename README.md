@@ -1,60 +1,73 @@
-# Project10-AI象棋
+# Project10 · AI 象棋竞技场
 
-## 项目目标
+纯浏览器运行的中国象棋 AI 对 AI 观战网页。双方均使用同配置的
+**Fairy-Stockfish NNUE**，通过 **UCCI** 文本协议行棋；计算在访问者设备内完成，
+不依赖后端、付费服务器或第三方推理 API。
 
-构建一个纯浏览器运行的中国象棋 AI 对 AI 观战网页。双方 AI 自动思考和走子，页面提供棋钟、着法记录、暂停、新局与终局裁定。
+## 当前能力
 
-## 项目范围
+- 完整基础走棋、将军、将死、困毙与将帅照面规则
+- `fairy-stockfish-nnue.wasm@1.1.11`，固定中国象棋 NNUE 网络
+- 一个持久化 Web Worker 轮流为红黑双方搜索
+- 正常局面真实搜索约 12–18 秒；每方 20 分钟、单步最多 60 秒
+- 实时显示深度、节点、NPS、普通/将杀分值、WDL 和前 6 步 PV
+- NNUE 下载进度与 SHA-256 校验；经典评估回退时禁止开局
+- 暂停、继续、新局、音效、走棋记录及终局弹窗
+- 三次重复与 120 半回合无吃子的产品简化和棋
+- 响应式桌面与移动端布局
 
-- 完整基础走棋规则、将军、将死和困毙判定
-- Web Worker 中运行的迭代加深 PVS / Alpha-Beta 搜索，包含置换表、静态搜索、将军延伸、杀手着法与历史启发
-- 每方 10 分钟总时与单步 60 秒上限；常规搜索预算约 8–12 秒，至少展示约 6 秒思考过程
-- 自动认输、三次重复及 120 半回合无吃子和棋
-- 响应式桌面与移动端观战界面
-- 不包含人类走棋、联网房间、账号、排行榜或第三方高强度引擎
+> UCCI 是通信协议，不是棋力来源。棋力来自 Fairy-Stockfish 及其 NNUE 网络。
+> 浏览器设备性能不同，无法保证每台手机都达到相同搜索深度。
 
 ## 本地运行
+
+需要支持 `SharedArrayBuffer` 的现代浏览器。开发服务器已配置 COOP/COEP：
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-## 验证命令
+`postinstall` 会把固定 npm 包内的 WASM 运行文件同步到 `public/engine/`，并在本地
+缺失时从官方网络仓库下载 NNUE。下载结果必须通过固定 SHA-256，生产构建会把验证
+后的 NNUE 作为同源静态资源分发。
+
+## 验证
 
 ```bash
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm build:sites
 ```
-
-公共生产构建位于 `.vite-output/`，也是 GitHub Pages 使用的纯静态发布目录；推送到 `main` 后会自动测试、构建并发布。
-
-如需部署到 Codex Sites，先在当前账号下创建 `.openai/hosting.json`，再执行 `pnpm build:sites`。站点绑定文件只保留在本机，不进入公共仓库，避免其他账号克隆后错误绑定到无权限的旧站点。
 
 ## 架构
 
-- `src/game/`：棋盘模型、合法着法、将军检测和记谱
-- `src/ai/`：局面评估、迭代加深搜索及 Web Worker
-- `src/hooks/useAiMatch.ts`：棋钟、对局状态与终局裁定
-- `src/components/`：棋盘、选手、记录与终局界面
-- `src/test/`：规则、AI 和界面测试
+- `src/game/`：棋盘、合法着法、将军检测、记谱与裁定
+- `src/engine/`：UCCI 解析、浏览器兼容检测、引擎客户端与开局前缀
+- `public/engine/ucci.worker.js`：WASM/NNUE 加载、校验和 UCCI 会话
+- `src/hooks/useAiMatch.ts`：棋钟、持久化引擎、对局状态与异常恢复
+- `src/components/`：棋盘、引擎面板、记录与终局界面
+- `worker/static-site-worker.mjs`：生产环境 COOP/COEP/CORP 与缓存响应头
 
-## 规则说明
+旧的自研搜索器只保留在 `src/ai/search.ts` 与相关文件中用于对比测试，
+生产对局不再引用它。
 
-详细规则和产品简化边界参见 [RULES.md](./RULES.md)。
+## 规则、许可与公开访问
 
-## 关键里程碑
+- [对局规则与裁定](./RULES.md)
+- [第三方许可说明](./THIRD_PARTY_NOTICES.md)
+- [Fairy-Stockfish GPLv3 全文](./FAIRY_STOCKFISH_GPL-3.0.txt)
+- [100盘新旧引擎回归基准](./benchmark/README.md)
 
-- [x] 项目初始化
-- [x] 规则引擎与 AI 搜索
-- [x] 观战界面与棋钟
-- [x] 自动裁定与测试
-- [x] 生产构建与 Sites 部署准备
+站点公开访问仅代表其他账号可以打开并使用网页，不自动授予源码仓库或 Codex
+Sites 项目的编辑权限。
 
 ## 变更记录
 
 | 日期 | 变更内容 | 操作人 |
 | --- | --- | --- |
-| 2026-07-29 | 提亮首页；重构搜索、评估与着法生成，延长 AI 思考时间并补充回归测试 | Codex |
+| 2026-07-29 | 完成100盘新旧引擎基准：98胜2和0负、非法着法0 | Codex |
+| 2026-07-29 | 用 Fairy-Stockfish NNUE + UCCI 替换生产对局 AI，加入真实搜索信息、资源校验、跨源隔离与公开部署配置 | Codex |
+| 2026-07-29 | 提亮首页；增强旧自研搜索并延长思考时间 | Codex |
 | 2026-07-29 | 项目创建并完成首版实现 | Codex |

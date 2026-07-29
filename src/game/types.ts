@@ -44,36 +44,56 @@ export type ResultReason =
   | 'resignation'
   | 'repetition'
   | 'no-capture'
+  | 'technical'
 
 export interface GameResult {
   winner: Color | null
   loser: Color | null
   reason: ResultReason
+  detail?: string
+}
+
+export type EngineScore =
+  | { kind: 'cp'; value: number }
+  | { kind: 'mate'; value: number }
+
+export interface Wdl {
+  win: number
+  draw: number
+  loss: number
+}
+
+export interface SearchInfo {
+  depth: number
+  seldepth?: number
+  nodes: number
+  nps: number
+  elapsedMs: number
+  score: EngineScore | null
+  wdl: Wdl | null
+  pv: string[]
 }
 
 export interface MoveRecord extends Move {
   notation: string
+  ucci: string
   ply: number
-  evaluation: number
+  score: EngineScore | null
+  wdl: Wdl | null
   depth: number
 }
 
-export interface SearchRequest {
-  type: 'search'
-  requestId: number
-  board: BoardState
-  color: Color
-  timeBudgetMs: number
-  seed: number
-  maxDepth?: number
+export interface EngineProfile {
+  name: string
+  version: string
+  commit: string
+  network: string
+  networkSha256: string
+  threads: number
+  hashMb: number
 }
 
 export interface SearchResponse {
-  type: 'result'
-  requestId: number
-  move: Move | null
-  score: number
-  depth: number
-  nodes: number
-  elapsedMs: number
+  bestmove: string | null
+  info: SearchInfo
 }

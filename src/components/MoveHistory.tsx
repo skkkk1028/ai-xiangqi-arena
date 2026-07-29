@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { scoreLabel } from '../engine/ucci'
 import type { MoveRecord } from '../game/types'
 
 interface MoveHistoryProps {
@@ -50,8 +51,12 @@ export function MoveHistory({ history }: MoveHistoryProps) {
           rounds.map((round) => (
             <div className="history-row" key={round.number}>
               <span className="round-number">{String(round.number).padStart(2, '0')}</span>
-              <span className="move-red">{round.red?.notation ?? '—'}</span>
-              <span className="move-black">{round.black?.notation ?? '…'}</span>
+              <span className="move-red" title={round.red ? `${round.red.ucci} · ${scoreLabel(round.red.score)}` : ''}>
+                {round.red?.notation ?? '—'}
+              </span>
+              <span className="move-black" title={round.black ? `${round.black.ucci} · ${scoreLabel(round.black.score)}` : ''}>
+                {round.black?.notation ?? '…'}
+              </span>
             </div>
           ))
         )}

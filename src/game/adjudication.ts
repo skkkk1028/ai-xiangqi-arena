@@ -1,10 +1,10 @@
 import type { ClockState, Color, ResultReason } from './types'
 
-export const TOTAL_TIME_MS = 10 * 60 * 1000
+export const TOTAL_TIME_MS = 20 * 60 * 1000
 export const TURN_TIME_MS = 60 * 1000
-export const RESIGN_SCORE = -1800
 export const RESIGN_AFTER_PLIES = 40
 export const RESIGN_STREAK = 3
+export const RESIGN_LOSS_PERMILLE = 995
 export const NO_CAPTURE_DRAW_PLIES = 120
 
 export function isClockExpired(clocks: ClockState, turn: Color): boolean {
@@ -14,9 +14,11 @@ export function isClockExpired(clocks: ClockState, turn: Color): boolean {
 export function updateResignationStreak(
   currentStreak: number,
   historyLength: number,
-  score: number,
+  lossPermille: number,
+  forcedMateAgainst = false,
 ): number {
-  return historyLength >= RESIGN_AFTER_PLIES && score <= RESIGN_SCORE
+  return historyLength >= RESIGN_AFTER_PLIES &&
+    (lossPermille >= RESIGN_LOSS_PERMILLE || forcedMateAgainst)
     ? currentStreak + 1
     : 0
 }

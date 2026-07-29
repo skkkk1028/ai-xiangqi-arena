@@ -1,0 +1,917 @@
+{
+  "generatedAt": "2026-07-29T11:57:59.594Z",
+  "engine": "fairy-stockfish-nnue.wasm@1.1.11",
+  "network": "xiangqi-c07e94a5c7cb.nnue",
+  "games": 100,
+  "perMoveMs": 35,
+  "maxPlies": 180,
+  "elapsedSeconds": 168.4,
+  "wins": 98,
+  "draws": 2,
+  "losses": 0,
+  "illegalMoves": 0,
+  "winRate": 0.98,
+  "unbeatenRate": 1,
+  "outcomes": [
+    {
+      "game": 1,
+      "opening": 0,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 87,
+      "illegalMoves": 0
+    },
+    {
+      "game": 2,
+      "opening": 0,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 68,
+      "illegalMoves": 0
+    },
+    {
+      "game": 3,
+      "opening": 1,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 41,
+      "illegalMoves": 0
+    },
+    {
+      "game": 4,
+      "opening": 1,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 50,
+      "illegalMoves": 0
+    },
+    {
+      "game": 5,
+      "opening": 2,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 33,
+      "illegalMoves": 0
+    },
+    {
+      "game": 6,
+      "opening": 2,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 38,
+      "illegalMoves": 0
+    },
+    {
+      "game": 7,
+      "opening": 3,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 47,
+      "illegalMoves": 0
+    },
+    {
+      "game": 8,
+      "opening": 3,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 62,
+      "illegalMoves": 0
+    },
+    {
+      "game": 9,
+      "opening": 4,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 59,
+      "illegalMoves": 0
+    },
+    {
+      "game": 10,
+      "opening": 4,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 80,
+      "illegalMoves": 0
+    },
+    {
+      "game": 11,
+      "opening": 5,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 43,
+      "illegalMoves": 0
+    },
+    {
+      "game": 12,
+      "opening": 5,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 32,
+      "illegalMoves": 0
+    },
+    {
+      "game": 13,
+      "opening": 6,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 51,
+      "illegalMoves": 0
+    },
+    {
+      "game": 14,
+      "opening": 6,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 70,
+      "illegalMoves": 0
+    },
+    {
+      "game": 15,
+      "opening": 7,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 41,
+      "illegalMoves": 0
+    },
+    {
+      "game": 16,
+      "opening": 7,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 58,
+      "illegalMoves": 0
+    },
+    {
+      "game": 17,
+      "opening": 8,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 59,
+      "illegalMoves": 0
+    },
+    {
+      "game": 18,
+      "opening": 8,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 40,
+      "illegalMoves": 0
+    },
+    {
+      "game": 19,
+      "opening": 9,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 31,
+      "illegalMoves": 0
+    },
+    {
+      "game": 20,
+      "opening": 9,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 56,
+      "illegalMoves": 0
+    },
+    {
+      "game": 21,
+      "opening": 10,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 41,
+      "illegalMoves": 0
+    },
+    {
+      "game": 22,
+      "opening": 10,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 42,
+      "illegalMoves": 0
+    },
+    {
+      "game": 23,
+      "opening": 11,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 61,
+      "illegalMoves": 0
+    },
+    {
+      "game": 24,
+      "opening": 11,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 30,
+      "illegalMoves": 0
+    },
+    {
+      "game": 25,
+      "opening": 12,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 37,
+      "illegalMoves": 0
+    },
+    {
+      "game": 26,
+      "opening": 12,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 42,
+      "illegalMoves": 0
+    },
+    {
+      "game": 27,
+      "opening": 13,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 73,
+      "illegalMoves": 0
+    },
+    {
+      "game": 28,
+      "opening": 13,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 82,
+      "illegalMoves": 0
+    },
+    {
+      "game": 29,
+      "opening": 14,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 31,
+      "illegalMoves": 0
+    },
+    {
+      "game": 30,
+      "opening": 14,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 24,
+      "illegalMoves": 0
+    },
+    {
+      "game": 31,
+      "opening": 15,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 39,
+      "illegalMoves": 0
+    },
+    {
+      "game": 32,
+      "opening": 15,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 34,
+      "illegalMoves": 0
+    },
+    {
+      "game": 33,
+      "opening": 16,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 35,
+      "illegalMoves": 0
+    },
+    {
+      "game": 34,
+      "opening": 16,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 26,
+      "illegalMoves": 0
+    },
+    {
+      "game": 35,
+      "opening": 17,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 61,
+      "illegalMoves": 0
+    },
+    {
+      "game": 36,
+      "opening": 17,
+      "professionalColor": "black",
+      "winner": null,
+      "reason": "repetition",
+      "plies": 28,
+      "illegalMoves": 0
+    },
+    {
+      "game": 37,
+      "opening": 18,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 43,
+      "illegalMoves": 0
+    },
+    {
+      "game": 38,
+      "opening": 18,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 54,
+      "illegalMoves": 0
+    },
+    {
+      "game": 39,
+      "opening": 19,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 61,
+      "illegalMoves": 0
+    },
+    {
+      "game": 40,
+      "opening": 19,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 50,
+      "illegalMoves": 0
+    },
+    {
+      "game": 41,
+      "opening": 20,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 49,
+      "illegalMoves": 0
+    },
+    {
+      "game": 42,
+      "opening": 20,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 40,
+      "illegalMoves": 0
+    },
+    {
+      "game": 43,
+      "opening": 21,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 37,
+      "illegalMoves": 0
+    },
+    {
+      "game": 44,
+      "opening": 21,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 44,
+      "illegalMoves": 0
+    },
+    {
+      "game": 45,
+      "opening": 22,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 35,
+      "illegalMoves": 0
+    },
+    {
+      "game": 46,
+      "opening": 22,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 36,
+      "illegalMoves": 0
+    },
+    {
+      "game": 47,
+      "opening": 23,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 35,
+      "illegalMoves": 0
+    },
+    {
+      "game": 48,
+      "opening": 23,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 56,
+      "illegalMoves": 0
+    },
+    {
+      "game": 49,
+      "opening": 0,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 61,
+      "illegalMoves": 0
+    },
+    {
+      "game": 50,
+      "opening": 0,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 28,
+      "illegalMoves": 0
+    },
+    {
+      "game": 51,
+      "opening": 1,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 41,
+      "illegalMoves": 0
+    },
+    {
+      "game": 52,
+      "opening": 1,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 50,
+      "illegalMoves": 0
+    },
+    {
+      "game": 53,
+      "opening": 2,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 91,
+      "illegalMoves": 0
+    },
+    {
+      "game": 54,
+      "opening": 2,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 48,
+      "illegalMoves": 0
+    },
+    {
+      "game": 55,
+      "opening": 3,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 37,
+      "illegalMoves": 0
+    },
+    {
+      "game": 56,
+      "opening": 3,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 44,
+      "illegalMoves": 0
+    },
+    {
+      "game": 57,
+      "opening": 4,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 53,
+      "illegalMoves": 0
+    },
+    {
+      "game": 58,
+      "opening": 4,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 50,
+      "illegalMoves": 0
+    },
+    {
+      "game": 59,
+      "opening": 5,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 31,
+      "illegalMoves": 0
+    },
+    {
+      "game": 60,
+      "opening": 5,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 42,
+      "illegalMoves": 0
+    },
+    {
+      "game": 61,
+      "opening": 6,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 47,
+      "illegalMoves": 0
+    },
+    {
+      "game": 62,
+      "opening": 6,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 66,
+      "illegalMoves": 0
+    },
+    {
+      "game": 63,
+      "opening": 7,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 53,
+      "illegalMoves": 0
+    },
+    {
+      "game": 64,
+      "opening": 7,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 38,
+      "illegalMoves": 0
+    },
+    {
+      "game": 65,
+      "opening": 8,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 65,
+      "illegalMoves": 0
+    },
+    {
+      "game": 66,
+      "opening": 8,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 44,
+      "illegalMoves": 0
+    },
+    {
+      "game": 67,
+      "opening": 9,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 31,
+      "illegalMoves": 0
+    },
+    {
+      "game": 68,
+      "opening": 9,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 40,
+      "illegalMoves": 0
+    },
+    {
+      "game": 69,
+      "opening": 10,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 41,
+      "illegalMoves": 0
+    },
+    {
+      "game": 70,
+      "opening": 10,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 42,
+      "illegalMoves": 0
+    },
+    {
+      "game": 71,
+      "opening": 11,
+      "professionalColor": "red",
+      "winner": null,
+      "reason": "repetition",
+      "plies": 45,
+      "illegalMoves": 0
+    },
+    {
+      "game": 72,
+      "opening": 11,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 30,
+      "illegalMoves": 0
+    },
+    {
+      "game": 73,
+      "opening": 12,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 35,
+      "illegalMoves": 0
+    },
+    {
+      "game": 74,
+      "opening": 12,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 42,
+      "illegalMoves": 0
+    },
+    {
+      "game": 75,
+      "opening": 13,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 49,
+      "illegalMoves": 0
+    },
+    {
+      "game": 76,
+      "opening": 13,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 82,
+      "illegalMoves": 0
+    },
+    {
+      "game": 77,
+      "opening": 14,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 37,
+      "illegalMoves": 0
+    },
+    {
+      "game": 78,
+      "opening": 14,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 24,
+      "illegalMoves": 0
+    },
+    {
+      "game": 79,
+      "opening": 15,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 41,
+      "illegalMoves": 0
+    },
+    {
+      "game": 80,
+      "opening": 15,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 34,
+      "illegalMoves": 0
+    },
+    {
+      "game": 81,
+      "opening": 16,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 59,
+      "illegalMoves": 0
+    },
+    {
+      "game": 82,
+      "opening": 16,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 28,
+      "illegalMoves": 0
+    },
+    {
+      "game": 83,
+      "opening": 17,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 47,
+      "illegalMoves": 0
+    },
+    {
+      "game": 84,
+      "opening": 17,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 76,
+      "illegalMoves": 0
+    },
+    {
+      "game": 85,
+      "opening": 18,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 23,
+      "illegalMoves": 0
+    },
+    {
+      "game": 86,
+      "opening": 18,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 50,
+      "illegalMoves": 0
+    },
+    {
+      "game": 87,
+      "opening": 19,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 63,
+      "illegalMoves": 0
+    },
+    {
+      "game": 88,
+      "opening": 19,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 44,
+      "illegalMoves": 0
+    },
+    {
+      "game": 89,
+      "opening": 20,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 41,
+      "illegalMoves": 0
+    },
+    {
+      "game": 90,
+      "opening": 20,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 42,
+      "illegalMoves": 0
+    },
+    {
+      "game": 91,
+      "opening": 21,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 31,
+      "illegalMoves": 0
+    },
+    {
+      "game": 92,
+      "opening": 21,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 42,
+      "illegalMoves": 0
+    },
+    {
+      "game": 93,
+      "opening": 22,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 47,
+      "illegalMoves": 0
+    },
+    {
+      "game": 94,
+      "opening": 22,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 36,
+      "illegalMoves": 0
+    },
+    {
+      "game": 95,
+      "opening": 23,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 29,
+      "illegalMoves": 0
+    },
+    {
+      "game": 96,
+      "opening": 23,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 56,
+      "illegalMoves": 0
+    },
+    {
+      "game": 97,
+      "opening": 0,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 47,
+      "illegalMoves": 0
+    },
+    {
+      "game": 98,
+      "opening": 0,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 32,
+      "illegalMoves": 0
+    },
+    {
+      "game": 99,
+      "opening": 1,
+      "professionalColor": "red",
+      "winner": "red",
+      "reason": "checkmate",
+      "plies": 49,
+      "illegalMoves": 0
+    },
+    {
+      "game": 100,
+      "opening": 1,
+      "professionalColor": "black",
+      "winner": "black",
+      "reason": "checkmate",
+      "plies": 96,
+      "illegalMoves": 0
+    }
+  ]
+}
