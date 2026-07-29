@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { applyMove, createEmptyBoard, createInitialBoard } from '../game/board'
+import { applyMove, createEmptyBoard, createInitialBoard, positionKey } from '../game/board'
 import {
   getSimplifiedDrawReason,
   isClockExpired,
   updateResignationStreak,
 } from '../game/adjudication'
-import { getLegalMoves, getPseudoMovesForPiece, isInCheck } from '../game/rules'
+import {
+  findGeneral,
+  getLegalCaptures,
+  getLegalMoves,
+  getPseudoMovesForPiece,
+  hasLegalMoves,
+  isInCheck,
+} from '../game/rules'
 import type { BoardState, Color, Piece, PieceType } from '../game/types'
 
 let id = 0
@@ -125,5 +132,75 @@ describe('中国象棋规则引擎', () => {
     expect(getSimplifiedDrawReason(3, 120)).toBe('repetition')
     expect(getSimplifiedDrawReason(2, 120)).toBe('no-capture')
     expect(getSimplifiedDrawReason(2, 119)).toBeNull()
+  })
+})
+
+function referenceIsInCheck(board: BoardState, color: Color): boolean {
+  const general = findGeneral(board, color)
+  if (!general) return true
+  const enemy = color === 'red' ? 'black' : 'red'
+  for (let row = 0; row < 10; row += 1) {
+    for (let col = 0; col < 9; col += 1) {
+      if (board[row][col]?.color !== enemy) continue
+      if (
+        getPseudoMovesForPiece(board, row, col).some(
+          (move) => move.to.row === general.row && move.to.col === general.col,
+        )
+      ) {
+        return true
+      }
+    }
+  }
+  return false
+}
+
+describe('optimized attack and move generation regressions', () => {
+  it('matches the reference attack detector across a deterministic legal playout', () => {
+    let board = createInitialBoard()
+    let side: Color = 'red'
+
+    for (let ply = 0; ply < 36; ply += 1) {
+      expect(isInCheck(board, 'red')).toBe(referenceIsInCheck(board, 'red'))
+      expect(isInCheck(board, 'black')).toBe(referenceIsInCheck(board, 'black'))
+      const moves = getLegalMoves(board, side)
+      expect(moves.length).toBeGreaterThan(0)
+      board = applyMove(board, moves[(ply * 17 + 5) % moves.length])
+      side = side === 'red' ? 'black' : 'red'
+    }
+  })
+
+  it('handles cannon screens, horse legs and crossed-river soldier attacks', () => {
+    const cannon = createEmptyBoard()
+    cannon[0][3] = piece('black', 'general')
+    cannon[9][4] = piece('red', 'general')
+    cannon[5][4] = piece('black', 'cannon')
+    cannon[7][4] = piece('red', 'soldier')
+    expect(isInCheck(cannon, 'red')).toBe(true)
+    cannon[6][4] = piece('red', 'advisor')
+    expect(isInCheck(cannon, 'red')).toBe(false)
+
+    const horse = createEmptyBoard()
+    horse[0][3] = piece('black', 'general')
+    horse[9][4] = piece('red', 'general')
+    horse[7][3] = piece('black', 'horse')
+    expect(isInCheck(horse, 'red')).toBe(true)
+    horse[8][3] = piece('red', 'advisor')
+    expect(isInCheck(horse, 'red')).toBe(false)
+
+    const soldier = createEmptyBoard()
+    soldier[0][3] = piece('black', 'general')
+    soldier[9][4] = piece('red', 'general')
+    soldier[9][3] = piece('black', 'soldier')
+    expect(isInCheck(soldier, 'red')).toBe(true)
+  })
+
+  it('does not mutate the board while generating legal moves', () => {
+    const board = createInitialBoard()
+    const before = positionKey(board, 'red')
+    isInCheck(board, 'red')
+    getLegalMoves(board, 'red')
+    getLegalCaptures(board, 'red')
+    hasLegalMoves(board, 'red')
+    expect(positionKey(board, 'red')).toBe(before)
   })
 })

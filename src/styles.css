@@ -553,6 +553,140 @@ a:focus-visible {
   line-height: 1.6;
 }
 
+/* Bright paper theme, intentionally scoped so the match arena stays dark. */
+.landing {
+  color: #2d2118;
+  background:
+    radial-gradient(circle at 16% 8%, rgba(255, 248, 232, 0.92), transparent 34%),
+    radial-gradient(circle at 84% 78%, rgba(180, 115, 52, 0.13), transparent 36%),
+    repeating-linear-gradient(3deg, rgba(105, 68, 34, 0.025) 0 1px, transparent 1px 9px),
+    #f3e6c9;
+}
+
+.landing::before,
+.landing::after {
+  border-color: rgba(126, 87, 49, 0.17);
+}
+
+.landing-grain {
+  opacity: 0.12;
+  background-image:
+    repeating-radial-gradient(
+      circle at 13% 22%,
+      transparent 0,
+      rgba(102, 65, 32, 0.5) 0.35px,
+      transparent 0.7px
+    ),
+    repeating-radial-gradient(
+      circle at 76% 64%,
+      transparent 0,
+      rgba(102, 65, 32, 0.4) 0.25px,
+      transparent 0.55px
+    );
+  mix-blend-mode: multiply;
+}
+
+.landing .brand {
+  color: #2d2118;
+}
+
+.landing .brand-mark {
+  border-color: rgba(143, 85, 43, 0.55);
+  background: rgba(165, 47, 41, 0.08);
+  color: #a52f29;
+}
+
+.landing .brand small,
+.landing .local-badge,
+.landing .hero-lead {
+  color: #66513e;
+}
+
+.landing .local-badge {
+  border-color: rgba(104, 71, 40, 0.22);
+  background: rgba(255, 248, 232, 0.55);
+}
+
+.landing .hero-kicker {
+  color: #745d46;
+}
+
+.landing .hero h1 {
+  color: #2d2118;
+}
+
+.landing .hero h1 em {
+  -webkit-text-stroke-color: #a52f29;
+  text-shadow: 0 4px 26px rgba(165, 47, 41, 0.12);
+}
+
+.landing .start-note,
+.landing .feature-strip p {
+  color: #705b45;
+}
+
+.landing .start-note i {
+  background: #8d7154;
+}
+
+.landing .start-button {
+  border-color: #8f2e28;
+  background: #a63b32;
+  color: #fff8e8;
+  box-shadow: 0 12px 30px rgba(96, 45, 25, 0.22);
+}
+
+.landing .start-button:hover {
+  background: #b54539;
+  box-shadow: 0 15px 34px rgba(96, 45, 25, 0.3);
+}
+
+.landing button:focus-visible,
+.landing a:focus-visible {
+  outline-color: #8f2e28;
+}
+
+.landing .orbit {
+  border-color: rgba(103, 72, 42, 0.2);
+}
+
+.landing .orbit::before,
+.landing .orbit::after {
+  border-color: #8b673e;
+  background: #f3e6c9;
+}
+
+.landing .mini-board {
+  box-shadow:
+    0 28px 60px rgba(77, 44, 23, 0.28),
+    inset 0 0 36px rgba(83, 41, 18, 0.18);
+}
+
+.landing .visual-caption p {
+  color: #5f4a37;
+}
+
+.landing .visual-caption small {
+  color: #745d46;
+}
+
+.landing .visual-caption > span,
+.landing .feature-strip article > span {
+  color: #9a342e;
+}
+
+.landing .feature-strip {
+  border-top-color: rgba(103, 72, 42, 0.22);
+}
+
+.landing .feature-strip article {
+  border-right-color: rgba(103, 72, 42, 0.18);
+}
+
+.landing .feature-strip strong {
+  color: #3f3024;
+}
+
 /* Match page */
 .match-page {
   display: flex;
@@ -1481,6 +1615,10 @@ a:focus-visible {
   .feature-strip article {
     border-right: 0;
     border-bottom: 1px solid rgba(217, 184, 124, 0.1);
+  }
+
+  .landing .feature-strip article {
+    border-bottom-color: rgba(103, 72, 42, 0.18);
   }
 
   .match-header {

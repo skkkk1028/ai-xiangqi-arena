@@ -1,4 +1,4 @@
-import { applyMove, isInside } from './board'
+import { isInside } from './board'
 import type { BoardState, Color, Move, Piece, Position } from './types'
 
 function inPalace(color: Color, row: number, col: number): boolean {
@@ -184,19 +184,87 @@ export function isInCheck(board: BoardState, color: Color): boolean {
   if (!general) return true
   const enemy: Color = color === 'red' ? 'black' : 'red'
 
-  for (let row = 0; row < 10; row += 1) {
-    for (let col = 0; col < 9; col += 1) {
-      if (board[row][col]?.color !== enemy) continue
-      if (
-        getPseudoMovesForPiece(board, row, col).some(
-          (move) => move.to.row === general.row && move.to.col === general.col,
-        )
-      ) {
-        return true
+  // Rook, cannon and general attacks can be resolved by four rays from the king.
+  for (const [dr, dc] of [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+  ]) {
+    let blockers = 0
+    let distance = 0
+    for (
+      let row = general.row + dr, col = general.col + dc;
+      isInside(row, col);
+      row += dr, col += dc
+    ) {
+      distance += 1
+      const attacker = board[row][col]
+      if (!attacker) continue
+      if (blockers === 0) {
+        if (attacker.color === enemy && attacker.type === 'chariot') return true
+        if (
+          attacker.color === enemy &&
+          attacker.type === 'general' &&
+          (distance === 1 || dc === 0)
+        ) {
+          return true
+        }
+        blockers = 1
+      } else {
+        if (attacker.color === enemy && attacker.type === 'cannon') return true
+        break
       }
     }
   }
+
+  const horseSteps = [
+    { dr: -2, dc: -1, lr: -1, lc: 0 },
+    { dr: -2, dc: 1, lr: -1, lc: 0 },
+    { dr: 2, dc: -1, lr: 1, lc: 0 },
+    { dr: 2, dc: 1, lr: 1, lc: 0 },
+    { dr: -1, dc: -2, lr: 0, lc: -1 },
+    { dr: 1, dc: -2, lr: 0, lc: -1 },
+    { dr: -1, dc: 2, lr: 0, lc: 1 },
+    { dr: 1, dc: 2, lr: 0, lc: 1 },
+  ]
+  for (const step of horseSteps) {
+    const horseRow = general.row - step.dr
+    const horseCol = general.col - step.dc
+    const horse = board[horseRow]?.[horseCol]
+    if (
+      horse?.color === enemy &&
+      horse.type === 'horse' &&
+      !board[horseRow + step.lr]?.[horseCol + step.lc]
+    ) {
+      return true
+    }
+  }
+
+  const enemyForward = enemy === 'red' ? -1 : 1
+  const forwardSoldier = board[general.row - enemyForward]?.[general.col]
+  if (forwardSoldier?.color === enemy && forwardSoldier.type === 'soldier') return true
+
+  for (const soldierCol of [general.col - 1, general.col + 1]) {
+    const soldier = board[general.row]?.[soldierCol]
+    const crossedRiver =
+      soldier?.color === 'red' ? general.row <= 4 : soldier?.color === 'black' && general.row >= 5
+    if (soldier?.color === enemy && soldier.type === 'soldier' && crossedRiver) return true
+  }
+
   return false
+}
+
+function leavesGeneralSafe(board: BoardState, color: Color, move: Move): boolean {
+  const captured = board[move.to.row][move.to.col]
+  board[move.from.row][move.from.col] = null
+  board[move.to.row][move.to.col] = move.piece
+  try {
+    return !isInCheck(board, color)
+  } finally {
+    board[move.from.row][move.from.col] = move.piece
+    board[move.to.row][move.to.col] = captured
+  }
 }
 
 export function getLegalMoves(board: BoardState, color: Color): Move[] {
@@ -207,13 +275,38 @@ export function getLegalMoves(board: BoardState, color: Color): Move[] {
       if (piece?.color !== color) continue
       for (const move of getPseudoMovesForPiece(board, row, col)) {
         if (move.captured?.type === 'general') continue
-        if (!isInCheck(applyMove(board, move), color)) legal.push(move)
+        if (leavesGeneralSafe(board, color, move)) legal.push(move)
       }
     }
   }
   return legal
 }
 
+export function getLegalCaptures(board: BoardState, color: Color): Move[] {
+  const captures: Move[] = []
+  for (let row = 0; row < 10; row += 1) {
+    for (let col = 0; col < 9; col += 1) {
+      const piece = board[row][col]
+      if (piece?.color !== color) continue
+      for (const move of getPseudoMovesForPiece(board, row, col)) {
+        if (!move.captured || move.captured.type === 'general') continue
+        if (leavesGeneralSafe(board, color, move)) captures.push(move)
+      }
+    }
+  }
+  return captures
+}
+
 export function hasLegalMoves(board: BoardState, color: Color): boolean {
-  return getLegalMoves(board, color).length > 0
+  for (let row = 0; row < 10; row += 1) {
+    for (let col = 0; col < 9; col += 1) {
+      const piece = board[row][col]
+      if (piece?.color !== color) continue
+      for (const move of getPseudoMovesForPiece(board, row, col)) {
+        if (move.captured?.type === 'general') continue
+        if (leavesGeneralSafe(board, color, move)) return true
+      }
+    }
+  }
+  return false
 }

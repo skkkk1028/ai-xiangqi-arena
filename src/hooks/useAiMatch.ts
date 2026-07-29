@@ -21,7 +21,9 @@ import type {
   SearchResponse,
 } from '../game/types'
 
-const MIN_VISIBLE_THINK_MS = 700
+const MIN_VISIBLE_THINK_MS = 6_000
+const MIN_SEARCH_BUDGET_MS = 8_000
+const SEARCH_BUDGET_RANGE_MS = 4_001
 
 export interface MatchState {
   board: BoardState
@@ -290,7 +292,8 @@ export function useAiMatch() {
 
     const availableTurnTime = Math.max(100, TURN_TIME_MS - state.clocks.turn - 150)
     const availableTotalTime = Math.max(100, state.clocks[state.turn] - 150)
-    const preferredBudget = 1100 + (state.seed % 900)
+    const preferredBudget =
+      MIN_SEARCH_BUDGET_MS + (state.seed % SEARCH_BUDGET_RANGE_MS)
     worker.postMessage({
       type: 'search',
       requestId,
@@ -298,7 +301,7 @@ export function useAiMatch() {
       color: state.turn,
       timeBudgetMs: Math.min(preferredBudget, availableTurnTime, availableTotalTime),
       seed: state.seed,
-      maxDepth: 5,
+      maxDepth: 12,
     })
 
     return () => {
