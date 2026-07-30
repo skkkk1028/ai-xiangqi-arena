@@ -42,20 +42,23 @@ Windows 日常测试可直接双击 `start-local-preview.cmd`。它会在首次�
 COOP/COEP，而 `SharedArrayBuffer` 与跨源隔离是 Fairy-Stockfish 多线程 WASM 的必需
 条件。仓库内的 GitHub Actions 只负责验证构建，不再部署 Pages。
 
-推荐使用免费的 Cloudflare Pages。项目已提供 `public/_headers`，Vite 构建时会将它
-复制到 `.vite-output/_headers`，以同源设置 COOP、COEP 和 CORP。部署时在 Cloudflare
-Pages 中连接此 GitHub 仓库，并设置：
+推荐使用免费的 Cloudflare Pages Direct Upload。项目已提供 `public/_headers`，Vite 构建时
+会将它复制到 `.vite-output/_headers`，以同源设置 COOP、COEP 和 CORP。首次部署按顺序执行：
 
 ```text
-Production branch: main
-Build command: pnpm build
-Build output directory: .vite-output
-Node.js version: 24
+pnpm dlx wrangler login --use-keyring
+pnpm dlx wrangler pages project create ai-xiangqi-arena-public --production-branch main
+pnpm build
+pnpm dlx wrangler pages deploy .vite-output --project-name ai-xiangqi-arena-public --branch main
 ```
 
-首次发布后，访问 `https://<你的项目>.pages.dev`，确认响应头包含
+之后可直接双击 `deploy-cloudflare.cmd` 重新发布。首次发布后，访问 Wrangler 输出的
+`https://<你的项目>.pages.dev`，确认响应头包含
 `Cross-Origin-Opener-Policy: same-origin` 与
 `Cross-Origin-Embedder-Policy: require-corp`，再开始对局。
+
+Direct Upload 项目不能切换为 Git 自动部署；若未来需要“推送 GitHub 后自动发布”，请新建
+一个 Cloudflare Pages Git Integration 项目，而不要转换当前项目。
 
 ## 验证
 
