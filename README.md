@@ -43,7 +43,14 @@ COOP/COEP，而 `SharedArrayBuffer` 与跨源隔离是 Fairy-Stockfish 多线程
 条件。仓库内的 GitHub Actions 只负责验证构建，不再部署 Pages。
 
 推荐使用免费的 Cloudflare Pages Direct Upload。项目已提供 `public/_headers`，Vite 构建时
-会将它复制到 `.vite-output/_headers`，以同源设置 COOP、COEP 和 CORP。首次部署按顺序执行：
+会将它复制到 `.vite-output/_headers`，以同源设置 COOP、COEP 和 CORP。
+
+最简单的首次发布方式是在已经登录 Cloudflare 的浏览器中打开 **Workers & Pages**，选择
+**Create application > Get started > Drag and drop your files**，项目名填
+`ai-xiangqi-arena-public`，并上传整个 `.vite-output` 文件夹。该文件夹已经是完整生产
+构建，不需要再次压缩或修改。
+
+若在普通本机终端中已成功完成 Wrangler 登录，也可使用命令行首次部署：
 
 ```text
 pnpm dlx wrangler login --use-keyring
@@ -52,7 +59,8 @@ pnpm build
 pnpm dlx wrangler pages deploy .vite-output --project-name ai-xiangqi-arena-public --branch main
 ```
 
-之后可直接双击 `deploy-cloudflare.cmd` 重新发布。首次发布后，访问 Wrangler 输出的
+之后可直接双击 `deploy-cloudflare.cmd` 重新发布，或在 Cloudflare 控制台中创建新的拖拽
+部署。首次发布后，访问 Cloudflare 输出的
 `https://<你的项目>.pages.dev`，确认响应头包含
 `Cross-Origin-Opener-Policy: same-origin` 与
 `Cross-Origin-Embedder-Policy: require-corp`，再开始对局。
