@@ -1,19 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { UcciEngineClient, type EngineProgress } from '../engine/client'
-import { selectOpening } from '../engine/openings'
+import type { EngineAdapter } from '../engine/adapter'
+import { DEFAULT_ENGINE_ID, engineRegistry } from '../engine/default-registry'
+import { selectOpening, type OpeningSelection } from '../engine/openings'
 import { detectEngineSupport } from '../engine/support'
-import { matchUcciMove, moveToUcci } from '../engine/ucci'
-import { applyMove, createInitialBoard, opposite, positionKey } from '../game/board'
+import type { AIEngineConfig, EngineProgress } from '../engine/types'
+import { opposite } from '../game/board'
 import {
-  getSimplifiedDrawReason,
   isClockExpired,
   RESIGN_STREAK,
   TOTAL_TIME_MS,
   TURN_TIME_MS,
   updateResignationStreak,
 } from '../game/adjudication'
-import { formatMove } from '../game/notation'
-import { getLegalMoves, isInCheck } from '../game/rules'
 import type {
   BoardState,
   ClockState,
@@ -25,15 +23,35 @@ import type {
   MoveRecord,
   SearchInfo,
 } from '../game/types'
+import { GameController } from '../games/core'
+import {
+  AIMatchControllerAI,
+  XiangqiAIResignedError,
+  XiangqiGameEngine,
+  XiangqiIllegalEngineMoveError,
+  XiangqiNoBestMoveError,
+  type XiangqiGameState,
+  type XiangqiRecordEntry,
+  type XiangqiTurnAnalysis,
+} from '../games/xiangqi'
 
-const SEARCH_MIN_MS = 12_000
-const SEARCH_RANGE_MS = 6_001
-const CLOCK_SAFETY_MS = 500
+export type MatchMode = 'fairy-duel' | 'engine-battle'
+export type AppView = 'home' | 'engine-selection' | 'match'
+
+export interface MatchPlayer {
+  engineId: string
+  name: string
+  protocol: 'UCCI' | 'UCI'
+  skillLevel: number | null
+  styleDescription?: string
+}
 
 export interface MatchState {
   board: BoardState
   turn: Color
   phase: GamePhase
+  mode: MatchMode
+  players: Record<Color, MatchPlayer>
   clocks: ClockState
   history: MoveRecord[]
   lastMove: Move | null
@@ -41,8 +59,9 @@ export interface MatchState {
   result: GameResult | null
   thinking: boolean
   liveInfo: SearchInfo
+  liveInfoSide: Color
   seed: number
-  opening: string[]
+  opening: OpeningSelection
 }
 
 export interface EngineState {
@@ -62,18 +81,57 @@ const EMPTY_INFO: SearchInfo = {
   pv: [],
 }
 
-function initialState(phase: GamePhase = 'ready', seed = Date.now() >>> 0): MatchState {
+const CHECKING_ENGINE: EngineState = {
+  phase: 'checking',
+  progress: null,
+  profile: null,
+  error: null,
+}
+
+type AIMatchGameController = GameController<
+  XiangqiGameState,
+  Move,
+  Color,
+  XiangqiRecordEntry,
+  XiangqiTurnAnalysis
+>
+
+const xiangqiGame = new XiangqiGameEngine()
+
+function playerFromConfig(config: Readonly<AIEngineConfig>): MatchPlayer {
   return {
-    board: createInitialBoard(),
-    turn: 'red',
+    engineId: config.id,
+    name: config.name,
+    protocol: config.protocol,
+    skillLevel: config.skillLevel,
+    styleDescription: config.styleDescription,
+  }
+}
+
+function initialState(
+  phase: GamePhase = 'ready',
+  seed = Date.now() >>> 0,
+  mode: MatchMode = 'fairy-duel',
+  engineIds: Record<Color, string> = { red: DEFAULT_ENGINE_ID, black: DEFAULT_ENGINE_ID },
+  game = xiangqiGame.initializeGame(),
+): MatchState {
+  const red = engineRegistry.getEngine(engineIds.red)
+  const black = engineRegistry.getEngine(engineIds.black)
+  if (!red || !black) throw new Error('对局包含未注册的 AI 引擎。')
+  return {
+    board: game.board,
+    turn: game.turn,
     phase,
+    mode,
+    players: { red: playerFromConfig(red), black: playerFromConfig(black) },
     clocks: { red: TOTAL_TIME_MS, black: TOTAL_TIME_MS, turn: 0 },
     history: [],
-    lastMove: null,
-    checkColor: null,
-    result: null,
+    lastMove: game.lastMove,
+    checkColor: game.checkColor,
+    result: game.result,
     thinking: false,
     liveInfo: { ...EMPTY_INFO },
+    liveInfoSide: 'red',
     seed,
     opening: selectOpening(seed),
   }
@@ -103,108 +161,284 @@ function createMoveSound() {
     oscillator.start()
     oscillator.stop(context.currentTime + 0.12)
   } catch {
-    // Audio is optional and can be blocked by browser policy.
+    // 音效属于可选能力，浏览器策略可能阻止它。
   }
 }
 
+function uniqueClients(clients: Record<Color, EngineAdapter | null>): EngineAdapter[] {
+  return [...new Set(Object.values(clients).filter((client): client is EngineAdapter => Boolean(client)))]
+}
+
 export function useAiMatch() {
+  const [view, setView] = useState<AppView>('home')
   const [state, setState] = useState<MatchState>(() => initialState())
-  const [engineState, setEngineState] = useState<EngineState>({
-    phase: 'checking',
-    progress: null,
-    profile: null,
-    error: null,
+  const [engineStates, setEngineStates] = useState<Record<Color, EngineState>>({
+    red: CHECKING_ENGINE,
+    black: CHECKING_ENGINE,
   })
   const [soundEnabled, setSoundEnabled] = useState(true)
   const stateRef = useRef(state)
+  const viewRef = useRef(view)
+  const engineStatesRef = useRef(engineStates)
   const soundRef = useRef(soundEnabled)
-  const clientRef = useRef<UcciEngineClient | null>(null)
+  const clientsRef = useRef<Record<Color, EngineAdapter | null>>({ red: null, black: null })
+  const controllerRef = useRef<AIMatchGameController | null>(null)
+  const engineIdsRef = useRef<Record<Color, string>>({ red: DEFAULT_ENGINE_ID, black: DEFAULT_ENGINE_ID })
   const requestRef = useRef(0)
-  const repetitionsRef = useRef(new Map<string, number>())
-  const noCaptureRef = useRef(0)
   const resignationRef = useRef<Record<Color, number>>({ red: 0, black: 0 })
   const recoveryRef = useRef(0)
+  const recoverRef = useRef<(color: Color) => Promise<void>>(async () => undefined)
 
   stateRef.current = state
+  viewRef.current = view
+  engineStatesRef.current = engineStates
   soundRef.current = soundEnabled
 
-  const initializeEngine = useCallback(async () => {
-    const support = detectEngineSupport()
-    if (!support.supported) {
-      setEngineState({
-        phase: 'unsupported',
-        progress: null,
-        profile: null,
-        error: support.reason,
-      })
-      throw new Error(support.reason ?? '当前浏览器不支持专业引擎。')
-    }
-
-    clientRef.current?.dispose()
-    const client = new UcciEngineClient(
-      document.baseURI,
-      support.threads,
-      support.hashMb,
-      (progress) =>
-        setEngineState((current) => ({
-          ...current,
-          phase: progress.phase === 'ready' ? 'ready' : 'loading',
-          progress,
-        })),
-    )
-    clientRef.current = client
-    setEngineState({ phase: 'loading', progress: null, profile: null, error: null })
-    try {
-      const profile = await client.init()
-      if (clientRef.current !== client) throw new DOMException('引擎已替换。', 'AbortError')
-      setEngineState({ phase: 'ready', progress: null, profile, error: null })
-      return client
-    } catch (error) {
-      if (clientRef.current === client) {
-        setEngineState({
-          phase: 'error',
-          progress: null,
-          profile: null,
-          error: error instanceof Error ? error.message : String(error),
-        })
-      }
-      throw error
-    }
+  const setSlotState = useCallback((color: Color, next: EngineState) => {
+    setEngineStates((current) => ({ ...current, [color]: next }))
   }, [])
 
-  useEffect(() => {
-    void initializeEngine().catch(() => undefined)
-    return () => clientRef.current?.dispose()
-  }, [initializeEngine])
+  const disposeAll = useCallback(() => {
+    for (const client of uniqueClients(clientsRef.current)) client.dispose()
+    clientsRef.current = { red: null, black: null }
+  }, [])
 
-  const resetTrackers = useCallback((board: BoardState) => {
-    repetitionsRef.current = new Map([[positionKey(board, 'red'), 1]])
-    noCaptureRef.current = 0
+  const initializeSlot = useCallback(
+    async (color: Color, engineId: string): Promise<EngineAdapter> => {
+      const support = detectEngineSupport()
+      if (!support.supported) {
+        const unsupported: EngineState = {
+          phase: 'unsupported',
+          progress: null,
+          profile: null,
+          error: support.reason,
+        }
+        setSlotState(color, unsupported)
+        throw new Error(support.reason ?? '当前浏览器不支持专业引擎。')
+      }
+      let client!: EngineAdapter
+      client = engineRegistry.createEngine(
+        engineId,
+        {
+          assetBase: document.baseURI,
+          onProgress: (progress) => {
+            if (clientsRef.current[color] !== client) return
+            setSlotState(color, { phase: 'loading', progress, profile: null, error: null })
+          },
+          onRuntimeFatal: (error) => {
+            if (clientsRef.current[color] !== client) return
+            setSlotState(color, { phase: 'error', progress: null, profile: null, error: error.message })
+            if (viewRef.current === 'match') void recoverRef.current(color)
+          },
+        },
+        { threads: support.threads, hash: support.hashMb },
+      )
+      clientsRef.current[color] = client
+      engineIdsRef.current[color] = engineId
+      setSlotState(color, { phase: 'loading', progress: null, profile: null, error: null })
+      try {
+        const profile = await client.init()
+        if (clientsRef.current[color] !== client) throw new DOMException('引擎已替换。', 'AbortError')
+        setSlotState(color, { phase: 'ready', progress: null, profile, error: null })
+        return client
+      } catch (error) {
+        if (clientsRef.current[color] === client) {
+          setSlotState(color, {
+            phase: 'error',
+            progress: null,
+            profile: null,
+            error: error instanceof Error ? error.message : String(error),
+          })
+        }
+        throw error
+      }
+    },
+    [setSlotState],
+  )
+
+  const initializeHomeEngine = useCallback(async () => {
+    disposeAll()
+    setEngineStates({ red: CHECKING_ENGINE, black: CHECKING_ENGINE })
+    const client = await initializeSlot('red', DEFAULT_ENGINE_ID)
+    clientsRef.current.black = client
+    engineIdsRef.current.black = DEFAULT_ENGINE_ID
+    setEngineStates((current) => ({ ...current, black: current.red }))
+    return client
+  }, [disposeAll, initializeSlot])
+
+  const initializeBattleEngines = useCallback(
+    async (redId: string, blackId: string) => {
+      if (redId === blackId) throw new Error('AI 引擎对战必须选择不同引擎或不同核心配置。')
+      if (!engineRegistry.getEngine(redId) || !engineRegistry.getEngine(blackId)) {
+        throw new Error('选择了未注册的 AI 引擎。')
+      }
+      requestRef.current += 1
+      disposeAll()
+      setEngineStates({ red: CHECKING_ENGINE, black: CHECKING_ENGINE })
+      try {
+        await Promise.all([initializeSlot('red', redId), initializeSlot('black', blackId)])
+      } catch (error) {
+        for (const client of uniqueClients(clientsRef.current)) client.stop('引擎对战初始化失败。')
+        throw error
+      }
+    },
+    [disposeAll, initializeSlot],
+  )
+
+  const recoverEngine = useCallback(
+    async (color: Color) => {
+      const current = stateRef.current
+      if (viewRef.current !== 'match' || current.result) return
+      if (recoveryRef.current > 0) {
+        setState({
+          ...current,
+          phase: 'finished',
+          thinking: false,
+          result: { winner: null, loser: null, reason: 'technical', detail: '引擎异常恢复失败。' },
+        })
+        return
+      }
+      recoveryRef.current = 1
+      requestRef.current += 1
+      setState({ ...current, phase: 'paused', thinking: false })
+      try {
+        if (current.mode === 'fairy-duel') {
+          await initializeHomeEngine()
+        } else {
+          const previous = clientsRef.current[color]
+          clientsRef.current[color] = null
+          previous?.dispose()
+          await initializeSlot(color, engineIdsRef.current[color])
+        }
+        const latest = stateRef.current
+        if (viewRef.current === 'match' && latest.phase === 'paused' && !latest.result) {
+          setState({ ...latest, phase: 'running' })
+        }
+      } catch (error) {
+        const latest = stateRef.current
+        setState({
+          ...latest,
+          phase: 'finished',
+          thinking: false,
+          result: {
+            winner: null,
+            loser: null,
+            reason: 'technical',
+            detail: error instanceof Error ? error.message : '引擎恢复失败。',
+          },
+        })
+      }
+    },
+    [initializeHomeEngine, initializeSlot],
+  )
+  recoverRef.current = recoverEngine
+
+  useEffect(() => {
+    void initializeHomeEngine().catch(() => undefined)
+    return () => disposeAll()
+  }, [disposeAll, initializeHomeEngine])
+
+  const resetTrackers = useCallback(() => {
     resignationRef.current = { red: 0, black: 0 }
     recoveryRef.current = 0
   }, [])
 
-  const start = useCallback(() => {
-    if (!clientRef.current || engineState.phase !== 'ready') return
-    const next = initialState('running')
-    resetTrackers(next.board)
-    clientRef.current.newGame()
+  const createController = useCallback((): AIMatchGameController => {
+    const ai = new AIMatchControllerAI({
+      getAdapter: (player) => clientsRef.current[player],
+      getAdapters: () => [clientsRef.current.red, clientsRef.current.black],
+      getContext: (player) => {
+        const current = stateRef.current
+        return {
+          mode: current.mode,
+          seed: current.seed,
+          openingMoves: current.opening.moves,
+          clocks: current.clocks,
+          profile: engineStatesRef.current[player].profile,
+          requestToken: requestRef.current,
+        }
+      },
+      onInfo: (player, info, requestToken) => {
+        if (requestRef.current !== requestToken) return
+        setState((current) =>
+          current.turn === player && current.phase === 'running'
+            ? { ...current, liveInfo: info, liveInfoSide: player }
+            : current,
+        )
+      },
+      shouldResign: (player, info) => {
+        const current = stateRef.current
+        const forcedMateAgainst = info.score?.kind === 'mate' && info.score.value < 0
+        resignationRef.current[player] = updateResignationStreak(
+          resignationRef.current[player],
+          current.history.length,
+          info.wdl?.loss ?? 0,
+          forcedMateAgainst,
+        )
+        return resignationRef.current[player] >= RESIGN_STREAK
+      },
+    })
+    return new GameController(xiangqiGame, [
+      { id: 'red', name: '红方 AI', kind: 'ai', engine: ai },
+      { id: 'black', name: '黑方 AI', kind: 'ai', engine: ai },
+    ])
+  }, [])
+
+  const start = useCallback(async () => {
+    if (!clientsRef.current.red || engineStates.red.phase !== 'ready') return
+    const controller = createController()
+    controllerRef.current = controller
+    const snapshot = await controller.start()
+    const next = initialState('running', Date.now() >>> 0, 'fairy-duel', {
+      red: DEFAULT_ENGINE_ID,
+      black: DEFAULT_ENGINE_ID,
+    }, snapshot.state)
+    resetTrackers()
     setState(next)
-  }, [engineState.phase, resetTrackers])
+    setView('match')
+  }, [createController, engineStates.red.phase, resetTrackers])
+
+  const openEngineSelection = useCallback(() => setView('engine-selection'), [])
+  const closeEngineSelection = useCallback(() => setView('home'), [])
+
+  const startEngineBattle = useCallback(
+    async (redId: string, blackId: string) => {
+      await initializeBattleEngines(redId, blackId)
+      const controller = createController()
+      controllerRef.current = controller
+      const snapshot = await controller.start()
+      const next = initialState('running', Date.now() >>> 0, 'engine-battle', {
+        red: redId,
+        black: blackId,
+      }, snapshot.state)
+      resetTrackers()
+      setState(next)
+      setView('match')
+    },
+    [createController, initializeBattleEngines, resetTrackers],
+  )
 
   const newGame = useCallback(() => {
-    if (!clientRef.current || engineState.phase !== 'ready') return
+    const current = stateRef.current
+    if (viewRef.current !== 'match') return
     const seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0
-    const next = initialState('running', seed)
-    resetTrackers(next.board)
-    clientRef.current.newGame()
-    requestRef.current += 1
-    setState(next)
-  }, [engineState.phase, resetTrackers])
+    const requestId = ++requestRef.current
+    const controller = createController()
+    controllerRef.current = controller
+    void controller.start().then((snapshot) => {
+      if (requestRef.current !== requestId || controllerRef.current !== controller) return
+      const next = initialState('running', seed, current.mode, {
+        red: current.players.red.engineId,
+        black: current.players.black.engineId,
+      }, snapshot.state)
+      resetTrackers()
+      setState(next)
+    }).catch(() => undefined)
+  }, [createController, resetTrackers])
 
   const pause = useCallback(() => {
     requestRef.current += 1
-    clientRef.current?.stop('对局已暂停。')
+    void controllerRef.current?.cancelPendingTurn('对局已暂停。')
     setState((current) =>
       current.phase === 'running' ? { ...current, phase: 'paused', thinking: false } : current,
     )
@@ -212,20 +446,31 @@ export function useAiMatch() {
 
   const resume = useCallback(() => {
     setState((current) =>
-      current.phase === 'paused' ? { ...current, phase: 'running', liveInfo: { ...EMPTY_INFO } } : current,
+      current.phase === 'paused'
+        ? { ...current, phase: 'running', liveInfo: { ...EMPTY_INFO }, liveInfoSide: current.turn }
+        : current,
     )
   }, [])
 
   const returnHome = useCallback(() => {
     requestRef.current += 1
-    clientRef.current?.stop('已返回首页。')
+    controllerRef.current = null
+    disposeAll()
     const next = initialState('ready')
-    resetTrackers(next.board)
+    resetTrackers()
     setState(next)
-  }, [resetTrackers])
+    setView('home')
+    void initializeHomeEngine().catch(() => undefined)
+  }, [disposeAll, initializeHomeEngine, resetTrackers])
+
+  const releaseEngines = useCallback(() => {
+    requestRef.current += 1
+    controllerRef.current = null
+    disposeAll()
+  }, [disposeAll])
 
   useEffect(() => {
-    if (state.phase !== 'running') return
+    if (state.phase !== 'running' || view !== 'match') return
     let lastTick = performance.now()
     const interval = window.setInterval(() => {
       const now = performance.now()
@@ -241,7 +486,8 @@ export function useAiMatch() {
           turn: Math.min(TURN_TIME_MS, turnElapsed),
         }
         if (isClockExpired(nextClocks, current.turn)) {
-          clientRef.current?.stop('棋钟已到时。')
+          requestRef.current += 1
+          void controllerRef.current?.cancelPendingTurn('棋钟已到时。')
           return {
             ...current,
             clocks: nextClocks,
@@ -254,244 +500,152 @@ export function useAiMatch() {
       })
     }, 100)
     return () => window.clearInterval(interval)
-  }, [state.phase, state.turn])
+  }, [state.phase, state.turn, view])
+
+  const syncControllerMove = useCallback((
+    current: MatchState,
+    game: XiangqiGameState,
+    info: SearchInfo,
+    turnAtRequest: Color,
+  ) => {
+    const record = game.history.at(-1)
+    if (!record || game.history.length !== current.history.length + 1) return false
+    const history: MoveRecord[] = [
+      ...current.history,
+      {
+        ...record,
+        score: info.score,
+        wdl: info.wdl,
+        depth: info.depth,
+      },
+    ]
+    if (soundRef.current) createMoveSound()
+    setState({
+      ...current,
+      board: game.board,
+      turn: game.turn,
+      history,
+      lastMove: game.lastMove,
+      checkColor: game.checkColor,
+      phase: game.result ? 'finished' : 'running',
+      result: game.result,
+      thinking: false,
+      liveInfo: info,
+      liveInfoSide: turnAtRequest,
+      seed: (current.seed + 0x9e3779b9 + history.length * 97) >>> 0,
+      clocks: { ...current.clocks, turn: 0 },
+    })
+    return true
+  }, [])
 
   useEffect(() => {
-    if (state.phase !== 'running' || state.result || engineState.phase !== 'ready') return
-    const client = clientRef.current
-    if (!client) return
+    if (view !== 'match' || state.phase !== 'running' || state.result) return
+    if (engineStates[state.turn].phase !== 'ready') return
+    const controller = controllerRef.current
+    if (!clientsRef.current[state.turn] || !controller) return
 
     const requestId = ++requestRef.current
     const turnAtRequest = state.turn
-    const legalMoves = getLegalMoves(state.board, state.turn)
-    if (legalMoves.length === 0) {
-      const checked = isInCheck(state.board, state.turn)
-      setState((current) => ({
-        ...current,
-        phase: 'finished',
-        thinking: false,
-        result: {
-          winner: opposite(current.turn),
-          loser: current.turn,
-          reason: checked ? 'checkmate' : 'stalemate',
-        },
-      }))
-      return
-    }
+    const openingUcci = state.opening.moves[state.history.length]
+    const usesOpening = Boolean(
+      openingUcci &&
+      xiangqiGame.findLegalActionByUcci(controller.getSnapshot().state, openingUcci),
+    )
 
-    const commitMove = (
-      move: Move,
-      ucci: string,
-      info: SearchInfo,
-    ) => {
+    setState((current) => ({
+      ...current,
+      thinking: true,
+      liveInfo: { ...EMPTY_INFO },
+      liveInfoSide: turnAtRequest,
+    }))
+    void controller.playAITurn().then(({ snapshot, decision }) => {
+      if (requestRef.current !== requestId || !decision.analysis) return
       const current = stateRef.current
       if (
-        requestRef.current !== requestId ||
         current.phase !== 'running' ||
         current.result ||
         current.turn !== turnAtRequest
       ) return
-
-      const forcedMateAgainst = info.score?.kind === 'mate' && info.score.value < 0
-      resignationRef.current[current.turn] = updateResignationStreak(
-        resignationRef.current[current.turn],
-        current.history.length,
-        info.wdl?.loss ?? 0,
-        forcedMateAgainst,
-      )
-      if (resignationRef.current[current.turn] >= RESIGN_STREAK) {
+      syncControllerMove(current, snapshot.state, decision.analysis.info, turnAtRequest)
+    }).catch((error) => {
+      if (
+        requestRef.current !== requestId ||
+        (error instanceof DOMException && error.name === 'AbortError')
+      ) return
+      const current = stateRef.current
+      if (error instanceof XiangqiAIResignedError) {
         setState({
           ...current,
           phase: 'finished',
           thinking: false,
-          liveInfo: info,
-          result: {
-            winner: opposite(current.turn),
-            loser: current.turn,
-            reason: 'resignation',
-          },
+          liveInfo: error.info,
+          liveInfoSide: turnAtRequest,
+          result: { winner: opposite(error.player), loser: error.player, reason: 'resignation' },
         })
         return
       }
-
-      const nextBoard = applyMove(current.board, move)
-      const nextTurn = opposite(current.turn)
-      const legalReplies = getLegalMoves(nextBoard, nextTurn)
-      const checked = isInCheck(nextBoard, nextTurn)
-      const history: MoveRecord[] = [
-        ...current.history,
-        {
-          ...move,
-          ucci,
-          notation: formatMove(move),
-          ply: current.history.length + 1,
-          score: info.score,
-          wdl: info.wdl,
-          depth: info.depth,
-        },
-      ]
-
-      let result: GameResult | null = null
-      if (legalReplies.length === 0) {
-        result = {
-          winner: current.turn,
-          loser: nextTurn,
-          reason: checked ? 'checkmate' : 'stalemate',
-        }
+      if (error instanceof XiangqiNoBestMoveError) {
+        setState({ ...current, phase: 'finished', thinking: false, result: error.result })
+        return
       }
-
-      noCaptureRef.current = move.captured ? 0 : noCaptureRef.current + 1
-      const key = positionKey(nextBoard, nextTurn)
-      const repeated = (repetitionsRef.current.get(key) ?? 0) + 1
-      repetitionsRef.current.set(key, repeated)
-      const drawReason = getSimplifiedDrawReason(repeated, noCaptureRef.current)
-      if (!result && drawReason) result = { winner: null, loser: null, reason: drawReason }
-
-      if (soundRef.current) createMoveSound()
-      setState({
-        ...current,
-        board: nextBoard,
-        turn: nextTurn,
-        history,
-        lastMove: move,
-        checkColor: checked ? nextTurn : null,
-        phase: result ? 'finished' : 'running',
-        result,
-        thinking: false,
-        liveInfo: info,
-        seed: (current.seed + 0x9e3779b9 + history.length * 97) >>> 0,
-        clocks: { ...current.clocks, turn: 0 },
-      })
-    }
-
-    const openingUcci = state.opening[state.history.length]
-    if (openingUcci) {
-      const move = matchUcciMove(state.board, legalMoves, openingUcci)
-      if (move) {
-        setState((current) => ({ ...current, thinking: true, liveInfo: { ...EMPTY_INFO } }))
-        const timer = window.setTimeout(() => commitMove(move, openingUcci, { ...EMPTY_INFO }), 250)
-        return () => window.clearTimeout(timer)
-      }
-    }
-
-    const remainingTotal = state.clocks[state.turn]
-    const remainingTurn = TURN_TIME_MS - state.clocks.turn
-    const preferred = SEARCH_MIN_MS + (state.seed % SEARCH_RANGE_MS)
-    const lowTimeBudget =
-      remainingTotal < 45_000 ? Math.min(5_000, remainingTotal - CLOCK_SAFETY_MS) : preferred
-    const budget = Math.max(
-      50,
-      Math.min(preferred, lowTimeBudget, remainingTotal - CLOCK_SAFETY_MS, remainingTurn - CLOCK_SAFETY_MS),
-    )
-
-    setState((current) => ({ ...current, thinking: true, liveInfo: { ...EMPTY_INFO } }))
-    void client
-      .search(
-        state.history.map((record) => record.ucci),
-        budget,
-        (info) => {
-          if (requestRef.current === requestId) {
-            setState((current) =>
-              current.turn === turnAtRequest && current.phase === 'running'
-                ? { ...current, liveInfo: info }
-                : current,
-            )
-          }
-        },
-      )
-      .then((response) => {
-        if (requestRef.current !== requestId) return
-        if (!response.bestmove) {
-          const current = stateRef.current
-          const checked = isInCheck(current.board, current.turn)
-          setState({
-            ...current,
-            phase: 'finished',
-            thinking: false,
-            result: {
-              winner: opposite(current.turn),
-              loser: current.turn,
-              reason: checked ? 'checkmate' : 'stalemate',
-            },
-          })
-          return
-        }
-        const current = stateRef.current
-        const currentLegalMoves = getLegalMoves(current.board, current.turn)
-        const move = matchUcciMove(current.board, currentLegalMoves, response.bestmove)
-        if (!move) {
-          setState({
-            ...current,
-            phase: 'finished',
-            thinking: false,
-            result: {
-              winner: null,
-              loser: null,
-              reason: 'technical',
-              detail: `引擎返回非法或不同步着法：${response.bestmove}`,
-            },
-          })
-          return
-        }
-        commitMove(move, moveToUcci(move), response.info)
-      })
-      .catch(async (error) => {
-        if (requestRef.current !== requestId || (error instanceof DOMException && error.name === 'AbortError')) return
-        const current = stateRef.current
-        if (recoveryRef.current === 0) {
-          recoveryRef.current = 1
-          setState({ ...current, phase: 'paused', thinking: false })
-          try {
-            await initializeEngine()
-            if (stateRef.current.phase === 'paused' && !stateRef.current.result) {
-              setState((latest) => ({ ...latest, phase: 'running' }))
-            }
-            return
-          } catch {
-            // Fall through to a technical stop after the single permitted restart.
-          }
-        }
+      if (error instanceof XiangqiIllegalEngineMoveError) {
         setState({
-          ...stateRef.current,
+          ...current,
           phase: 'finished',
           thinking: false,
           result: {
             winner: null,
             loser: null,
             reason: 'technical',
-            detail: error instanceof Error ? error.message : '专业引擎异常中止。',
+            detail: `引擎返回非法或不同步着法：${error.moveText}`,
           },
         })
-      })
+        return
+      }
+      void recoverRef.current(turnAtRequest)
+    })
 
     return () => {
       if (requestRef.current === requestId) {
-        requestRef.current += 1
-        client.stop('局面或对局状态已改变。')
+        if (usesOpening) {
+          controller.invalidatePendingTurn()
+        } else {
+          requestRef.current += 1
+          void controller.cancelPendingTurn('局面或对局状态已改变。')
+        }
       }
     }
   }, [
-    engineState.phase,
-    initializeEngine,
+    engineStates,
     state.board,
+    state.history,
     state.opening,
     state.phase,
     state.result,
     state.seed,
     state.turn,
+    syncControllerMove,
+    view,
   ])
 
   return {
+    view,
     state,
-    engineState,
+    engineState: engineStates.red,
+    engineStates,
+    engineConfigs: engineRegistry.listEngines(),
     soundEnabled,
     setSoundEnabled,
     start,
+    openEngineSelection,
+    closeEngineSelection,
+    startEngineBattle,
     pause,
     resume,
     newGame,
     returnHome,
-    retryEngine: initializeEngine,
+    releaseEngines,
+    retryEngine: initializeHomeEngine,
   }
 }
 

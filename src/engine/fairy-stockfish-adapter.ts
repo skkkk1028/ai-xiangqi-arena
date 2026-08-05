@@ -1,0 +1,1 @@
+export { FairyStockfishAdapter } from './client'

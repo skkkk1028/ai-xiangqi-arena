@@ -1,5 +1,5 @@
 import { pieceLabel } from '../game/notation'
-import type { BoardState, Color, Move } from '../game/types'
+import type { BoardState, Color, Move, Position } from '../game/types'
 
 interface ChessBoardProps {
   board: BoardState
@@ -7,13 +7,28 @@ interface ChessBoardProps {
   lastMove: Move | null
   checkColor: Color | null
   paused: boolean
+  interactive?: boolean
+  selected?: Position | null
+  legalTargets?: Position[]
+  onSquareClick?: (position: Position) => void
 }
 
 const points = Array.from({ length: 10 }, (_, row) =>
   Array.from({ length: 9 }, (_, col) => ({ row, col })),
 ).flat()
 
-export function ChessBoard({ board, turn, lastMove, checkColor, paused }: ChessBoardProps) {
+export function ChessBoard({
+  board,
+  turn,
+  lastMove,
+  checkColor,
+  paused,
+  interactive = false,
+  selected = null,
+  legalTargets = [],
+  onSquareClick,
+}: ChessBoardProps) {
+  const legalTargetKeys = new Set(legalTargets.map(({ row, col }) => `${row}-${col}`))
   return (
     <div
       className={`chess-board-shell ${paused ? 'is-paused' : ''}`}
@@ -87,6 +102,26 @@ export function ChessBoard({ board, turn, lastMove, checkColor, paused }: ChessB
           </>
         )}
 
+        {interactive && points.map(({ row, col }) => {
+          const piece = board[row][col]
+          const isLegalTarget = legalTargetKeys.has(`${row}-${col}`)
+          return (
+            <button
+              key={`hit-${row}-${col}`}
+              type="button"
+              className={`board-hit-target ${isLegalTarget ? 'is-legal-target' : ''}`}
+              style={{
+                left: `${((50 + col * 100) / 900) * 100}%`,
+                top: `${((50 + row * 100) / 1000) * 100}%`,
+              }}
+              onClick={() => onSquareClick?.({ row, col })}
+              aria-label={piece
+                ? `${piece.color === 'red' ? '红方' : '黑方'}${pieceLabel(piece)} ${row + 1}行${col + 1}列`
+                : `${row + 1}行${col + 1}列空位`}
+            />
+          )
+        })}
+
         {board.map((row, rowIndex) =>
           row.map((piece, colIndex) => {
             if (!piece) return null
@@ -97,7 +132,9 @@ export function ChessBoard({ board, turn, lastMove, checkColor, paused }: ChessB
                 key={piece.id}
                 className={`piece piece--${piece.color} ${
                   isActiveGeneral ? 'piece--checked' : ''
-                } ${piece.color === turn ? 'piece--active-side' : ''}`}
+                } ${piece.color === turn ? 'piece--active-side' : ''} ${
+                  selected?.row === rowIndex && selected.col === colIndex ? 'piece--selected' : ''
+                }`}
                 style={{
                   left: `${((50 + colIndex * 100) / 900) * 100}%`,
                   top: `${((50 + rowIndex * 100) / 1000) * 100}%`,

@@ -24,7 +24,9 @@ const pieceNames: Record<Color, Record<PieceType, string>> = {
 const numerals = ['一', '二', '三', '四', '五', '六', '七', '八', '九']
 
 function fileNumber(color: Color, col: number): number {
-  return color === 'red' ? col + 1 : 9 - col
+  // The board is rendered from Red's side: Red counts files from right to
+  // left, while Black counts the same visible files from left to right.
+  return color === 'red' ? 9 - col : col + 1
 }
 
 export function pieceLabel(piece: { color: Color; type: PieceType }): string {

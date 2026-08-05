@@ -11,15 +11,22 @@
     "build": "tsc -b && vite build",
     "build:sites": "pnpm build && node scripts/prepare-sites-build.mjs",
     "test": "vitest run",
+    "test:katago-service": "node --test services/katago-bridge/test/protocol.test.mjs services/katago-bridge/test/server.test.mjs",
     "verify:engine": "node scripts/verify-engine.cjs",
     "benchmark:100": "vitest run --config vitest.benchmark.config.ts",
+    "benchmark:personality": "vitest run --config vitest.personality-benchmark.config.ts",
+    "benchmark:personality-selfplay": "node scripts/sync-engine-assets.mjs && vitest run --config vitest.selfplay-benchmark.config.ts",
     "test:watch": "vitest",
     "typecheck": "tsc -b --pretty false",
     "preview": "vite preview --outDir .vite-output",
     "lint": "tsc -b --pretty false"
   },
   "dependencies": {
+    "@tensorflow/tfjs": "file:third_party/npm/tfjs-4.22.0.tgz",
+    "@tensorflow/tfjs-backend-wasm": "4.22.0",
+    "@tensorflow/tfjs-backend-webgpu": "4.22.0",
     "fairy-stockfish-nnue.wasm": "1.1.11",
+    "pako": "2.1.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -33,5 +40,10 @@
     "typescript": "^5.9.3",
     "vite": "^7.3.1",
     "vitest": "^4.0.18"
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "core-js"
+    ]
   }
 }
