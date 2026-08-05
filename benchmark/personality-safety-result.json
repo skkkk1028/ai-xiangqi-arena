@@ -1,0 +1,113 @@
+{
+  "generatedAt": "2026-08-01T06:51:11.925Z",
+  "purpose": "paired engine-best versus personality candidate safety regression",
+  "limitations": [
+    "This is a fixed-depth Node/WASM candidate-level A/B, not a self-play Elo test.",
+    "It does not replace Chromium Worker/UI performance validation."
+  ],
+  "engine": {
+    "name": "Fairy-Stockfish NNUE · UCCI",
+    "version": "fairy-stockfish-nnue.wasm@1.1.11",
+    "commit": "5589ea54",
+    "network": "xiangqi-c07e94a5c7cb.nnue",
+    "networkSha256": "c07e94a5c7cbeae443ed79a8fa412875d833a7f8e04333815e39729c59d52e11",
+    "threads": 1,
+    "hashMb": 128
+  },
+  "policyInput": {
+    "threads": 2,
+    "hashMb": 128
+  },
+  "search": {
+    "depth": 12,
+    "validationDepth": 14,
+    "clearHashBeforeEverySearch": true
+  },
+  "corpus": {
+    "positions": 1000,
+    "sha256": "56b5deabd5c3f8ab529be3e7918e90f80417598859507787d1696811ed043483"
+  },
+  "results": {
+    "evaluated": 953,
+    "personalitySelections": 2,
+    "personalitySelectionsByColor": {
+      "red": 1,
+      "black": 1
+    },
+    "meanCpLoss": 0.03462749213011543,
+    "maxCpLoss": 21,
+    "meanWdlLoss": 0.03672612801678909,
+    "maxWdlLoss": 19.5,
+    "changedMeanCpLoss": 16.5,
+    "changedMeanWdlLoss": 17.5,
+    "independentCpEvaluated": 2,
+    "independentWdlEvaluated": 2,
+    "independentScoreClassified": 2,
+    "independentMeanCpLoss": 0,
+    "independentMaxCpLoss": 0,
+    "independentMeanWdlLoss": 0,
+    "independentMaxWdlLoss": 0,
+    "independentMateRegressions": 0,
+    "principalHistoryCoverage": 1000,
+    "candidateHistoryCoverage": 2414,
+    "decisionReasons": {
+      "personality": 4,
+      "forced-best": 859,
+      "insufficient-safe-candidates": 137
+    },
+    "meanDepth": 12,
+    "multiPvCounts": {
+      "2": 372,
+      "3": 536,
+      "4": 92
+    }
+  },
+  "selections": [
+    {
+      "index": 699,
+      "ply": 7,
+      "color": "black",
+      "phase": "middlegame",
+      "bestmove": "b9a7",
+      "selected": "g9e7",
+      "thresholdCp": 40,
+      "initialCpLoss": 12,
+      "initialWdlLoss": 15.5
+    },
+    {
+      "index": 724,
+      "ply": 32,
+      "color": "red",
+      "phase": "complex",
+      "bestmove": "a5b5",
+      "selected": "b0c2",
+      "thresholdCp": 60,
+      "initialCpLoss": 21,
+      "initialWdlLoss": 19.5
+    }
+  ],
+  "worstIndependentRegressions": [
+    {
+      "index": 699,
+      "ply": 7,
+      "color": "black",
+      "bestmove": "b9a7",
+      "selected": "g9e7",
+      "initialLoss": 12,
+      "deeperBest": -53,
+      "deeperSelected": -40,
+      "deeperLoss": 0
+    },
+    {
+      "index": 724,
+      "ply": 32,
+      "color": "red",
+      "bestmove": "a5b5",
+      "selected": "b0c2",
+      "initialLoss": 21,
+      "deeperBest": -13,
+      "deeperSelected": 27,
+      "deeperLoss": 0
+    }
+  ]
+}

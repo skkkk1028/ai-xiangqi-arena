@@ -1,4 +1,5 @@
 import { scoreLabel } from '../engine/ucci'
+import type { AiPersonality } from '../engine/personality'
 import type { Color, SearchInfo } from '../game/types'
 import { ClockIcon } from './Icons'
 
@@ -9,6 +10,13 @@ interface PlayerCardProps {
   active: boolean
   thinking: boolean
   info: SearchInfo | null
+  personality?: AiPersonality
+  engineName: string
+  protocol: 'UCCI' | 'UCI'
+  skillLevel: number | null
+  styleDescription?: string
+  openingName: string
+  openingBranch: string
 }
 
 export function formatClock(ms: number): string {
@@ -26,6 +34,13 @@ export function PlayerCard({
   active,
   thinking,
   info,
+  personality,
+  engineName,
+  protocol,
+  skillLevel,
+  styleDescription,
+  openingName,
+  openingBranch,
 }: PlayerCardProps) {
   const isRed = color === 'red'
   const turnRemaining = Math.max(0, 60_000 - turnElapsedMs)
@@ -38,13 +53,21 @@ export function PlayerCard({
         <span className="side-seal">{isRed ? '红' : '黑'}</span>
         <div>
           <p className="eyebrow">{isRed ? 'RED · 先手' : 'BLACK · 后手'}</p>
-          <h2>Fairy-Stockfish</h2>
-          <small className="engine-subtitle">NNUE · UCCI · Skill 20</small>
+          <h2>{personality ? `${personality.name} · Fairy-Stockfish` : engineName}</h2>
+          <small className="engine-subtitle">
+            NNUE · {protocol} · {skillLevel === null ? '满强度' : `Skill ${skillLevel}`}
+          </small>
         </div>
         <span className={`turn-indicator ${active ? 'is-live' : ''}`}>
           <i />
           {active ? (thinking ? '搜索中' : '行棋方') : '等待'}
         </span>
+      </div>
+
+      <div className="personality-details">
+        <strong>{personality?.summary ?? styleDescription ?? '独立高水平象棋引擎'}</strong>
+        <span>{isRed ? `红方开局：${openingBranch}` : `黑方应手：${openingBranch}`}</span>
+        <small>当前棋谱：{openingName}</small>
       </div>
 
       <div className="main-clock" aria-label={`${isRed ? '红方' : '黑方'}剩余时间`}>

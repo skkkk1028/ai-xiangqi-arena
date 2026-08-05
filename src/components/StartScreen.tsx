@@ -3,6 +3,8 @@ import { PlayIcon } from './Icons'
 
 interface StartScreenProps {
   onStart: () => void
+  onEngineBattle: () => void
+  onHumanBattle: () => void
   onRetry: () => void
   engine: EngineState
 }
@@ -14,7 +16,7 @@ function progressPercent(engine: EngineState): number {
   return progress.phase === 'downloading' ? 15 : 55
 }
 
-export function StartScreen({ onStart, onRetry, engine }: StartScreenProps) {
+export function StartScreen({ onStart, onEngineBattle, onHumanBattle, onRetry, engine }: StartScreenProps) {
   const ready = engine.phase === 'ready'
   const failed = engine.phase === 'error' || engine.phase === 'unsupported'
   const percent = progressPercent(engine)
@@ -40,7 +42,7 @@ export function StartScreen({ onStart, onRetry, engine }: StartScreenProps) {
         <div className="hero-copy">
           <p className="hero-kicker">
             <span />
-            FAIRY-STOCKFISH · NNUE · UCCI
+            MULTI-ENGINE · NNUE · UCCI / UCI
           </p>
           <h1>
             观棋不语
@@ -48,7 +50,7 @@ export function StartScreen({ onStart, onRetry, engine }: StartScreenProps) {
             <em>强者落子</em>
           </h1>
           <p className="hero-lead">
-            两个完全同配的 Fairy-Stockfish NNUE，在楚河汉界间展开专业级实时对弈。
+            可观看同一满强度 Fairy-Stockfish 的风格对决，也可让两个独立 AI 引擎正面对战。
             <br />
             无服务器算力、无弱引擎回退，搜索过程真实可见。
           </p>
@@ -83,13 +85,37 @@ export function StartScreen({ onStart, onRetry, engine }: StartScreenProps) {
               <span>重新检测</span>
             </button>
           ) : (
-            <button className="start-button" onClick={onStart} disabled={!ready}>
-              <span>{ready ? '开始对弈' : '引擎初始化中'}</span>
-              {ready && <PlayIcon />}
-            </button>
+            <div className="mode-actions">
+              <button
+                className="mode-button mode-button--primary"
+                aria-label="开始对弈"
+                onClick={onStart}
+                disabled={!ready}
+              >
+                <span>
+                  <strong>{ready ? 'AI 人格对战' : '引擎初始化中'}</strong>
+                  <small>同引擎不同风格 AI 对决</small>
+                </span>
+                {ready && <PlayIcon />}
+              </button>
+              <button className="mode-button" aria-label="AI 引擎对战 / AI 引擎大战" onClick={onEngineBattle} disabled={!ready}>
+                <span>
+                  <strong>AI 引擎大战</strong>
+                  <small>不同 AI 引擎之间的棋力较量</small>
+                </span>
+                <PlayIcon />
+              </button>
+              <button className="mode-button mode-button--human" aria-label="真人 vs AI" onClick={onHumanBattle} disabled={!ready}>
+                <span>
+                  <strong>真人 vs AI</strong>
+                  <small>选择颜色、引擎与难度，亲自挑战 AI</small>
+                </span>
+                <PlayIcon />
+              </button>
+            </div>
           )}
           <p className="start-note">
-            <span>双方满强度 AI</span>
+            <span>同配置 · 不同风格</span>
             <i />
             <span>每方 20 分钟</span>
             <i />

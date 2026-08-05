@@ -1,0 +1,111 @@
+diff --git a/src/main.cpp b/src/main.cpp
+index 9a7376e..90a2f99 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -25,9 +25,42 @@
+ #include "tune.h"
+ #include "uci.h"
+ 
++#ifdef __EMSCRIPTEN__
++#include <emscripten/emscripten.h>
++#endif
++
+ using namespace Stockfish;
+ 
++namespace {
++std::unique_ptr<UCIEngine> browserUci;
++}
++
++#ifdef __EMSCRIPTEN__
++extern "C" {
++
++EMSCRIPTEN_KEEPALIVE void pikafish_init() {
++    if (browserUci)
++        return;
++    Bitboards::init();
++    Position::init();
++    static char program[] = "pikafish";
++    static char* argv[] = {program, nullptr};
++    browserUci = std::make_unique<UCIEngine>(1, argv);
++    Tune::init(browserUci->engine_options());
++}
++
++EMSCRIPTEN_KEEPALIVE void pikafish_command(const char* command) {
++    if (browserUci && command)
++        browserUci->command(command);
++}
++
++}
++#endif
++
+ int main(int argc, char* argv[]) {
++#ifdef __EMSCRIPTEN__
++    return 0;
++#else
+     std::cout << engine_info() << std::endl;
+ 
+     Bitboards::init();
+@@ -40,4 +73,5 @@ int main(int argc, char* argv[]) {
+     uci->loop();
+ 
+     return 0;
++#endif
+ }
+diff --git a/src/uci.cpp b/src/uci.cpp
+index 19f55f0..91ef0f1 100644
+--- a/src/uci.cpp
++++ b/src/uci.cpp
+@@ -176,6 +176,41 @@ void UCIEngine::loop() {
+     } while (token != "quit" && cli.argc == 1);  // The command-line arguments are one-shot
+ }
+ 
++void UCIEngine::command(std::string cmd) {
++    std::string token;
++    std::istringstream is(cmd);
++    is >> std::skipws >> token;
++
++    if (token == "quit" || token == "stop")
++        engine.stop();
++    else if (token == "ponderhit")
++        engine.set_ponderhit(false);
++    else if (token == "uci")
++    {
++        sync_cout << "id name " << engine_info(true) << "\n"
++                  << engine.get_options() << sync_endl;
++        sync_cout << "uciok" << sync_endl;
++    }
++    else if (token == "setoption")
++        setoption(is);
++    else if (token == "go")
++    {
++        print_info_string(engine.numa_config_information_as_string());
++        print_info_string(engine.thread_allocation_information_as_string());
++        go(is);
++    }
++    else if (token == "position")
++        position(is);
++    else if (token == "fen" || token == "startpos")
++        is.seekg(0), position(is);
++    else if (token == "ucinewgame")
++        engine.search_clear();
++    else if (token == "isready")
++        sync_cout << "readyok" << sync_endl;
++    else if (!token.empty() && token[0] != '#')
++        sync_cout << "Unknown command: '" << cmd << "'." << sync_endl;
++}
++
+ Search::LimitsType UCIEngine::parse_limits(std::istream& is) {
+     Search::LimitsType limits;
+     std::string        token;
+diff --git a/src/uci.h b/src/uci.h
+index 1c8c7c6..a7a2458 100644
+--- a/src/uci.h
++++ b/src/uci.h
+@@ -41,6 +41,7 @@ class UCIEngine {
+     UCIEngine(int argc, char** argv);
+ 
+     void loop();
++    void command(std::string cmd);
+ 
+     static int         to_cp(Value v, const Position& pos);
+     static std::string format_score(const Score& s);

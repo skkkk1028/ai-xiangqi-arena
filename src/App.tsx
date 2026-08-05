@@ -1,4 +1,7 @@
 import { ChessBoard } from './components/ChessBoard'
+import { EngineSelectionScreen } from './components/EngineSelectionScreen'
+import { HumanVsEngineConfigScreen } from './components/HumanVsEngineConfigScreen'
+import { HumanVsEngineMatchScreen } from './components/HumanVsEngineMatchScreen'
 import {
   ChevronLeftIcon,
   PauseIcon,
@@ -8,27 +11,93 @@ import {
 } from './components/Icons'
 import { MoveHistory } from './components/MoveHistory'
 import { PlayerCard } from './components/PlayerCard'
+import { PositionEvaluation } from './components/PositionEvaluation'
 import { ResultModal } from './components/ResultModal'
 import { StartScreen } from './components/StartScreen'
 import { sideLabel } from './engine/ucci'
+import { AI_PERSONALITIES } from './engine/personality'
 import { useAiMatch } from './hooks/useAiMatch'
+import { useHumanVsEngine } from './hooks/useHumanVsEngine'
 
 function App() {
+  const humanMatch = useHumanVsEngine()
   const {
     state,
+    view,
     engineState,
+    engineStates,
+    engineConfigs,
     soundEnabled,
     setSoundEnabled,
     start,
+    openEngineSelection,
+    closeEngineSelection,
+    startEngineBattle,
     pause,
     resume,
     newGame,
     returnHome,
+    releaseEngines,
     retryEngine,
   } = useAiMatch()
 
-  if (state.phase === 'ready') {
-    return <StartScreen onStart={start} engine={engineState} onRetry={() => void retryEngine()} />
+  const openHumanBattle = () => {
+    releaseEngines()
+    humanMatch.openConfiguration()
+  }
+
+  const closeHumanBattle = () => {
+    humanMatch.close()
+    void retryEngine().catch(() => undefined)
+  }
+
+  if (humanMatch.view === 'configuration') {
+    return (
+      <HumanVsEngineConfigScreen
+        engines={humanMatch.engines}
+        engineState={humanMatch.engineState}
+        onBack={closeHumanBattle}
+        onStart={humanMatch.start}
+      />
+    )
+  }
+
+  if (humanMatch.view === 'match' && humanMatch.state) {
+    return (
+      <HumanVsEngineMatchScreen
+        state={humanMatch.state}
+        engineState={humanMatch.engineState}
+        legalMoves={humanMatch.legalMoves}
+        onMove={humanMatch.playHumanMove}
+        onPause={humanMatch.pause}
+        onResume={humanMatch.resume}
+        onNewGame={humanMatch.newGame}
+        onHome={closeHumanBattle}
+      />
+    )
+  }
+
+  if (view === 'home') {
+    return (
+      <StartScreen
+        onStart={start}
+        onEngineBattle={openEngineSelection}
+        onHumanBattle={openHumanBattle}
+        engine={engineState}
+        onRetry={() => void retryEngine()}
+      />
+    )
+  }
+
+  if (view === 'engine-selection') {
+    return (
+      <EngineSelectionScreen
+        engines={engineConfigs}
+        engineStates={engineStates}
+        onBack={closeEngineSelection}
+        onStart={startEngineBattle}
+      />
+    )
   }
 
   const fullRound = Math.floor(state.history.length / 2) + 1
@@ -90,15 +159,22 @@ function App() {
             turnElapsedMs={state.turn === 'red' ? state.clocks.turn : 0}
             active={state.turn === 'red' && state.phase === 'running'}
             thinking={state.turn === 'red' && state.thinking}
-            info={state.turn === 'red' ? state.liveInfo : null}
+            info={state.liveInfoSide === 'red' ? state.liveInfo : null}
+            personality={state.mode === 'fairy-duel' ? AI_PERSONALITIES.red : undefined}
+            engineName={state.players.red.name}
+            protocol={state.players.red.protocol}
+            skillLevel={state.players.red.skillLevel}
+            styleDescription={state.players.red.styleDescription}
+            openingName={state.opening.name}
+            openingBranch={state.opening.redName}
           />
           <div className="side-quote engine-build">
             <span>核</span>
             <p>
-              {engineState.profile?.version ?? 'Fairy-Stockfish'}
+              {engineStates.red.profile?.version ?? state.players.red.name}
               <small>
-                {engineState.profile
-                  ? `${engineState.profile.threads} 线程 · ${engineState.profile.hashMb} MB Hash`
+                {engineStates.red.profile
+                  ? `${engineStates.red.profile.threads} 线程 · ${engineStates.red.profile.hashMb} MB Hash`
                   : '专业引擎'}
               </small>
             </p>
@@ -112,6 +188,12 @@ function App() {
               {state.checkColor ? '将军' : state.thinking ? '真实搜索进行中' : '等待行棋'}
             </span>
           </div>
+          <div className="match-versus" aria-label="AI 对阵">
+            <span>{state.players.red.name}</span>
+            <strong>VS</strong>
+            <span>{state.players.black.name}</span>
+          </div>
+          <PositionEvaluation info={state.liveInfo} perspective={state.liveInfoSide} />
           <ChessBoard
             board={state.board}
             turn={state.turn}
@@ -122,7 +204,7 @@ function App() {
           <div className="board-footnote">
             <span>红方视角</span>
             <i />
-            <span>NNUE 评估以当前行棋方为视角</span>
+            <span>评价已统一换算为红黑双方视角</span>
           </div>
         </section>
 
@@ -133,7 +215,14 @@ function App() {
             turnElapsedMs={state.turn === 'black' ? state.clocks.turn : 0}
             active={state.turn === 'black' && state.phase === 'running'}
             thinking={state.turn === 'black' && state.thinking}
-            info={state.turn === 'black' ? state.liveInfo : null}
+            info={state.liveInfoSide === 'black' ? state.liveInfo : null}
+            personality={state.mode === 'fairy-duel' ? AI_PERSONALITIES.black : undefined}
+            engineName={state.players.black.name}
+            protocol={state.players.black.protocol}
+            skillLevel={state.players.black.skillLevel}
+            styleDescription={state.players.black.styleDescription}
+            openingName={state.opening.name}
+            openingBranch={state.opening.blackName}
           />
           <MoveHistory history={state.history} />
         </aside>
@@ -141,7 +230,7 @@ function App() {
 
       <footer className="match-footer">
         <span>裁定：将死 · 困毙 · 超时 · 保守认输 · 简化和棋</span>
-        <span>Fairy-Stockfish NNUE · UCCI · 所有计算均在本机完成</span>
+        <span>{state.players.red.name} VS {state.players.black.name} · 所有计算均在本机完成</span>
       </footer>
 
       {state.result && (

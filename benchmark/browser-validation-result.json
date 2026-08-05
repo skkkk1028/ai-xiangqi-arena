@@ -1,0 +1,1169 @@
+{
+  "status": "passed",
+  "validation": {
+    "state": "passed",
+    "status": "passed",
+    "stage": "completed",
+    "startedAt": "2026-08-01T05:58:22.714Z",
+    "page": {
+      "href": "http://127.0.0.1:4173/browser-validation.html?long-searches=48&long-game-searches=24&probe-ms=5000",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+      "crossOriginIsolated": true,
+      "sharedArrayBuffer": true,
+      "deviceMemory": 16
+    },
+    "configuration": {
+      "requestedLongSearches": 48,
+      "longGameSearches": 24,
+      "requestedProbeMs": 5000,
+      "profile": {
+        "name": "Fairy-Stockfish NNUE · UCCI",
+        "version": "fairy-stockfish-nnue.wasm@1.1.11",
+        "commit": "5589ea54",
+        "network": "xiangqi-c07e94a5c7cb.nnue",
+        "networkSha256": "c07e94a5c7cbeae443ed79a8fa412875d833a7f8e04333815e39729c59d52e11",
+        "threads": 2,
+        "hashMb": 128
+      }
+    },
+    "runs": [
+      {
+        "index": 1,
+        "kind": "depth-probe",
+        "multiPv": 2,
+        "policyReason": "equal-time-depth-probe",
+        "requestedMs": 5000,
+        "elapsedMs": 5009,
+        "depth": 16,
+        "candidateRanks": [
+          1,
+          2
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      },
+      {
+        "index": 2,
+        "kind": "depth-probe",
+        "multiPv": 4,
+        "policyReason": "equal-time-depth-probe",
+        "requestedMs": 5000,
+        "elapsedMs": 5009,
+        "depth": 15,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "c3c4",
+        "selected": "c3c4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      },
+      {
+        "index": 3,
+        "kind": "depth-probe",
+        "multiPv": 3,
+        "policyReason": "equal-time-depth-probe",
+        "requestedMs": 5000,
+        "elapsedMs": 5004,
+        "depth": 17,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      },
+      {
+        "index": 4,
+        "kind": "depth-probe",
+        "multiPv": 3,
+        "policyReason": "equal-time-depth-probe",
+        "requestedMs": 5000,
+        "elapsedMs": 5005,
+        "depth": 17,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      },
+      {
+        "index": 5,
+        "kind": "depth-probe",
+        "multiPv": 2,
+        "policyReason": "equal-time-depth-probe",
+        "requestedMs": 5000,
+        "elapsedMs": 5004,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      },
+      {
+        "index": 6,
+        "kind": "depth-probe",
+        "multiPv": 4,
+        "policyReason": "equal-time-depth-probe",
+        "requestedMs": 5000,
+        "elapsedMs": 5004,
+        "depth": 16,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "c3c4",
+        "selected": "c3c4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      },
+      {
+        "index": 7,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 12432,
+        "elapsedMs": 12439,
+        "depth": 17,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "h0g2",
+        "selected": "h0g2",
+        "usedPersonality": false,
+        "selectionReason": "personality",
+        "error": null
+      },
+      {
+        "index": 8,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 16767,
+        "elapsedMs": 16774,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "a9b9",
+        "selected": "a9b9",
+        "usedPersonality": false,
+        "selectionReason": "personality",
+        "error": null
+      },
+      {
+        "index": 9,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 12785,
+        "elapsedMs": 12788,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 10,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 17314,
+        "elapsedMs": 17321,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "h9g7",
+        "selected": "h9g7",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 11,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 15939,
+        "elapsedMs": 15946,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "i0h0",
+        "selected": "i0h0",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 12,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 12248,
+        "elapsedMs": 12249,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "c6c5",
+        "selected": "c6c5",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 13,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 17068,
+        "elapsedMs": 17077,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "h2i2",
+        "selected": "h2i2",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 14,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 13571,
+        "elapsedMs": 13581,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "g9i7",
+        "selected": "g9i7",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 15,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 12584,
+        "elapsedMs": 12594,
+        "depth": 17,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "a0b0",
+        "selected": "a0b0",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 16,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 17695,
+        "elapsedMs": 17701,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "b7b3",
+        "selected": "b7b3",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 17,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 14489,
+        "elapsedMs": 14497,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "d0e1",
+        "selected": "d0e1",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 18,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 13793,
+        "elapsedMs": 13795,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "i9h9",
+        "selected": "i9h9",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 19,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 16782,
+        "elapsedMs": 16788,
+        "depth": 22,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "h0h9",
+        "selected": "h0h9",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 20,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 16280,
+        "elapsedMs": 16288,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "g7h9",
+        "selected": "g7h9",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 21,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 15875,
+        "elapsedMs": 15880,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "g2f4",
+        "selected": "g2f4",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 22,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 13154,
+        "elapsedMs": 13162,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "h9f8",
+        "selected": "h9f8",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 23,
+        "kind": "long-run",
+        "multiPv": 2,
+        "policyReason": "tactical-complexity",
+        "requestedMs": 12943,
+        "elapsedMs": 12945,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2
+        ],
+        "bestmove": "i2f2",
+        "selected": "i2f2",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 24,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 12829,
+        "elapsedMs": 12830,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "f8h7",
+        "selected": "f8h7",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 25,
+        "kind": "long-run",
+        "multiPv": 2,
+        "policyReason": "tactical-complexity",
+        "requestedMs": 16400,
+        "elapsedMs": 16401,
+        "depth": 22,
+        "candidateRanks": [
+          1,
+          2
+        ],
+        "bestmove": "f4g6",
+        "selected": "f4g6",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 26,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 16480,
+        "elapsedMs": 16486,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "f9e8",
+        "selected": "f9e8",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 27,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 14244,
+        "elapsedMs": 14248,
+        "depth": 20,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "f2h2",
+        "selected": "f2h2",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 28,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 14518,
+        "elapsedMs": 14523,
+        "depth": 20,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "c7d5",
+        "selected": "c7d5",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 29,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 14889,
+        "elapsedMs": 14900,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "h2h6",
+        "selected": "h2h6",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 30,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 12944,
+        "elapsedMs": 12947,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "d5c3",
+        "selected": "d5c3",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 31,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 17104,
+        "elapsedMs": 17145,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 32,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 13025,
+        "elapsedMs": 13030,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "h9g7",
+        "selected": "h9g7",
+        "usedPersonality": false,
+        "selectionReason": "personality",
+        "error": null
+      },
+      {
+        "index": 33,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 17457,
+        "elapsedMs": 17462,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "h2g2",
+        "selected": "h2g2",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 34,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 15985,
+        "elapsedMs": 15990,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "c6c5",
+        "selected": "c6c5",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 35,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 12197,
+        "elapsedMs": 12202,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "g4g5",
+        "selected": "g4g5",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 36,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 16920,
+        "elapsedMs": 16927,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "g7e8",
+        "selected": "g7e8",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 37,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 15739,
+        "elapsedMs": 15750,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "g5f5",
+        "selected": "g5f5",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 38,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 12242,
+        "elapsedMs": 12248,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "i9h9",
+        "selected": "i9h9",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 39,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 17256,
+        "elapsedMs": 17257,
+        "depth": 20,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "a0a1",
+        "selected": "a0a1",
+        "usedPersonality": false,
+        "selectionReason": "personality",
+        "error": null
+      },
+      {
+        "index": 40,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 13953,
+        "elapsedMs": 13960,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "e7g7",
+        "selected": "e7g7",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 41,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 13160,
+        "elapsedMs": 13168,
+        "depth": 17,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "a1f1",
+        "selected": "a1f1",
+        "usedPersonality": false,
+        "selectionReason": "personality",
+        "error": null
+      },
+      {
+        "index": 42,
+        "kind": "long-run",
+        "multiPv": 4,
+        "policyReason": "opening",
+        "requestedMs": 12464,
+        "elapsedMs": 12467,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "e8d6",
+        "selected": "e8d6",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 43,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 15453,
+        "elapsedMs": 15461,
+        "depth": 21,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "g2g7",
+        "selected": "g2g7",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 44,
+        "kind": "long-run",
+        "multiPv": 2,
+        "policyReason": "tactical-complexity",
+        "requestedMs": 14951,
+        "elapsedMs": 14955,
+        "depth": 21,
+        "candidateRanks": [
+          1,
+          2
+        ],
+        "bestmove": "b7g7",
+        "selected": "b7g7",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 45,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 14546,
+        "elapsedMs": 14547,
+        "depth": 21,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "h0i2",
+        "selected": "h0i2",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 46,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 17826,
+        "elapsedMs": 17829,
+        "depth": 20,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "d9e8",
+        "selected": "d9e8",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 47,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 17615,
+        "elapsedMs": 17623,
+        "depth": 20,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "f5f6",
+        "selected": "f5f6",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 48,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 15088,
+        "elapsedMs": 15098,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "a9b9",
+        "selected": "a9b9",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 49,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 15071,
+        "elapsedMs": 15073,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "f6f7",
+        "selected": "f6f7",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 50,
+        "kind": "long-run",
+        "multiPv": 2,
+        "policyReason": "tactical-complexity",
+        "requestedMs": 15151,
+        "elapsedMs": 15155,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2
+        ],
+        "bestmove": "e8f7",
+        "selected": "e8f7",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 51,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 12915,
+        "elapsedMs": 12922,
+        "depth": 20,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "f1f7",
+        "selected": "f1f7",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 52,
+        "kind": "long-run",
+        "multiPv": 2,
+        "policyReason": "tactical-complexity",
+        "requestedMs": 13189,
+        "elapsedMs": 13191,
+        "depth": 22,
+        "candidateRanks": [
+          1,
+          2
+        ],
+        "bestmove": "h9h7",
+        "selected": "h9h7",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 53,
+        "kind": "long-run",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 17148,
+        "elapsedMs": 17150,
+        "depth": 22,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "f0e1",
+        "selected": "f0e1",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 54,
+        "kind": "long-run",
+        "multiPv": 2,
+        "policyReason": "tactical-complexity",
+        "requestedMs": 17616,
+        "elapsedMs": 17622,
+        "depth": 23,
+        "candidateRanks": [
+          1,
+          2
+        ],
+        "bestmove": "b9b7",
+        "selected": "b9b7",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 55,
+        "kind": "middlegame-policy-probe",
+        "multiPv": 3,
+        "policyReason": "middlegame",
+        "requestedMs": 14811,
+        "elapsedMs": 14814,
+        "depth": 19,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "c3c4",
+        "selected": "c3c4",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      },
+      {
+        "index": 56,
+        "kind": "low-time-probe",
+        "multiPv": 2,
+        "policyReason": "low-time",
+        "requestedMs": 5000,
+        "elapsedMs": 5002,
+        "depth": 18,
+        "candidateRanks": [
+          1,
+          2
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "insufficient-safe-candidates",
+        "error": null
+      }
+    ],
+    "runtimeErrors": [],
+    "mainThread": {
+      "frames": 181139,
+      "maxFrameGapMs": 29.155,
+      "timerTicks": 7696,
+      "maxTimerDriftMs": 12.900000000372529
+    },
+    "summary": {
+      "longRuns": 48,
+      "multiPvCounts": {
+        "2": 9,
+        "3": 21,
+        "4": 26
+      },
+      "timeouts": 0,
+      "rankCoverageFailures": 0,
+      "maxOverrunMs": 41,
+      "medianDepthByMultiPv": {
+        "2": 17,
+        "3": 17,
+        "4": 15.5
+      },
+      "depthDropTwoToThree": 0,
+      "depthDropTwoToFour": 1.5,
+      "assertions": {
+        "supported": true,
+        "desktopProfile": true,
+        "longRunCompleted": true,
+        "dynamicMultiPvCovered": true,
+        "noWorkerOrSearchError": true,
+        "noSearchTimeout": true,
+        "allRequestedRanksReturned": true,
+        "mainThreadResponsive": true,
+        "depthReported": true,
+        "multiPvThreeDepthStable": true,
+        "multiPvFourDepthStable": true
+      }
+    },
+    "finishedAt": "2026-08-01T06:11:12.344Z",
+    "durationMs": 769630
+  },
+  "page": {
+    "href": "http://127.0.0.1:4173/browser-validation.html?long-searches=48&long-game-searches=24&probe-ms=5000",
+    "readyState": "complete",
+    "crossOriginIsolated": true,
+    "sharedArrayBuffer": true,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
+  },
+  "startedAt": "2026-08-01T05:58:22.494Z",
+  "finishedAt": "2026-08-01T06:11:12.538Z",
+  "elapsedMs": 770042,
+  "cdpUrl": "http://127.0.0.1:9222/",
+  "pageUrl": "http://127.0.0.1:4173/browser-validation.html?long-searches=48&long-game-searches=24&probe-ms=5000",
+  "timeoutMs": 1200000,
+  "pollMs": 1000,
+  "targetId": "DD2C082C59E238DFDC078DBC6FE789A7",
+  "pageClosed": true
+}

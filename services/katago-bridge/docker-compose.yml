@@ -1,0 +1,26 @@
+services:
+  katago-bridge:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8788:8788"
+    environment:
+      KATAGO_BIN_PATH: /runtime/katago
+      KATAGO_BIN_SHA256: ${KATAGO_BIN_SHA256:?required}
+      KATAGO_MODEL_PATH: /runtime/model.bin.gz
+      KATAGO_MODEL_SHA256: ${KATAGO_MODEL_SHA256:?required}
+      KATAGO_SESSION_SECRET: ${KATAGO_SESSION_SECRET:?required}
+      KATAGO_PROXY_SECRET: ${KATAGO_PROXY_SECRET:?required}
+      KATAGO_ALLOWED_ORIGINS: ${KATAGO_ALLOWED_ORIGINS:?required}
+      KATAGO_MAX_CONCURRENT: 1
+      KATAGO_MAX_QUEUE: 8
+    volumes:
+      - ./runtime/katago:/runtime/katago:ro
+      - ./runtime/model.bin.gz:/runtime/model.bin.gz:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

@@ -66,12 +66,25 @@ export interface Wdl {
 export interface SearchInfo {
   depth: number
   seldepth?: number
+  multipv?: number
   nodes: number
   nps: number
   elapsedMs: number
   score: EngineScore | null
   wdl: Wdl | null
   pv: string[]
+}
+
+export interface SearchCandidate extends SearchInfo {
+  multipv: number
+  previous?: SearchCandidateSnapshot
+  previousPrincipal?: SearchCandidateSnapshot
+}
+
+export interface SearchCandidateSnapshot {
+  depth: number
+  score: EngineScore | null
+  wdl: Wdl | null
 }
 
 export interface MoveRecord extends Move {
@@ -84,16 +97,23 @@ export interface MoveRecord extends Move {
 }
 
 export interface EngineProfile {
+  id?: string
+  engineType?: string
+  protocol?: 'UCCI' | 'UCI'
   name: string
   version: string
-  commit: string
-  network: string
-  networkSha256: string
+  commit?: string
+  network?: string
+  networkSha256?: string
   threads: number
   hashMb: number
 }
 
-export interface SearchResponse {
+export interface EngineSearchResponse {
   bestmove: string | null
   info: SearchInfo
+  candidates: SearchCandidate[]
 }
+
+/** @deprecated Use EngineSearchResponse in new engine integrations. */
+export type SearchResponse = EngineSearchResponse

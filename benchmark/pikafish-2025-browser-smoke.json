@@ -1,0 +1,226 @@
+{
+  "status": "passed",
+  "validation": {
+    "state": "passed",
+    "status": "passed",
+    "stage": "completed",
+    "startedAt": "2026-08-02T01:14:23.556Z",
+    "page": {
+      "href": "http://127.0.0.1:4173/browser-validation.html?engine=pikafish-2025-nnue&smoke=1&probe-ms=1000&long-searches=1&long-game-searches=1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+      "crossOriginIsolated": true,
+      "sharedArrayBuffer": true,
+      "deviceMemory": 16
+    },
+    "configuration": {
+      "engineId": "pikafish-2025-nnue",
+      "smokeMode": true,
+      "requestedLongSearches": 1,
+      "longGameSearches": 1,
+      "requestedProbeMs": 1000,
+      "profile": {
+        "id": "pikafish-2025-nnue",
+        "engineType": "pikafish",
+        "protocol": "UCI",
+        "name": "Pikafish 2025 NNUE",
+        "version": "Pikafish-2025-06-23",
+        "commit": "2b6cf79",
+        "network": "pikafish-2025.nnue",
+        "networkSha256": "9b2ce59b760c26f284b9fcadd091fa789d9fd4e8c1dd71ffbd42212503a13e95",
+        "threads": 1,
+        "hashMb": 64
+      }
+    },
+    "runs": [
+      {
+        "index": 1,
+        "kind": "depth-probe",
+        "multiPv": 2,
+        "policyReason": "equal-time-depth-probe",
+        "requestedMs": 1000,
+        "elapsedMs": 1002,
+        "depth": 13,
+        "candidateRanks": [
+          1,
+          2
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      },
+      {
+        "index": 2,
+        "kind": "depth-probe",
+        "multiPv": 4,
+        "policyReason": "equal-time-depth-probe",
+        "requestedMs": 1000,
+        "elapsedMs": 1006,
+        "depth": 12,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      },
+      {
+        "index": 3,
+        "kind": "depth-probe",
+        "multiPv": 3,
+        "policyReason": "equal-time-depth-probe",
+        "requestedMs": 1000,
+        "elapsedMs": 1001,
+        "depth": 12,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      },
+      {
+        "index": 4,
+        "kind": "depth-probe",
+        "multiPv": 3,
+        "policyReason": "equal-time-depth-probe",
+        "requestedMs": 1000,
+        "elapsedMs": 1006,
+        "depth": 12,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      },
+      {
+        "index": 5,
+        "kind": "depth-probe",
+        "multiPv": 2,
+        "policyReason": "equal-time-depth-probe",
+        "requestedMs": 1000,
+        "elapsedMs": 1003,
+        "depth": 13,
+        "candidateRanks": [
+          1,
+          2
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      },
+      {
+        "index": 6,
+        "kind": "depth-probe",
+        "multiPv": 4,
+        "policyReason": "equal-time-depth-probe",
+        "requestedMs": 1000,
+        "elapsedMs": 1002,
+        "depth": 12,
+        "candidateRanks": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "bestmove": "g3g4",
+        "selected": "g3g4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      },
+      {
+        "index": 7,
+        "kind": "depth-probe",
+        "multiPv": 3,
+        "policyReason": "newgame-smoke-probe",
+        "requestedMs": 1000,
+        "elapsedMs": 1013,
+        "depth": 11,
+        "candidateRanks": [
+          1,
+          2,
+          3
+        ],
+        "bestmove": "c3c4",
+        "selected": "c3c4",
+        "usedPersonality": false,
+        "selectionReason": "engine-best",
+        "error": null
+      }
+    ],
+    "runtimeErrors": [],
+    "mainThread": {
+      "frames": 2450,
+      "maxFrameGapMs": 97.59999999999854,
+      "timerTicks": 105,
+      "maxTimerDriftMs": 46.205000000074506
+    },
+    "summary": {
+      "longRuns": 0,
+      "multiPvCounts": {
+        "2": 2,
+        "3": 3,
+        "4": 2
+      },
+      "timeouts": 0,
+      "rankCoverageFailures": 0,
+      "maxOverrunMs": 13,
+      "medianDepthByMultiPv": {
+        "2": 13,
+        "3": 12,
+        "4": 12
+      },
+      "depthDropTwoToThree": 1,
+      "depthDropTwoToFour": 1,
+      "assertions": {
+        "supported": true,
+        "desktopProfile": true,
+        "longRunCompleted": true,
+        "dynamicMultiPvCovered": true,
+        "noWorkerOrSearchError": true,
+        "noSearchTimeout": true,
+        "allRequestedRanksReturned": true,
+        "mainThreadResponsive": true,
+        "depthReported": true,
+        "multiPvThreeDepthStable": true,
+        "multiPvFourDepthStable": true
+      }
+    },
+    "finishedAt": "2026-08-02T01:14:34.079Z",
+    "durationMs": 10522
+  },
+  "page": {
+    "href": "http://127.0.0.1:4173/browser-validation.html?engine=pikafish-2025-nnue&smoke=1&probe-ms=1000&long-searches=1&long-game-searches=1",
+    "readyState": "complete",
+    "crossOriginIsolated": true,
+    "sharedArrayBuffer": true,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36"
+  },
+  "startedAt": "2026-08-02T01:14:23.334Z",
+  "finishedAt": "2026-08-02T01:14:34.657Z",
+  "elapsedMs": 11320,
+  "cdpUrl": "http://127.0.0.1:9222",
+  "pageUrl": "http://127.0.0.1:4173/browser-validation.html?engine=pikafish-2025-nnue&smoke=1&probe-ms=1000&long-searches=1&long-game-searches=1",
+  "timeoutMs": 120000,
+  "pollMs": 1000,
+  "targetId": "5427FE2AA9AC5ABCC1036E64E2BD089C",
+  "pageClosed": true
+}
