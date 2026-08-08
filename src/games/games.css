@@ -1277,6 +1277,26 @@
   box-shadow: 0 6px 9px rgba(48, 29, 13, 0.43), inset -2px -3px 5px rgba(116, 104, 87, 0.28);
 }
 
+.go-board__point--scoring { cursor: pointer; }
+.go-board__point--scoring:hover .go-board__stone,
+.go-board__point--scoring:focus-visible .go-board__stone {
+  box-shadow: 0 0 0 3px rgba(190, 137, 92, 0.72), 0 6px 9px rgba(28, 18, 10, 0.5);
+}
+.go-board__point--dead .go-board__stone {
+  opacity: 0.42;
+  filter: grayscale(0.75);
+  transform: scale(0.82);
+}
+.go-board__point--dead .go-board__stone::after {
+  position: absolute;
+  width: 62%;
+  height: 2px;
+  background: #b84f43;
+  box-shadow: 0 0 5px rgba(184, 79, 67, 0.7);
+  content: "";
+  transform: rotate(-45deg);
+}
+
 .go-board__last-marker {
   width: 28%;
   aspect-ratio: 1;
@@ -1478,6 +1498,25 @@
 
 .go-result-card strong { color: #ddc493; font-size: 0.9rem; font-weight: 500; }
 .go-result-card small { color: #807769; font-size: 0.6rem; }
+
+.go-scoring-preview {
+  display: grid;
+  padding: 0.9rem 1rem;
+  gap: 0.65rem;
+  border-color: rgba(194, 158, 91, 0.25) !important;
+}
+.go-scoring-preview header,
+.go-scoring-preview footer { display: flex; align-items: center; justify-content: space-between; }
+.go-scoring-preview header span { color: #cdbb9c; font-size: 0.7rem; }
+.go-scoring-preview header small { color: #62685f; font-size: 0.42rem; letter-spacing: 0.12em; }
+.go-scoring-preview__totals { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+.go-scoring-preview__totals div { display: grid; gap: 0.15rem; padding: 0.55rem; background: rgba(194, 179, 144, 0.04); }
+.go-scoring-preview__totals b { color: #817b6e; font-size: 0.52rem; font-weight: 500; }
+.go-scoring-preview__totals strong { color: #ddc493; font-size: 1rem; font-weight: 500; }
+.go-scoring-preview__totals small,
+.go-scoring-preview p { margin: 0; color: #706c62; font-size: 0.5rem; line-height: 1.5; }
+.go-scoring-preview footer span { color: #775e54; font-size: 0.5rem; }
+.go-scoring-preview footer .is-confirmed { color: #82ae8e; }
 
 .go-controls {
   display: grid;
@@ -1832,6 +1871,13 @@
 
 .go-ai-slot dl div { min-width: 0; gap: 0.35rem; }
 .go-ai-slot dd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.go-ai-slot dl .go-ai-slot__wide { grid-column: 1 / -1; }
+.go-ai-slot dl .go-ai-slot__wide dd {
+  overflow-wrap: anywhere;
+  text-align: right;
+  text-overflow: clip;
+  white-space: normal;
+}
 
 .go-ai-candidates {
   display: grid;

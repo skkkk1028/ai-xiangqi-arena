@@ -18,8 +18,11 @@ interface GoBoardProps {
   turn: GoPlayer
   lastMove: GoMoveRecord | null
   legalMoveKeys: ReadonlySet<string>
+  deadStoneKeys: ReadonlySet<string>
   interactive: boolean
+  scoring: boolean
   onPlay: (move: GoPlacementMove) => void
+  onToggleDead: (point: GoPlacementMove) => void
 }
 
 export function GoBoard({
@@ -27,8 +30,11 @@ export function GoBoard({
   turn,
   lastMove,
   legalMoveKeys,
+  deadStoneKeys,
   interactive,
+  scoring,
   onPlay,
+  onToggleDead,
 }: GoBoardProps) {
   return (
     <div className="go-board" role="grid" aria-label="十九路围棋棋盘" aria-rowcount={19} aria-colcount={19}>
@@ -46,21 +52,24 @@ export function GoBoard({
           const point = { row: rowIndex, col: colIndex }
           const key = pointKey(point)
           const legal = interactive && legalMoveKeys.has(key)
+          const scorable = scoring && stone !== null
+          const dead = deadStoneKeys.has(key)
           const isLastMove = lastMove?.kind === 'play' && lastMove.point
             ? pointsEqual(lastMove.point, point)
             : false
-          const label = createPointLabel(point, stone, isLastMove)
+          const label = createPointLabel(point, stone, isLastMove, dead)
 
           return (
             <button
               key={key}
-              className={`go-board__point${legal ? ' go-board__point--legal' : ''}`}
+              className={`go-board__point${legal ? ' go-board__point--legal' : ''}${scorable ? ' go-board__point--scoring' : ''}${dead ? ' go-board__point--dead' : ''}`}
               type="button"
               role="gridcell"
               aria-label={label}
               aria-selected={isLastMove}
-              disabled={!legal}
-              onClick={() => onPlay(point)}
+              aria-pressed={scorable ? dead : undefined}
+              disabled={!legal && !scorable}
+              onClick={() => scorable ? onToggleDead(point) : onPlay(point)}
             >
               {stone && (
                 <span className={`go-board__stone go-board__stone--${stone}`}>
@@ -72,7 +81,7 @@ export function GoBoard({
         }))}
       </div>
       <span className="go-board__turn" aria-hidden="true">
-        {turn === 'black' ? 'BLACK' : 'WHITE'} TO PLAY
+        {scoring ? 'SCORING REVIEW' : `${turn === 'black' ? 'BLACK' : 'WHITE'} TO PLAY`}
       </span>
     </div>
   )
@@ -82,9 +91,10 @@ function createPointLabel(
   point: GoPlacementMove,
   stone: GoPlayer | null,
   isLastMove: boolean,
+  dead: boolean,
 ): string {
   const position = formatGoPoint(point)
   if (!stone) return `${position}，空点`
   const stoneLabel = stone === 'black' ? '黑子' : '白子'
-  return `${position}，${stoneLabel}${isLastMove ? '，最近一步' : ''}`
+  return `${position}，${stoneLabel}${isLastMove ? '，最近一步' : ''}${dead ? '，已标记死子' : ''}`
 }

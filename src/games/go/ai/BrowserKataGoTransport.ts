@@ -9,6 +9,7 @@ import { gtpToGoMove, goPointToGtp } from './coordinates'
 import type {
   KataGoAnalyzeRequest,
   KataGoCapabilities,
+  KataGoRuntimeBackend,
   KataGoSearchProfile,
   KataGoWireAnalysisEvent,
 } from './types'
@@ -18,8 +19,8 @@ const STRONG_MODEL_PATH = 'api/go/model/strong.bin.gz'
 const FALLBACK_MODEL_PATH = 'models/katago-small.bin.gz'
 
 const PROFILES: Readonly<Record<KataGoSearchProfile, { maxVisits: number; timeoutMs: number }>> = {
-  fast: { maxVisits: 200, timeoutMs: 8_000 },
-  strong: { maxVisits: 800, timeoutMs: 30_000 },
+  fast: { maxVisits: 2_000, timeoutMs: 30_000 },
+  strong: { maxVisits: 20_000, timeoutMs: 180_000 },
 }
 
 export interface BrowserKataGoTransportOptions {
@@ -40,6 +41,8 @@ export class BrowserKataGoTransport implements KataGoTransport {
   private readonly backend: 'webgpu' | 'wasm' | 'cpu'
   private initialization: Promise<KataGoCapabilities> | null = null
   private activeModelUrl: string
+  private modelFallback = false
+  private modelFallbackReason: string | null = null
   private activeRequestId: string | null = null
   private activeReject: ((error: Error) => void) | null = null
   private disposed = false
@@ -62,7 +65,7 @@ export class BrowserKataGoTransport implements KataGoTransport {
     options: KataGoAnalyzeOptions = {},
   ): Promise<KataGoWireAnalysisEvent> {
     this.assertActive()
-    await this.initialize(options.signal)
+    const capabilities = await this.initialize(options.signal)
     if (this.activeRequestId) throw new Error('浏览器 KataGo 已有一个进行中的搜索。')
 
     const position = replayPosition(request)
@@ -75,7 +78,10 @@ export class BrowserKataGoTransport implements KataGoTransport {
     const startedAt = performance.now()
     const search = client.analyze({
       analysisGroup: 'interactive',
-      positionId: request.requestId,
+      positionId: position.positionKey,
+      parentPositionId: position.parentPositionKey,
+      positionKey: position.positionKey,
+      parentPositionKey: position.parentPositionKey,
       modelUrl: this.loadedModelUrl(),
       backend: this.backend,
       board: position.board,
@@ -91,13 +97,15 @@ export class BrowserKataGoTransport implements KataGoTransport {
       visits: profile.maxVisits,
       maxTimeMs: profile.timeoutMs,
       batchSize: this.backend === 'webgpu' ? 16 : 4,
-      maxChildren: 48,
+      maxChildren: 361,
       reportDuringSearchEveryMs: 500,
       reuseTree: true,
       ownershipMode: 'root',
+      wideRootNoise: 0,
+      nnRandomize: false,
       onProgress: (analysis) => {
         if (this.activeRequestId !== request.requestId) return
-        options.onUpdate?.(toWireEvent(request, analysis, startedAt, 'partial'))
+        options.onUpdate?.(toWireEvent(request, analysis, startedAt, 'partial', capabilities))
       },
     })
 
@@ -105,7 +113,7 @@ export class BrowserKataGoTransport implements KataGoTransport {
       const analysis = await raceCancellation(search, options.signal, (reject) => {
         this.activeReject = reject
       })
-      return toWireEvent(request, analysis, startedAt, 'final')
+      return toWireEvent(request, analysis, startedAt, 'final', capabilities)
     } finally {
       options.signal?.removeEventListener('abort', abortSearch)
       if (this.activeRequestId === request.requestId) {
@@ -138,6 +146,8 @@ export class BrowserKataGoTransport implements KataGoTransport {
         () => undefined,
       )
       this.activeModelUrl = this.strongModelUrl
+      this.modelFallback = false
+      this.modelFallbackReason = null
     } catch (strongError) {
       if (signal?.aborted) throw signal.reason ?? strongError
       resetKataGoEngineClientForTests()
@@ -148,6 +158,8 @@ export class BrowserKataGoTransport implements KataGoTransport {
           () => undefined,
         )
         this.activeModelUrl = this.fallbackModelUrl
+        this.modelFallback = true
+        this.modelFallbackReason = `强模型加载失败：${errorText(strongError)}`
       } catch (fallbackError) {
         this.initialization = null
         throw new Error(
@@ -157,10 +169,18 @@ export class BrowserKataGoTransport implements KataGoTransport {
     }
 
     const info = getKataGoEngineClient().getEngineInfo()
+    const actualBackend = browserRuntimeBackend(info.backend ?? this.backend)
+    const requestedBackend = browserRuntimeBackend(this.backend)
     return {
       ready: true,
       engineVersion: `Browser KataGo MCTS / ${info.backend ?? this.backend}`,
       modelName: info.modelName ?? modelNameFromUrl(this.loadedModelUrl()),
+      runtimeBackend: actualBackend,
+      requestedBackend,
+      backendFallback: actualBackend !== requestedBackend,
+      backendFallbackReason: backendFallbackReason(requestedBackend, actualBackend),
+      modelFallback: this.modelFallback,
+      modelFallbackReason: this.modelFallbackReason,
       profiles: PROFILES,
     }
   }
@@ -188,8 +208,16 @@ function toWireEvent(
   analysis: BrowserAnalysis,
   startedAt: number,
   stage: 'partial' | 'final',
+  capabilities: KataGoCapabilities,
 ): KataGoWireAnalysisEvent {
   const info = getKataGoEngineClient().getEngineInfo()
+  const requestedVisits = PROFILES[request.profile].maxVisits
+  const visits = analysis.rootVisits
+  const timedOut = stage === 'final' && visits < requestedVisits
+  const actualBackend = info.backend
+    ? browserRuntimeBackend(info.backend)
+    : capabilities.runtimeBackend
+  const requestedBackend = capabilities.requestedBackend
   return {
     type: 'analysis',
     stage,
@@ -198,7 +226,16 @@ function toWireEvent(
     modelName: info.modelName ?? 'KataGo browser model',
     profile: request.profile,
     elapsedMs: Math.max(0, Math.round(performance.now() - startedAt)),
-    truncated: stage === 'final' && analysis.rootVisits < PROFILES[request.profile].maxVisits,
+    requestedVisits,
+    runtimeBackend: actualBackend,
+    requestedBackend,
+    backendFallback: actualBackend !== requestedBackend,
+    backendFallbackReason: backendFallbackReason(requestedBackend, actualBackend),
+    modelFallback: capabilities.modelFallback,
+    modelFallbackReason: capabilities.modelFallbackReason,
+    timedOut,
+    truncated: timedOut,
+    stopReason: stage === 'partial' ? 'in-progress' : timedOut ? 'time-limit' : 'visit-limit',
     root: {
       winrate: analysis.rootWinRate,
       scoreLead: finiteOrNull(analysis.rootScoreLead),
@@ -221,6 +258,8 @@ function replayPosition(request: KataGoAnalyzeRequest): {
   previousBoard: BoardState
   previousPreviousBoard: BoardState
   moveHistory: Move[]
+  positionKey: string
+  parentPositionKey?: string
 } {
   const engine = new GoGameEngine()
   let state: GoGameState = engine.init()
@@ -242,7 +281,36 @@ function replayPosition(request: KataGoAnalyzeRequest): {
     previousBoard: boards.at(-2) ?? current,
     previousPreviousBoard: boards.at(-3) ?? boards.at(-2) ?? current,
     moveHistory,
+    positionKey: stablePositionKey(request.moves),
+    parentPositionKey: request.moves.length > 0
+      ? stablePositionKey(request.moves.slice(0, -1))
+      : undefined,
   }
+}
+
+function stablePositionKey(moves: KataGoAnalyzeRequest['moves']): string {
+  return moves.map(([color, move]) => `${color}:${move.toUpperCase()}`).join('|') || 'initial'
+}
+
+function browserRuntimeBackend(value: string): KataGoRuntimeBackend {
+  if (value.toLowerCase() === 'webgpu') return 'browser-webgpu'
+  if (value.toLowerCase() === 'wasm') return 'browser-wasm'
+  return 'browser-cpu'
+}
+
+function backendFallbackReason(
+  requested: KataGoRuntimeBackend,
+  actual: KataGoRuntimeBackend,
+): string | null {
+  if (requested === actual) return null
+  return `请求 ${runtimeBackendLabel(requested)}，实际使用 ${runtimeBackendLabel(actual)}`
+}
+
+function runtimeBackendLabel(backend: KataGoRuntimeBackend): string {
+  if (backend === 'browser-webgpu') return 'Browser WebGPU'
+  if (backend === 'browser-wasm') return 'Browser WASM'
+  if (backend === 'browser-cpu') return 'CPU fallback'
+  return 'Native KataGo'
 }
 
 function toBrowserMove(move: GoMove, player: 'black' | 'white'): Move {

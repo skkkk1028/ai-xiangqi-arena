@@ -7,6 +7,7 @@ import {
   goMoveToGtp,
   goPointToGtp,
   gtpToGoMove,
+  kataGoRuntimeBackendLabel,
   readNdjsonEvents,
   type KataGoAnalyzeOptions,
   type KataGoAnalyzeRequest,
@@ -20,9 +21,15 @@ const CAPABILITIES: KataGoCapabilities = {
   ready: true,
   engineVersion: '1.16-test',
   modelName: 'test-model.bin.gz',
+  runtimeBackend: 'native-katago',
+  requestedBackend: 'native-katago',
+  backendFallback: false,
+  backendFallbackReason: null,
+  modelFallback: false,
+  modelFallbackReason: null,
   profiles: {
-    fast: { maxVisits: 200, timeoutMs: 8_000 },
-    strong: { maxVisits: 800, timeoutMs: 30_000 },
+    fast: { maxVisits: 2_000, timeoutMs: 30_000 },
+    strong: { maxVisits: 20_000, timeoutMs: 180_000 },
   },
 }
 
@@ -58,7 +65,16 @@ function analysisEvent(
     modelName: 'test-model.bin.gz',
     profile: 'fast',
     elapsedMs: stage === 'final' ? 120 : 40,
+    requestedVisits: 2_000,
+    runtimeBackend: 'native-katago',
+    requestedBackend: 'native-katago',
+    backendFallback: false,
+    backendFallbackReason: null,
+    modelFallback: false,
+    modelFallbackReason: null,
+    timedOut: false,
     truncated: false,
+    stopReason: stage === 'final' ? 'visit-limit' : 'in-progress',
     root: { winrate, scoreLead: 2.5, visits: stage === 'final' ? 200 : 40 },
     candidates: [
       { move, order: 0, visits: 180, prior: 0.2, winrate, scoreLead: 2.5, pv: [move, 'Q4'] },
@@ -68,6 +84,13 @@ function analysisEvent(
 }
 
 describe('KataGo 围棋 AI 适配器', () => {
+  it('显示四种实际运行后端的明确名称', () => {
+    expect(kataGoRuntimeBackendLabel('browser-webgpu')).toBe('Browser WebGPU')
+    expect(kataGoRuntimeBackendLabel('browser-wasm')).toBe('Browser WASM')
+    expect(kataGoRuntimeBackendLabel('browser-cpu')).toBe('CPU fallback')
+    expect(kataGoRuntimeBackendLabel('native-katago')).toBe('Native KataGo · OpenCL')
+  })
+
   it('在 GTP 坐标中跳过 I 列并支持 pass', () => {
     expect(goPointToGtp({ row: 15, col: 3 })).toBe('D4')
     expect(goPointToGtp({ row: 3, col: 8 })).toBe('J16')
@@ -154,7 +177,35 @@ describe('KataGo 围棋 AI 适配器', () => {
     expect(whiteTurn.analysis!.winRateChange).toBeCloseTo(0.05)
   })
 
-  it('拒绝 KataGo 返回的非法着法，不用随机动作兜底', async () => {
+  it('第一候选非法时继续采用后续合法候选，并同步主变化图', async () => {
+    const game = new GoGameEngine()
+    const state = game.initializeGame()
+    const transport = new MockTransport()
+    const ai = new KataGoEngine('black-katago', { transport })
+    await ai.initialize({ gameId: 'go', player: 'black' })
+    transport.analyze = vi.fn(async (request) => {
+      const event = analysisEvent(request.requestId, 'D16', 0.5)
+      return {
+        ...event,
+        candidates: [
+          ...event.candidates.slice(0, 1),
+          { move: 'E15', order: 1, visits: 20, prior: 0.1, winrate: 0.48, scoreLead: 1.2, pv: ['E15', 'Q4'] },
+        ],
+      }
+    })
+
+    const result = await ai.think({
+      state,
+      player: 'black',
+      legalActions: [{ row: 4, col: 4 }] satisfies GoMove[],
+      record: [],
+    })
+
+    expect(result.action).toEqual({ row: 4, col: 4 })
+    expect(result.analysis?.pvNotation).toEqual(['E15', 'Q4'])
+  })
+
+  it('所有 KataGo 候选都非法时拒绝执行', async () => {
     const game = new GoGameEngine()
     const state = game.initializeGame()
     const transport = new MockTransport()

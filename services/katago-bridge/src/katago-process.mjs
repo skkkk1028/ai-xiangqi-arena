@@ -12,6 +12,7 @@ export class KataGoProcess {
     this.modelSha256 = options.modelSha256
     this.spawn = options.spawn ?? nodeSpawn
     this.onExit = options.onExit ?? null
+    this.startupTimeoutMs = options.startupTimeoutMs ?? 600_000
     this.child = null
     this.stdoutBuffer = ''
     this.pending = new Map()
@@ -54,14 +55,24 @@ export class KataGoProcess {
     child.on('error', (error) => this.handleExit(error))
     child.on('exit', (code, signal) => this.handleExit(new Error(`KataGo exited (${code ?? signal ?? 'unknown'}).`)))
 
-    const version = await this.control('query_version', 15_000)
-    const models = await this.control('query_models', 15_000)
-    this.capabilities = {
-      engineVersion: String(version.version ?? 'unknown'),
-      modelName: String(models.models?.[0]?.name ?? this.modelPath.split(/[\\/]/).pop() ?? 'unknown'),
+    try {
+      const version = await this.control('query_version', this.startupTimeoutMs)
+      const models = await this.control('query_models', this.startupTimeoutMs)
+      this.capabilities = {
+        engineVersion: String(version.version ?? 'unknown'),
+        modelName: String(models.models?.[0]?.name ?? this.modelPath.split(/[\\/]/).pop() ?? 'unknown'),
+      }
+      this.ready = true
+      return this.capabilities
+    } catch (error) {
+      if (this.child === child) {
+        this.child = null
+        child.stdin.end()
+        child.kill('SIGTERM')
+      }
+      this.rejectAll(error)
+      throw error
     }
-    this.ready = true
-    return this.capabilities
   }
 
   analyze(query, { onUpdate, signal } = {}) {

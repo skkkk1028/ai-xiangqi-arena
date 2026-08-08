@@ -319,6 +319,19 @@ async function initBackend(preferredBackend: KataGoBackendPreference): Promise<v
     try {
       await tf.setBackend('webgpu');
       await tf.ready();
+      // Verify the WebGPU device can allocate the buffers the MCTS search
+      // needs. Some implementations (e.g. software/SwiftShader) reject
+      // mapped-at-creation readback buffers above a small size, which would
+      // crash the first search even though model warmup succeeds.
+      const probeSpatial = tf.zeros([16, BOARD_SIZE, BOARD_SIZE, 22], 'float32');
+      const probeGlobal = tf.zeros([16, 19], 'float32');
+      try {
+        await probeSpatial.data();
+        await probeGlobal.data();
+      } finally {
+        probeSpatial.dispose();
+        probeGlobal.dispose();
+      }
       return;
     } catch {
       // Fall back to WASM/CPU if WebGPU isn't available or fails to initialize.

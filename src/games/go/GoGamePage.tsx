@@ -1,7 +1,7 @@
 import { GAME_ROUTES } from '../routes'
-import type { KataGoAnalysis, KataGoSearchProfile } from './ai'
+import { kataGoRuntimeBackendLabel, type KataGoAnalysis, type KataGoSearchProfile } from './ai'
 import { GoBoard } from './GoBoard'
-import { GO_PASS_MOVE, type GoGameState, type GoPlayer } from './types'
+import { GO_PASS_MOVE, type GoGameState, type GoPlayer, type GoScore } from './types'
 import { useGoMatch, type GoAIRunState, type GoMatchMode } from './useGoMatch'
 
 export function GoGamePage() {
@@ -44,7 +44,7 @@ export function GoGamePage() {
         <div className={`go-runtime-badge go-runtime-badge--${mode === 'ai' ? runState : 'local'}`}>
           <i />
           <span>{mode === 'ai' ? runtimeLabel(runState) : 'LOCAL RULES ONLINE'}</span>
-          <b>{mode === 'ai' ? 'BROWSER KATAGO · LOCAL AI' : '中国规则 · 7.5 贴目'}</b>
+          <b>{mode === 'ai' ? kataGoRuntimeBackendLabel(capabilities?.runtimeBackend) : '中国规则 · 7.5 贴目'}</b>
         </div>
       </header>
 
@@ -70,8 +70,11 @@ export function GoGamePage() {
               turn={state.turn}
               lastMove={state.lastMove}
               legalMoveKeys={legalMoveKeys}
+              deadStoneKeys={match.deadStoneKeys}
               interactive={mode === 'local' && state.phase === 'playing'}
+              scoring={state.phase === 'scoring'}
               onPlay={match.execute}
+              onToggleDead={match.toggleDeadGroup}
             />
           </div>
 
@@ -80,7 +83,7 @@ export function GoGamePage() {
             <i />
             <span>位置超级劫 · 禁止自杀</span>
             <i />
-            <span>{mode === 'ai' ? 'KataGo 神经网络 · 浏览器本地计算' : '本地规则运算'}</span>
+            <span>{mode === 'ai' ? `${kataGoRuntimeBackendLabel(capabilities?.runtimeBackend)} · ${capabilities?.runtimeBackend === 'native-katago' ? '本机 GPU 计算' : '访客设备计算'}` : '本地规则运算'}</span>
           </div>
         </div>
 
@@ -126,6 +129,13 @@ export function GoGamePage() {
             <div><span>回合</span><strong>{Math.ceil(state.history.length / 2)}</strong><small>ROUNDS</small></div>
             <div><span>连续虚着</span><strong>{state.consecutivePasses}</strong><small>PASSES</small></div>
           </section>
+
+          {state.phase === 'scoring' && match.scorePreview && (
+            <ScoringPreview
+              score={match.scorePreview}
+              confirmations={match.scoringConfirmations}
+            />
+          )}
 
           {state.phase === 'finished' && state.result && (
             <section className="go-result-card" aria-live="polite">
@@ -197,8 +207,8 @@ function ModePanel({
       </div>
       <div className="go-profile-selector" aria-label="KataGo 搜索档位">
         <span>SEARCH</span>
-        <button type="button" disabled={mode !== 'ai' || busy} aria-pressed={profile === 'fast'} onClick={() => onProfile('fast')}>快 · 200</button>
-        <button type="button" disabled={mode !== 'ai' || busy} aria-pressed={profile === 'strong'} onClick={() => onProfile('strong')}>强 · 800</button>
+        <button type="button" disabled={mode !== 'ai' || busy} aria-pressed={profile === 'fast'} onClick={() => onProfile('fast')}>快 · 2000</button>
+        <button type="button" disabled={mode !== 'ai' || busy} aria-pressed={profile === 'strong'} onClick={() => onProfile('strong')}>强 · 20000</button>
       </div>
     </section>
   )
@@ -209,8 +219,21 @@ function MatchControls({ match, aiBusy }: { match: ReturnType<typeof useGoMatch>
   if (state.phase === 'scoring') {
     return (
       <section className="go-controls" aria-label="棋局操作">
-        <button type="button" className="go-control go-control--primary" onClick={match.finalizeScoring}>
-          确认计分<small>FINALIZE</small>
+        <button
+          type="button"
+          className="go-control go-control--primary"
+          disabled={match.scoringConfirmations.black}
+          onClick={() => match.confirmScoring('black')}
+        >
+          {match.scoringConfirmations.black ? '黑方已确认' : '黑方确认'}<small>BLACK CONFIRM</small>
+        </button>
+        <button
+          type="button"
+          className="go-control go-control--primary"
+          disabled={!match.scoringConfirmations.black || match.scoringConfirmations.white}
+          onClick={() => match.confirmScoring('white')}
+        >
+          {match.scoringConfirmations.white ? '白方已确认' : '白方确认'}<small>WHITE CONFIRM</small>
         </button>
         <button type="button" className="go-control" onClick={() => void match.resumePlay()}>
           继续对局<small>RESUME</small>
@@ -274,20 +297,28 @@ function KataGoPanel({
   return (
     <section className={`go-ai-slot${online ? ' go-ai-slot--online' : ''}`} aria-label="KataGo AI 信息面板">
       <header>
-        <span><i />LOCAL ENGINE · KATAGO</span>
+        <span><i />AI ENGINE · KATAGO</span>
         <b>{mode === 'ai' ? runtimeLabel(runState) : 'STANDBY'}</b>
       </header>
       <div className="go-ai-slot__core" aria-hidden="true"><span>KG</span><i /><i /><i /></div>
       <div className="go-ai-slot__summary">
-        <strong>{online ? (runState === 'thinking' ? 'KataGo 正在计算' : 'KataGo 本地引擎已就绪') : 'KataGo 本地引擎待命'}</strong>
-        <p>{analysis ? `主变化：${analysis.pvNotation.join(' ') || '—'}` : '切换至 AI 自对弈后自动加载模型，全部计算在浏览器本地完成。'}</p>
+        <strong>{online ? (runState === 'thinking' ? 'KataGo 正在计算' : 'KataGo 引擎已就绪') : 'KataGo 引擎待命'}</strong>
+        <p>{analysis ? `主变化：${analysis.pvNotation.join(' ') || '—'}` : engineDescription(capabilities)}</p>
       </div>
       <dl>
-        <div><dt>MODEL</dt><dd title={capabilities?.modelName}>{shortModel(capabilities?.modelName)}</dd></div>
+        <div className="go-ai-slot__wide"><dt>BACKEND</dt><dd>{kataGoRuntimeBackendLabel(analysis?.runtimeBackend ?? capabilities?.runtimeBackend)}</dd></div>
+        <div><dt>REQUESTED</dt><dd>{kataGoRuntimeBackendLabel(analysis?.requestedBackend ?? capabilities?.requestedBackend)}</dd></div>
+        <div className="go-ai-slot__wide"><dt>MODEL</dt><dd>{analysis?.modelName ?? capabilities?.modelName ?? '—'}</dd></div>
+        <div><dt>ENGINE</dt><dd>{analysis?.engineVersion ?? capabilities?.engineVersion ?? '—'}</dd></div>
+        <div><dt>BACKEND FALLBACK</dt><dd title={analysis?.backendFallbackReason ?? capabilities?.backendFallbackReason ?? undefined}>{yesNo(analysis?.backendFallback ?? capabilities?.backendFallback)}</dd></div>
+        <div><dt>MODEL FALLBACK</dt><dd title={analysis?.modelFallbackReason ?? capabilities?.modelFallbackReason ?? undefined}>{yesNo(analysis?.modelFallback ?? capabilities?.modelFallback)}</dd></div>
         <div><dt>BLACK WR</dt><dd>{analysis ? percent(analysis.blackWinRate) : '—'}</dd></div>
         <div><dt>DELTA</dt><dd>{analysis ? delta(analysis.winRateChange) : '—'}</dd></div>
-        <div><dt>PROFILE</dt><dd>{profile === 'fast' ? 'FAST · 200' : 'STRONG · 800'}</dd></div>
-        <div><dt>VISITS</dt><dd>{analysis?.visits ?? '—'}</dd></div>
+        <div><dt>PROFILE</dt><dd>{profile === 'fast' ? 'FAST · 2000' : 'STRONG · 20000'}</dd></div>
+        <div><dt>VISITS</dt><dd>{analysis ? `${analysis.visits} / ${analysis.requestedVisits}` : `— / ${capabilities?.profiles[profile].maxVisits ?? '—'}`}</dd></div>
+        <div><dt>ELAPSED</dt><dd>{analysis ? `${(analysis.elapsedMs / 1000).toFixed(1)}s` : '—'}</dd></div>
+        <div><dt>TIMEOUT CUT</dt><dd>{analysis ? (analysis.timedOut ? 'YES · TRUNCATED' : 'NO') : '—'}</dd></div>
+        <div><dt>STOP</dt><dd>{analysis ? analysis.stopReason.toUpperCase() : '—'}</dd></div>
         <div><dt>SCORE</dt><dd>{scoreLead(analysis?.scoreLeadBlack)}</dd></div>
       </dl>
       {analysis && (
@@ -399,7 +430,38 @@ function scoreLead(value: number | null | undefined): string {
   return `黑 ${value >= 0 ? '+' : ''}${value.toFixed(1)}`
 }
 
-function shortModel(value: string | undefined): string {
-  if (!value) return '—'
-  return value.length > 20 ? `${value.slice(0, 17)}…` : value
+function yesNo(value: boolean | undefined): string {
+  if (value === undefined) return '—'
+  return value ? 'YES' : 'NO'
+}
+
+function engineDescription(capabilities: ReturnType<typeof useGoMatch>['capabilities']): string {
+  if (!capabilities) return '切换至 AI 自对弈后加载实际模型与推理后端。'
+  if (capabilities.runtimeBackend === 'native-katago') {
+    return '官方 Native KataGo · B28 专业级路线，由本机 OpenCL GPU 计算。'
+  }
+  return `B18 专业模型 · ${kataGoRuntimeBackendLabel(capabilities.runtimeBackend)}，实际棋力取决于访客设备与完成 visits。`
+}
+
+function ScoringPreview({
+  score,
+  confirmations,
+}: {
+  score: GoScore
+  confirmations: Record<GoPlayer, boolean>
+}) {
+  return (
+    <section className="go-scoring-preview" aria-label="计分预览" aria-live="polite">
+      <header><span>计分预览</span><small>SCORING PREVIEW</small></header>
+      <div className="go-scoring-preview__totals">
+        <div><b>黑方</b><strong>{score.black.total}</strong><small>棋子 {score.black.livingStones} · 围空 {score.black.territory}</small></div>
+        <div><b>白方</b><strong>{score.white.total}</strong><small>棋子 {score.white.livingStones} · 围空 {score.white.territory} · 贴目 {score.komi}</small></div>
+      </div>
+      <p>暂定：{score.winner ? `${playerName(score.winner)}方领先 ${score.margin} 目` : '和棋'} · 已标记死子 {score.confirmedDeadStones.length} 枚</p>
+      <footer>
+        <span className={confirmations.black ? 'is-confirmed' : ''}>黑方 {confirmations.black ? '已确认' : '待确认'}</span>
+        <span className={confirmations.white ? 'is-confirmed' : ''}>白方 {confirmations.white ? '已确认' : '待确认'}</span>
+      </footer>
+    </section>
+  )
 }

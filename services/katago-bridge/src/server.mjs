@@ -49,6 +49,12 @@ export function createKataGoBridgeServer(options) {
           ready: true,
           engineVersion: engine.capabilities.engineVersion,
           modelName: engine.capabilities.modelName,
+          runtimeBackend: 'native-katago',
+          requestedBackend: 'native-katago',
+          backendFallback: false,
+          backendFallbackReason: null,
+          modelFallback: false,
+          modelFallbackReason: null,
           profiles: SEARCH_PROFILES,
         })
       }

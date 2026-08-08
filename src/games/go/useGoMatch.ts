@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { GameController } from '../core'
 import {
-  BrowserKataGoTransport,
-  HttpKataGoTransport,
   KataGoEngine,
   KataGoMatchAnalysisStore,
   type KataGoAnalysis,
@@ -12,7 +10,8 @@ import {
 } from './ai'
 import { pointKey } from './board'
 import { GoGameEngine } from './game-engine'
-import type { GoGameState, GoMove, GoMoveRecord, GoPlayer } from './types'
+import { getGoGroup } from './rules'
+import type { GoGameState, GoMove, GoMoveRecord, GoPlayer, GoPoint } from './types'
 
 export type GoMatchMode = 'local' | 'ai'
 export type GoAIRunState = 'offline' | 'connecting' | 'ready' | 'running' | 'thinking' | 'paused' | 'error'
@@ -27,15 +26,21 @@ interface AISession {
 }
 
 const GO_ENGINE = new GoGameEngine()
+const USE_NATIVE_KATAGO = import.meta.env.VITE_KATAGO_BRIDGE === '1'
 
 export function useGoMatch() {
   const [state, setStateValue] = useState<GoGameState>(() => GO_ENGINE.init())
   const [mode, setModeValue] = useState<GoMatchMode>('local')
-  const [profile, setProfileValue] = useState<KataGoSearchProfile>('fast')
+  const [profile, setProfileValue] = useState<KataGoSearchProfile>('strong')
   const [runState, setRunStateValue] = useState<GoAIRunState>('offline')
   const [notice, setNotice] = useState<string | null>(null)
   const [capabilities, setCapabilities] = useState<KataGoCapabilities | null>(null)
   const [analysisByPlayer, setAnalysisByPlayer] = useState<Partial<Record<GoPlayer, KataGoAnalysis>>>({})
+  const [deadStoneRepresentatives, setDeadStoneRepresentatives] = useState<GoPoint[]>([])
+  const [scoringConfirmations, setScoringConfirmations] = useState<Record<GoPlayer, boolean>>({
+    black: false,
+    white: false,
+  })
 
   const stateRef = useRef(state)
   const modeRef = useRef(mode)
@@ -60,6 +65,23 @@ export function useGoMatch() {
     () => new Set(GO_ENGINE.getLegalMoves(state).map(pointKey)),
     [state],
   )
+  const scoringRequest = useMemo(
+    () => ({ deadStoneRepresentatives }),
+    [deadStoneRepresentatives],
+  )
+  const scorePreview = useMemo(
+    () => state.phase === 'scoring' ? GO_ENGINE.previewScore(state, scoringRequest) : null,
+    [scoringRequest, state],
+  )
+  const deadStoneKeys = useMemo(
+    () => new Set(scorePreview?.confirmedDeadStones.map(pointKey) ?? []),
+    [scorePreview],
+  )
+
+  const resetScoringReview = useCallback(() => {
+    setDeadStoneRepresentatives([])
+    setScoringConfirmations({ black: false, white: false })
+  }, [])
 
   const disposeSession = useCallback(async () => {
     const session = sessionRef.current
@@ -72,11 +94,9 @@ export function useGoMatch() {
 
   const createSession = useCallback(async (initialState?: GoGameState) => {
     await disposeSession()
-    // Browser play is fully local. The HTTP transport remains only as a
-    // non-Worker compatibility seam for protocol tests and legacy runtimes.
-    const transport = typeof globalThis.Worker === 'function'
-      ? new BrowserKataGoTransport()
-      : new HttpKataGoTransport()
+    // With VITE_KATAGO_BRIDGE=1 the Go AI talks to the local native KataGo
+    // bridge (pro-level). Otherwise it uses the fully-browser TF.js engine.
+    const transport = await createConfiguredKataGoTransport()
     const store = new KataGoMatchAnalysisStore()
     const black = new KataGoEngine('katago-black', {
       transport,
@@ -185,7 +205,7 @@ export function useGoMatch() {
     } catch (error) {
       autoRunningRef.current = false
       setRunState('error')
-      setNotice(errorMessage(error, '浏览器 KataGo 无法启动。'))
+      setNotice(errorMessage(error, 'KataGo 无法启动。'))
     }
   }, [createSession, runAILoop, setRunState])
 
@@ -216,6 +236,7 @@ export function useGoMatch() {
     setModeValue(next)
     setAnalysisByPlayer({})
     setCapabilities(null)
+    resetScoringReview()
     const fresh = GO_ENGINE.init()
     setState(fresh)
     if (next === 'local') {
@@ -224,22 +245,27 @@ export function useGoMatch() {
       return
     }
     setRunState('connecting')
-    setNotice('正在浏览器中加载 KataGo 模型，首次使用需要下载模型…')
+    setNotice(USE_NATIVE_KATAGO
+      ? '正在启动 Native KataGo 并加载本机 GPU 模型…'
+      : '正在浏览器中加载 KataGo 模型，首次使用需要下载模型…')
     try {
       await createSession(fresh)
       setRunState('ready')
-      setNotice('浏览器 KataGo 已就绪，可以开始自对弈。')
+      setNotice(USE_NATIVE_KATAGO
+        ? 'Native KataGo 已就绪，可以开始自对弈。'
+        : '浏览器 KataGo 已就绪，可以开始自对弈。')
     } catch (error) {
       setRunState('error')
-      setNotice(errorMessage(error, '浏览器 KataGo 初始化失败。'))
+      setNotice(errorMessage(error, 'KataGo 初始化失败。'))
     }
-  }, [createSession, disposeSession, setRunState, setState])
+  }, [createSession, disposeSession, resetScoringReview, setRunState, setState])
 
   const changeProfile = useCallback(async (next: KataGoSearchProfile) => {
     if (next === profileRef.current || autoRunningRef.current) return
     profileRef.current = next
     setProfileValue(next)
     setAnalysisByPlayer({})
+    resetScoringReview()
     if (modeRef.current !== 'ai') return
     autoRunningRef.current = false
     loopTokenRef.current += 1
@@ -252,9 +278,9 @@ export function useGoMatch() {
       setRunState('ready')
     } catch (error) {
       setRunState('error')
-      setNotice(errorMessage(error, '浏览器 KataGo 无法启动。'))
+      setNotice(errorMessage(error, 'KataGo 无法启动。'))
     }
-  }, [createSession, setRunState, setState])
+  }, [createSession, resetScoringReview, setRunState, setState])
 
   const execute = useCallback((move: GoMove) => {
     if (modeRef.current !== 'local') return
@@ -271,6 +297,7 @@ export function useGoMatch() {
     loopTokenRef.current += 1
     const fresh = GO_ENGINE.init()
     setAnalysisByPlayer({})
+    resetScoringReview()
     setState(fresh)
     setNotice(null)
     if (modeRef.current === 'local') return
@@ -280,22 +307,48 @@ export function useGoMatch() {
       setRunState('ready')
     } catch (error) {
       setRunState('error')
-      setNotice(errorMessage(error, '浏览器 KataGo 无法启动。'))
+      setNotice(errorMessage(error, 'KataGo 无法启动。'))
     }
-  }, [createSession, setRunState, setState])
+  }, [createSession, resetScoringReview, setRunState, setState])
 
-  const finalizeScoring = useCallback(() => {
+  const toggleDeadGroup = useCallback((point: GoPoint) => {
+    if (stateRef.current.phase !== 'scoring') return
+    const group = getGoGroup(stateRef.current.board, point)
+    if (!group) return
+    const groupKeys = new Set(group.stones.map(pointKey))
+    setDeadStoneRepresentatives((current) => {
+      const alreadySelected = current.some((representative) => groupKeys.has(pointKey(representative)))
+      return alreadySelected
+        ? current.filter((representative) => !groupKeys.has(pointKey(representative)))
+        : [...current, { ...point }]
+    })
+    setScoringConfirmations({ black: false, white: false })
+    setNotice(null)
+  }, [])
+
+  const confirmScoring = useCallback((player: GoPlayer) => {
     try {
-      setState(GO_ENGINE.finalizeScoring(stateRef.current))
+      if (stateRef.current.phase !== 'scoring') throw new Error('当前不在计分阶段。')
+      if (player === 'white' && !scoringConfirmations.black) {
+        throw new Error('请先由黑方确认当前死子方案。')
+      }
+      const next = { ...scoringConfirmations, [player]: true }
+      if (next.black && next.white) {
+        setState(GO_ENGINE.finalizeScoring(stateRef.current, scoringRequest))
+        setScoringConfirmations(next)
+      } else {
+        setScoringConfirmations(next)
+      }
       setNotice(null)
     } catch (error) {
       setNotice(errorMessage(error, '当前无法完成计分。'))
     }
-  }, [setState])
+  }, [scoringConfirmations, scoringRequest, setState])
 
   const resumePlay = useCallback(async () => {
     try {
       const resumed = GO_ENGINE.resumePlay(stateRef.current)
+      resetScoringReview()
       setState(resumed)
       setNotice('已恢复落子，虚着计数已清零。')
       if (modeRef.current === 'ai') {
@@ -307,7 +360,7 @@ export function useGoMatch() {
       setRunState(modeRef.current === 'ai' ? 'error' : 'offline')
       setNotice(errorMessage(error, '当前无法恢复落子。'))
     }
-  }, [createSession, setRunState, setState])
+  }, [createSession, resetScoringReview, setRunState, setState])
 
   useEffect(() => () => {
     mountedRef.current = false
@@ -325,6 +378,9 @@ export function useGoMatch() {
     capabilities,
     analysisByPlayer,
     legalMoveKeys,
+    scorePreview,
+    deadStoneKeys,
+    scoringConfirmations,
     execute,
     changeMode,
     changeProfile,
@@ -332,9 +388,19 @@ export function useGoMatch() {
     pauseAI,
     stepAI,
     newGame,
-    finalizeScoring,
+    toggleDeadGroup,
+    confirmScoring,
     resumePlay,
   }
+}
+
+async function createConfiguredKataGoTransport(): Promise<KataGoTransport> {
+  if (USE_NATIVE_KATAGO) {
+    const { HttpKataGoTransport } = await import('./ai/KataGoTransport')
+    return new HttpKataGoTransport()
+  }
+  const { BrowserKataGoTransport } = await import('./ai/BrowserKataGoTransport')
+  return new BrowserKataGoTransport()
 }
 
 class GoSessionGameEngine extends GoGameEngine {

@@ -1,60 +1,157 @@
 @echo off
-setlocal
+setlocal EnableExtensions
 cd /d "%~dp0"
+set "ROOT_DIR=%~dp0"
+if "%ROOT_DIR:~-1%"=="\" set "ROOT_DIR=%ROOT_DIR:~0,-1%"
 
-set "PORT=4173"
+set "PREVIEW_PORT=4173"
+set "BRIDGE_PORT=8788"
+set "VERIFY_ONLY=0"
+set "NO_PAUSE=0"
+set "BRIDGE_STARTED=0"
+set "PREVIEW_STARTED=0"
+set "BRIDGE_PID="
+set "PREVIEW_PID="
+
+:parse_args
+if "%~1"=="" goto args_done
+if /i "%~1"=="--verify" set "VERIFY_ONLY=1"& set "NO_PAUSE=1"& shift& goto parse_args
+if /i "%~1"=="--no-pause" set "NO_PAUSE=1"& shift& goto parse_args
+echo Unknown option: %~1
+goto :fail
+
+:args_done
 set "NODE_EXE="
 for /f "delims=" %%N in ('where node.exe 2^>nul') do if not defined NODE_EXE set "NODE_EXE=%%N"
 if not defined NODE_EXE if exist "%ProgramFiles%\nodejs\node.exe" set "NODE_EXE=%ProgramFiles%\nodejs\node.exe"
 
 if not defined NODE_EXE (
-  echo Node.js was not found. Install the current LTS version from https://nodejs.org/ and run this script again.
-  pause
-  exit /b 1
+  echo Node.js was not found. Install the current LTS version and run this script again.
+  goto :fail
 )
-
 if not exist "%~dp0node_modules\typescript\bin\tsc" (
-  echo Project dependencies were not found. Run npm install in this folder, then run this script again.
-  pause
-  exit /b 1
+  echo Project dependencies are missing. This script will not install them automatically.
+  goto :fail
 )
-
 if not exist "%~dp0node_modules\vite\bin\vite.js" (
-  echo Project dependencies were not found. Run npm install in this folder, then run this script again.
-  pause
-  exit /b 1
+  echo Vite is missing. This script will not install project dependencies automatically.
+  goto :fail
 )
-
-echo Building the latest AI Xiangqi preview...
-call :build
-if errorlevel 1 (
-  echo Build failed. Keep this window open and check the error above.
-  pause
-  exit /b 1
+if not exist "%~dp0services\katago-bridge\.env" (
+  echo Native KataGo environment file is missing: services\katago-bridge\.env
+  goto :fail
+)
+if not exist "%~dp0services\katago-bridge\runtime\katago.exe" (
+  echo Native KataGo executable is missing.
+  goto :fail
+)
+if not exist "%~dp0services\katago-bridge\config\analysis.cfg" (
+  echo Native KataGo analysis configuration is missing.
+  goto :fail
 )
 
 set "LISTEN_PID="
-for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":%PORT% .*LISTENING"') do set "LISTEN_PID=%%P"
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":%PREVIEW_PORT% .*LISTENING"') do set "LISTEN_PID=%%P"
 if defined LISTEN_PID (
-  echo Port %PORT% is already used by PID %LISTEN_PID%.
-  echo Stop the previous local preview before starting this freshly built version.
-  pause
-  exit /b 1
+  echo Port %PREVIEW_PORT% is already used by PID %LISTEN_PID%. Stop the previous preview first.
+  goto :fail
 )
 
-start "AI Xiangqi preview" /b "%NODE_EXE%" "%~dp0node_modules\vite\bin\vite.js" preview --outDir .vite-output --host 127.0.0.1 --port %PORT% --strictPort
-timeout /t 2 /nobreak >nul
-start "" "http://127.0.0.1:%PORT%/"
+echo Building the latest Native-KataGo local preview...
+call :build
+if errorlevel 1 goto :fail
 
-echo AI Xiangqi is available at http://127.0.0.1:%PORT%/
-echo Closing this window will not stop the preview. Restarting Windows will stop it.
+"%NODE_EXE%" "%~dp0scripts\verify-native-katago.mjs" --capabilities-only >nul 2>nul
+if not errorlevel 1 (
+  echo A verified Native KataGo bridge is already running on port %BRIDGE_PORT%.
+  goto :bridge_ready
+)
+
+set "BRIDGE_LISTEN_PID="
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":%BRIDGE_PORT% .*LISTENING"') do set "BRIDGE_LISTEN_PID=%%P"
+if defined BRIDGE_LISTEN_PID (
+  echo Port %BRIDGE_PORT% is occupied by PID %BRIDGE_LISTEN_PID%, but it is not the configured Native KataGo bridge.
+  goto :fail
+)
+
+echo Starting Native KataGo bridge in a hidden background process...
+for /f "delims=" %%P in ('call "%NODE_EXE%" "%~dp0scripts\start-detached-process.mjs" --cwd "%ROOT_DIR%" --stdout "%TEMP%\project10-katago-bridge.out.log" --stderr "%TEMP%\project10-katago-bridge.err.log" "%NODE_EXE%" "--env-file=%~dp0services\katago-bridge\.env" "%~dp0services\katago-bridge\src\server.mjs"') do set "BRIDGE_PID=%%P"
+if not defined BRIDGE_PID (
+  echo Failed to start the Native KataGo bridge.
+  goto :fail
+)
+set "BRIDGE_STARTED=1"
+
+echo Waiting for KataGo model and OpenCL initialization...
+set "READY_WAIT=0"
+:wait_bridge
+set /a READY_WAIT+=1
+if %READY_WAIT% GTR 300 (
+  echo Native KataGo did not become ready. See %TEMP%\project10-katago-bridge.err.log
+  goto :fail
+)
+powershell -NoProfile -Command "Start-Sleep -Seconds 2"
+"%NODE_EXE%" "%~dp0scripts\verify-native-katago.mjs" --capabilities-only >nul 2>nul
+if errorlevel 1 goto :wait_bridge
+
+:bridge_ready
+"%NODE_EXE%" "%~dp0scripts\verify-native-katago.mjs" --capabilities-only
+if errorlevel 1 goto :fail
+
+echo Starting Vite preview in a hidden background process...
+for /f "delims=" %%P in ('call "%NODE_EXE%" "%~dp0scripts\start-detached-process.mjs" --cwd "%ROOT_DIR%" --stdout "%TEMP%\project10-vite-preview.out.log" --stderr "%TEMP%\project10-vite-preview.err.log" "%NODE_EXE%" "%~dp0node_modules\vite\bin\vite.js" preview --outDir .vite-output --host 127.0.0.1 --port %PREVIEW_PORT% --strictPort') do set "PREVIEW_PID=%%P"
+if not defined PREVIEW_PID (
+  echo Failed to start the Vite preview.
+  goto :fail
+)
+set "PREVIEW_STARTED=1"
+
+set "PREVIEW_WAIT=0"
+:wait_preview
+set /a PREVIEW_WAIT+=1
+if %PREVIEW_WAIT% GTR 60 (
+  echo Vite preview did not return HTTP 200. See %TEMP%\project10-vite-preview.err.log
+  goto :fail
+)
+powershell -NoProfile -Command "Start-Sleep -Seconds 1"
+powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:%PREVIEW_PORT%/' -UseBasicParsing -TimeoutSec 2; if ($r.StatusCode -eq 200) { exit 0 } } catch {}; exit 1"
+if errorlevel 1 goto :wait_preview
+
+if "%VERIFY_ONLY%"=="1" (
+  echo Running a real 2000-visit Native KataGo analysis...
+  "%NODE_EXE%" "%~dp0scripts\verify-native-katago.mjs"
+  if errorlevel 1 goto :fail
+  echo Local preview verification passed.
+  call :cleanup
+  endlocal
+  exit /b 0
+)
+
+start "" "http://127.0.0.1:%PREVIEW_PORT%/"
+echo AI Xiangqi is available at http://127.0.0.1:%PREVIEW_PORT%/
+echo Native KataGo bridge is available at http://127.0.0.1:%BRIDGE_PORT%/
+echo Process IDs: preview=%PREVIEW_PID% bridge=%BRIDGE_PID%
+if "%NO_PAUSE%"=="0" pause
 endlocal
 exit /b 0
 
 :build
+set "VITE_KATAGO_BRIDGE=1"
 "%NODE_EXE%" "%~dp0scripts\sync-engine-assets.mjs"
 if errorlevel 1 exit /b 1
 "%NODE_EXE%" "%~dp0node_modules\typescript\bin\tsc" -b
 if errorlevel 1 exit /b 1
 "%NODE_EXE%" "%~dp0node_modules\vite\bin\vite.js" build
 exit /b %errorlevel%
+
+:cleanup
+if "%PREVIEW_STARTED%"=="1" if defined PREVIEW_PID taskkill /PID %PREVIEW_PID% /T /F >nul 2>nul
+if "%BRIDGE_STARTED%"=="1" if defined BRIDGE_PID taskkill /PID %BRIDGE_PID% /T /F >nul 2>nul
+exit /b 0
+
+:fail
+call :cleanup
+echo Operation failed. Only processes started by this script were stopped.
+if "%NO_PAUSE%"=="0" pause
+endlocal
+exit /b 1

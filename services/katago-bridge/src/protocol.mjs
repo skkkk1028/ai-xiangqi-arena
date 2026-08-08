@@ -9,8 +9,8 @@ export const KATAGO_RULES = Object.freeze({
 })
 
 export const SEARCH_PROFILES = Object.freeze({
-  fast: Object.freeze({ maxVisits: 200, timeoutMs: 8_000 }),
-  strong: Object.freeze({ maxVisits: 800, timeoutMs: 30_000 }),
+  fast: Object.freeze({ maxVisits: 2_000, timeoutMs: 30_000 }),
+  strong: Object.freeze({ maxVisits: 20_000, timeoutMs: 180_000 }),
 })
 
 export function validateAnalyzeRequest(value) {
@@ -94,7 +94,20 @@ export function normalizeAnalysisResult(raw, metadata) {
     modelName: metadata.modelName,
     profile: metadata.profile,
     elapsedMs: Math.max(0, Date.now() - metadata.startedAt),
+    requestedVisits: SEARCH_PROFILES[metadata.profile].maxVisits,
+    runtimeBackend: 'native-katago',
+    requestedBackend: 'native-katago',
+    backendFallback: false,
+    backendFallbackReason: null,
+    modelFallback: false,
+    modelFallbackReason: null,
+    timedOut: Boolean(metadata.truncated),
     truncated: Boolean(metadata.truncated),
+    stopReason: raw.isDuringSearch
+      ? 'in-progress'
+      : metadata.truncated
+        ? 'time-limit'
+        : 'visit-limit',
     root: {
       winrate: clamp(root.winrate, 0, 1),
       scoreLead: Number.isFinite(root.scoreLead) ? root.scoreLead : null,

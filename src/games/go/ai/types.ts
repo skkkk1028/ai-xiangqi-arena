@@ -1,11 +1,31 @@
 import type { GoMove, GoPlayer } from '../types'
 
 export type KataGoSearchProfile = 'fast' | 'strong'
+export type KataGoRuntimeBackend =
+  | 'browser-webgpu'
+  | 'browser-wasm'
+  | 'browser-cpu'
+  | 'native-katago'
+export type KataGoStopReason = 'in-progress' | 'visit-limit' | 'time-limit'
+
+export function kataGoRuntimeBackendLabel(backend: KataGoRuntimeBackend | undefined): string {
+  if (backend === 'browser-webgpu') return 'Browser WebGPU'
+  if (backend === 'browser-wasm') return 'Browser WASM'
+  if (backend === 'browser-cpu') return 'CPU fallback'
+  if (backend === 'native-katago') return 'Native KataGo · OpenCL'
+  return 'KATAGO INITIALIZING'
+}
 
 export interface KataGoCapabilities {
   ready: boolean
   engineVersion: string
   modelName: string
+  runtimeBackend: KataGoRuntimeBackend
+  requestedBackend: KataGoRuntimeBackend
+  backendFallback: boolean
+  backendFallbackReason: string | null
+  modelFallback: boolean
+  modelFallbackReason: string | null
   profiles: Readonly<Record<KataGoSearchProfile, { maxVisits: number; timeoutMs: number }>>
 }
 
@@ -60,7 +80,16 @@ export interface KataGoWireAnalysisEvent {
   modelName: string
   profile: KataGoSearchProfile
   elapsedMs: number
+  requestedVisits: number
+  runtimeBackend: KataGoRuntimeBackend
+  requestedBackend: KataGoRuntimeBackend
+  backendFallback: boolean
+  backendFallbackReason: string | null
+  modelFallback: boolean
+  modelFallbackReason: string | null
+  timedOut: boolean
   truncated: boolean
+  stopReason: KataGoStopReason
   root: {
     winrate: number
     scoreLead: number | null
@@ -103,7 +132,16 @@ export interface KataGoAnalysis {
   scoreLeadBlack: number | null
   visits: number
   elapsedMs: number
+  requestedVisits: number
+  runtimeBackend: KataGoRuntimeBackend
+  requestedBackend: KataGoRuntimeBackend
+  backendFallback: boolean
+  backendFallbackReason: string | null
+  modelFallback: boolean
+  modelFallbackReason: string | null
+  timedOut: boolean
   truncated: boolean
+  stopReason: KataGoStopReason
   pv: readonly GoMove[]
   pvNotation: readonly string[]
   candidates: readonly KataGoCandidateAnalysis[]

@@ -8,6 +8,7 @@ services/katago-bridge/runtime/
 *.tsbuildinfo
 .DS_Store
 .openai/hosting.json
+.wrangler/
 public/engine/stockfish.js
 public/engine/stockfish.wasm
 public/engine/stockfish.worker.js

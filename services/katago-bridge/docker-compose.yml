@@ -7,7 +7,7 @@ services:
     environment:
       KATAGO_BIN_PATH: /runtime/katago
       KATAGO_BIN_SHA256: ${KATAGO_BIN_SHA256:?required}
-      KATAGO_MODEL_PATH: /runtime/model.bin.gz
+      KATAGO_MODEL_PATH: /runtime/kata1-b28c512nbt-s13255194368-d5935380940.bin.gz
       KATAGO_MODEL_SHA256: ${KATAGO_MODEL_SHA256:?required}
       KATAGO_SESSION_SECRET: ${KATAGO_SESSION_SECRET:?required}
       KATAGO_PROXY_SECRET: ${KATAGO_PROXY_SECRET:?required}
@@ -16,7 +16,7 @@ services:
       KATAGO_MAX_QUEUE: 8
     volumes:
       - ./runtime/katago:/runtime/katago:ro
-      - ./runtime/model.bin.gz:/runtime/model.bin.gz:ro
+      - ./runtime/kata1-b28c512nbt-s13255194368-d5935380940.bin.gz:/runtime/kata1-b28c512nbt-s13255194368-d5935380940.bin.gz:ro
     deploy:
       resources:
         reservations:

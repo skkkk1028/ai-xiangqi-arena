@@ -37,7 +37,7 @@ describe('AI 棋类大厅', () => {
 
     expect(screen.getByRole('heading', { name: '静室手谈' })).toBeInTheDocument()
     expect(screen.getByRole('grid', { name: '十九路围棋棋盘' })).toBeInTheDocument()
-    expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('KataGo 本地引擎待命')
+    expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('KataGo 引擎待命')
   })
 
   it('hash 变化时在大厅与棋类模块之间切换', () => {

@@ -54,9 +54,35 @@ test('normalizes only five ordered candidates and black-perspective root data', 
     truncated: false,
   })
   assert.equal(event.stage, 'final')
+  assert.equal(event.runtimeBackend, 'native-katago')
+  assert.equal(event.requestedVisits, 2_000)
+  assert.equal(event.timedOut, false)
+  assert.equal(event.stopReason, 'visit-limit')
   assert.equal(event.root.winrate, 0.63)
   assert.equal(event.candidates[0].move, 'D16')
   assert.deepEqual(event.candidates[0].pv, ['D16', 'Q4'])
+})
+
+test('reports native timeout truncation without inflating actual visits', () => {
+  const raw = {
+    id: 'timed-out',
+    isDuringSearch: false,
+    rootInfo: { winrate: 0.5, scoreLead: 0, visits: 731 },
+    moveInfos: [{ move: 'D16', order: 0, visits: 700, prior: 0.2, winrate: 0.5, pv: ['D16'] }],
+  }
+  const event = normalizeAnalysisResult(raw, {
+    requestId: raw.id,
+    engineVersion: '1.17.1',
+    modelName: 'test.bin.gz',
+    profile: 'strong',
+    startedAt: Date.now(),
+    truncated: true,
+  })
+  assert.equal(event.requestedVisits, 20_000)
+  assert.equal(event.root.visits, 731)
+  assert.equal(event.timedOut, true)
+  assert.equal(event.truncated, true)
+  assert.equal(event.stopReason, 'time-limit')
 })
 
 test('KataGo process parses fragmented async JSON and sends terminate on abort', async () => {

@@ -6,7 +6,7 @@ import type {
 } from '../../core'
 import { isGoPassMove, type GoGameState, type GoMove, type GoMoveRecord, type GoPlayer } from '../types'
 import { goRecordToKataGoTuple, gtpToGoMove } from './coordinates'
-import { HttpKataGoTransport, type KataGoTransport } from './KataGoTransport'
+import type { KataGoTransport } from './KataGoTransport'
 import {
   KATAGO_CHINESE_PSK_RULES,
   KataGoMatchAnalysisStore,
@@ -17,10 +17,9 @@ import {
 } from './types'
 
 export interface KataGoEngineOptions {
-  transport?: KataGoTransport
+  transport: KataGoTransport
   profile?: KataGoSearchProfile
   analysisStore?: KataGoMatchAnalysisStore
-  endpoint?: string
 }
 
 export class KataGoEngine
@@ -38,11 +37,11 @@ export class KataGoEngine
   private activeRequestId: string | null = null
   private disposed = false
 
-  constructor(id: string, options: KataGoEngineOptions = {}) {
+  constructor(id: string, options: KataGoEngineOptions) {
     this.id = id
     this.profile = options.profile ?? 'fast'
-    this.transport = options.transport ?? new HttpKataGoTransport({ baseUrl: options.endpoint })
-    this.ownsTransport = !options.transport
+    this.transport = options.transport
+    this.ownsTransport = false
     this.analysisStore = options.analysisStore ?? new KataGoMatchAnalysisStore()
   }
 
@@ -91,10 +90,10 @@ export class KataGoEngine
         },
         {
           signal: request.signal,
-          onUpdate: (event) => this.publishPartial(event, request.player),
+          onUpdate: (event) => this.publishPartial(event, request.player, request.legalActions),
         },
       )
-      const analysis = this.toAnalysis(finalEvent, request.player)
+      const analysis = this.toAnalysis(finalEvent, request.player, request.legalActions)
       const canonicalAction = request.legalActions.find((action) => actionsEqual(action, analysis.action))
       if (!canonicalAction) {
         throw new Error('KataGo 返回的着法不符合当前围棋规则，已拒绝执行。')
@@ -130,30 +129,48 @@ export class KataGoEngine
     return () => this.listeners.delete(listener)
   }
 
-  private publishPartial(event: KataGoWireAnalysisEvent, player: GoPlayer): void {
+  private publishPartial(
+    event: KataGoWireAnalysisEvent,
+    player: GoPlayer,
+    legalActions: readonly GoMove[],
+  ): void {
     if (event.stage !== 'partial' || event.candidates.length === 0) return
     try {
-      this.emit(this.toAnalysis(event, player))
+      this.emit(this.toAnalysis(event, player, legalActions))
     } catch {
       // A malformed partial update must not hide a later valid final result.
     }
   }
 
-  private toAnalysis(event: KataGoWireAnalysisEvent, player: GoPlayer): KataGoAnalysis {
+  private toAnalysis(
+    event: KataGoWireAnalysisEvent,
+    player: GoPlayer,
+    legalActions: readonly GoMove[],
+  ): KataGoAnalysis {
     const ordered = [...event.candidates].sort((left, right) => left.order - right.order).slice(0, 5)
     const first = ordered[0]
     if (!first) throw new Error('KataGo 没有返回候选着。')
-    const candidates = ordered.map((candidate) => ({
-      action: gtpToGoMove(candidate.move),
-      notation: candidate.move,
-      order: candidate.order,
-      visits: candidate.visits,
-      prior: candidate.prior,
-      blackWinRate: clampProbability(candidate.winrate),
-      scoreLeadBlack: finiteOrNull(candidate.scoreLead),
-      pv: candidate.pv.map((move) => gtpToGoMove(move)),
-      pvNotation: [...candidate.pv],
-    }))
+    const candidates = ordered.flatMap((candidate) => {
+      try {
+        return [{
+          action: gtpToGoMove(candidate.move),
+          notation: candidate.move,
+          order: candidate.order,
+          visits: candidate.visits,
+          prior: candidate.prior,
+          blackWinRate: clampProbability(candidate.winrate),
+          scoreLeadBlack: finiteOrNull(candidate.scoreLead),
+          pv: candidate.pv.map((move) => gtpToGoMove(move)),
+          pvNotation: [...candidate.pv],
+        }]
+      } catch {
+        return []
+      }
+    })
+    const selected = candidates.find((candidate) =>
+      legalActions.some((action) => actionsEqual(action, candidate.action)),
+    )
+    if (!selected) throw new Error('KataGo 没有返回符合当前围棋规则的候选着，已拒绝执行。')
     const blackWinRate = clampProbability(event.root.winrate)
     const previous = this.analysisStore.getPreviousBlackWinRate()
     const currentPlayerWinRate = player === 'black' ? blackWinRate : 1 - blackWinRate
@@ -162,7 +179,7 @@ export class KataGoEngine
       requestId: event.requestId,
       player,
       stage: event.stage,
-      action: candidates[0].action,
+      action: selected.action,
       blackWinRate,
       whiteWinRate: 1 - blackWinRate,
       currentPlayerWinRate,
@@ -170,9 +187,18 @@ export class KataGoEngine
       scoreLeadBlack: finiteOrNull(event.root.scoreLead),
       visits: Math.max(0, Math.trunc(event.root.visits)),
       elapsedMs: Math.max(0, Math.trunc(event.elapsedMs)),
+      requestedVisits: Math.max(0, Math.trunc(event.requestedVisits)),
+      runtimeBackend: event.runtimeBackend,
+      requestedBackend: event.requestedBackend,
+      backendFallback: event.backendFallback,
+      backendFallbackReason: event.backendFallbackReason,
+      modelFallback: event.modelFallback,
+      modelFallbackReason: event.modelFallbackReason,
+      timedOut: event.timedOut,
       truncated: event.truncated,
-      pv: candidates[0].pv,
-      pvNotation: candidates[0].pvNotation,
+      stopReason: event.stopReason,
+      pv: selected.pv,
+      pvNotation: selected.pvNotation,
       candidates,
       engineVersion: event.engineVersion,
       modelName: event.modelName,

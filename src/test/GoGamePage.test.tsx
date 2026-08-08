@@ -15,7 +15,7 @@ describe('围棋 React 页面', () => {
     expect(screen.getAllByRole('gridcell')).toHaveLength(361)
     expect(screen.getAllByText('黑方行棋')).toHaveLength(2)
     expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('STANDBY')
-    expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('KataGo 本地引擎待命')
+    expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('KataGo 引擎待命')
   })
 
   it('点击合法交叉点后更新棋盘、回合、手数和最近一步标记', () => {
@@ -53,10 +53,38 @@ describe('围棋 React 页面', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '虚着' }))
     fireEvent.click(screen.getByRole('button', { name: '虚着' }))
-    fireEvent.click(screen.getByRole('button', { name: /确认计分/ }))
+    fireEvent.click(screen.getByRole('button', { name: /黑方确认/ }))
+    expect(screen.queryByText('对局结束')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /白方确认/ }))
 
     expect(screen.getAllByText('对局结束')).toHaveLength(2)
     expect(screen.getByText(/白方胜 · 7.5 目/)).toBeInTheDocument()
+  })
+
+  it('计分阶段可标记整块死子，修改方案会重置双方确认', () => {
+    render(<GoGamePage />)
+
+    fireEvent.click(screen.getByRole('gridcell', { name: 'D16，空点' }))
+    fireEvent.click(screen.getByRole('gridcell', { name: 'Q4，空点' }))
+    fireEvent.click(screen.getByRole('gridcell', { name: 'E16，空点' }))
+    fireEvent.click(screen.getByRole('gridcell', { name: 'Q3，空点' }))
+    fireEvent.click(screen.getByRole('button', { name: '虚着' }))
+    fireEvent.click(screen.getByRole('button', { name: '虚着' }))
+
+    fireEvent.click(screen.getByRole('gridcell', { name: 'D16，黑子' }))
+    expect(screen.getByRole('gridcell', { name: 'D16，黑子，已标记死子' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('gridcell', { name: 'E16，黑子，已标记死子' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText('计分预览')).toHaveTextContent('已标记死子 2 枚')
+
+    fireEvent.click(screen.getByRole('button', { name: /黑方确认/ }))
+    expect(screen.getByLabelText('计分预览')).toHaveTextContent('黑方 已确认')
+    fireEvent.click(screen.getByRole('gridcell', { name: 'Q4，白子' }))
+    expect(screen.getByLabelText('计分预览')).toHaveTextContent('黑方 待确认')
+    expect(screen.getByRole('button', { name: /白方确认/ })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('gridcell', { name: 'D16，黑子，已标记死子' }))
+    expect(screen.getByRole('gridcell', { name: 'D16，黑子' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('gridcell', { name: 'E16，黑子' })).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('连接 KataGo 后可由 GameController 单步执行 AI 着法并展示分析', async () => {
@@ -68,9 +96,15 @@ describe('围棋 React 页面', () => {
           ready: true,
           engineVersion: '1.16-test',
           modelName: 'kata-test.bin.gz',
+          runtimeBackend: 'native-katago',
+          requestedBackend: 'native-katago',
+          backendFallback: false,
+          backendFallbackReason: null,
+          modelFallback: false,
+          modelFallbackReason: null,
           profiles: {
-            fast: { maxVisits: 200, timeoutMs: 8_000 },
-            strong: { maxVisits: 800, timeoutMs: 30_000 },
+            fast: { maxVisits: 2_000, timeoutMs: 30_000 },
+            strong: { maxVisits: 20_000, timeoutMs: 180_000 },
           },
         })
       }
@@ -84,7 +118,16 @@ describe('围棋 React 页面', () => {
           modelName: 'kata-test.bin.gz',
           profile: request.profile,
           elapsedMs: 110,
+          requestedVisits: 2_000,
+          runtimeBackend: 'native-katago',
+          requestedBackend: 'native-katago',
+          backendFallback: false,
+          backendFallbackReason: null,
+          modelFallback: false,
+          modelFallbackReason: null,
+          timedOut: false,
           truncated: false,
+          stopReason: 'visit-limit',
           root: { winrate: 0.56, scoreLead: 2.1, visits: 200 },
           candidates: [{
             move: 'D16', order: 0, visits: 180, prior: 0.2,
@@ -102,12 +145,15 @@ describe('围棋 React 页面', () => {
     render(<GoGamePage />)
 
     fireEvent.click(screen.getByRole('button', { name: 'AI 自对弈' }))
-    await screen.findByText('浏览器 KataGo 已就绪，可以开始自对弈。')
+    await screen.findByText(/KataGo 已就绪，可以开始自对弈。/)
     expect(screen.getByRole('gridcell', { name: 'D16，空点' })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: /单步/ }))
     await waitFor(() => expect(screen.getByRole('gridcell', { name: 'D16，黑子，最近一步' })).toBeInTheDocument())
     expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('56.0%')
+    expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('Native KataGo · OpenCL')
+    expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('kata-test.bin.gz')
+    expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('200 / 2000')
     expect(screen.getByLabelText('KataGo 候选着')).toHaveTextContent('D16')
     expect(fetchMock).toHaveBeenCalledWith('/api/go/katago/analyze', expect.objectContaining({ method: 'POST' }))
   })
