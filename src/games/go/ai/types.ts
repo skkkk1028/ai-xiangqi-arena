@@ -1,4 +1,5 @@
 import type { GoMove, GoPlayer } from '../types'
+import type { GoAIAnalysis, GoAICandidateAnalysis } from './go-ai'
 
 export type KataGoSearchProfile = 'fast' | 'strong'
 export type KataGoRuntimeBackend =
@@ -107,47 +108,22 @@ export interface KataGoWireErrorEvent {
 
 export type KataGoWireEvent = KataGoWireAnalysisEvent | KataGoWireErrorEvent
 
-export interface KataGoCandidateAnalysis {
-  action: GoMove
-  notation: string
-  order: number
-  visits: number
-  prior: number | null
-  blackWinRate: number
-  scoreLeadBlack: number | null
-  pv: readonly GoMove[]
-  pvNotation: readonly string[]
-}
+export interface KataGoCandidateAnalysis extends GoAICandidateAnalysis {}
 
-export interface KataGoAnalysis {
-  requestId: string
-  player: GoPlayer
-  stage: 'partial' | 'final'
-  action: GoMove
-  blackWinRate: number
-  whiteWinRate: number
-  currentPlayerWinRate: number
+export interface KataGoAnalysis extends GoAIAnalysis {
+  engineId: 'katago'
+  engineName: 'KataGo'
   /** Percentage-point delta from the previous completed position, from this player's perspective. */
-  winRateChange: number | null
-  scoreLeadBlack: number | null
-  visits: number
-  elapsedMs: number
-  requestedVisits: number
+  runtimeLabel: string
   runtimeBackend: KataGoRuntimeBackend
   requestedBackend: KataGoRuntimeBackend
   backendFallback: boolean
   backendFallbackReason: string | null
   modelFallback: boolean
   modelFallbackReason: string | null
-  timedOut: boolean
-  truncated: boolean
-  stopReason: KataGoStopReason
-  pv: readonly GoMove[]
-  pvNotation: readonly string[]
   candidates: readonly KataGoCandidateAnalysis[]
-  engineVersion: string
-  modelName: string
   profile: KataGoSearchProfile
+  profileLabel: string
 }
 
 export type KataGoAnalysisListener = (analysis: KataGoAnalysis) => void

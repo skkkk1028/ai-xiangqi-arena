@@ -1,5 +1,13 @@
 import { GAME_ROUTES } from '../routes'
-import { kataGoRuntimeBackendLabel, type KataGoAnalysis, type KataGoSearchProfile } from './ai'
+import {
+  GO_AI_ENGINES,
+  goAIEngineName,
+  kataGoRuntimeBackendLabel,
+  type GoAIAnalysis,
+  type GoAIEngineId,
+  type KataGoAnalysis,
+  type KataGoSearchProfile,
+} from './ai'
 import { GoBoard } from './GoBoard'
 import { GO_PASS_MOVE, type GoGameState, type GoPlayer, type GoScore } from './types'
 import { useGoMatch, type GoAIRunState, type GoMatchMode } from './useGoMatch'
@@ -21,6 +29,7 @@ export function GoGamePage() {
   const recentHistory = state.history.slice(-6).reverse()
   const activeAnalysis = analysisByPlayer[state.turn] ?? analysisByPlayer.black ?? analysisByPlayer.white ?? null
   const aiBusy = runState === 'running' || runState === 'thinking'
+  const aiMode = mode !== 'local'
 
   return (
     <main className="go-page go-match-page">
@@ -41,10 +50,10 @@ export function GoGamePage() {
             <small>GO ACADEMY · AI LAB</small>
           </div>
         </div>
-        <div className={`go-runtime-badge go-runtime-badge--${mode === 'ai' ? runState : 'local'}`}>
+        <div className={`go-runtime-badge go-runtime-badge--${aiMode ? runState : 'local'}`}>
           <i />
-          <span>{mode === 'ai' ? runtimeLabel(runState) : 'LOCAL RULES ONLINE'}</span>
-          <b>{mode === 'ai' ? kataGoRuntimeBackendLabel(capabilities?.runtimeBackend) : '中国规则 · 7.5 贴目'}</b>
+          <span>{aiMode ? runtimeLabel(runState) : 'LOCAL RULES ONLINE'}</span>
+          <b>{mode === 'battle' ? 'MULTI-ENGINE · LOCAL GPU' : mode === 'ai' ? kataGoRuntimeBackendLabel(capabilities?.runtimeBackend) : '中国规则 · 7.5 贴目'}</b>
         </div>
       </header>
 
@@ -52,8 +61,8 @@ export function GoGamePage() {
         <div className="go-board-stage">
           <div className="go-board-heading">
             <div>
-              <p>十九路研习对局 · {mode === 'ai' ? 'KATAGO SELF-PLAY' : 'LOCAL SESSION'}</p>
-              <h1 id="go-page-title">{mode === 'ai' ? '双机弈境' : '静室手谈'}</h1>
+              <p>十九路研习对局 · {mode === 'battle' ? 'AI ENGINE BATTLE' : mode === 'ai' ? 'KATAGO SELF-PLAY' : 'LOCAL SESSION'}</p>
+              <h1 id="go-page-title">{aiMode ? '双机弈境' : '静室手谈'}</h1>
             </div>
             <div className={`go-phase go-phase--${state.phase}`}>
               <i />
@@ -83,7 +92,7 @@ export function GoGamePage() {
             <i />
             <span>位置超级劫 · 禁止自杀</span>
             <i />
-            <span>{mode === 'ai' ? `${kataGoRuntimeBackendLabel(capabilities?.runtimeBackend)} · ${capabilities?.runtimeBackend === 'native-katago' ? '本机 GPU 计算' : '访客设备计算'}` : '本地规则运算'}</span>
+            <span>{mode === 'battle' ? '独立本地引擎 · 统一规则校验' : mode === 'ai' ? `${kataGoRuntimeBackendLabel(capabilities?.runtimeBackend)} · ${capabilities?.runtimeBackend === 'native-katago' ? '本机 GPU 计算' : '访客设备计算'}` : '本地规则运算'}</span>
           </div>
         </div>
 
@@ -91,9 +100,11 @@ export function GoGamePage() {
           <ModePanel
             mode={mode}
             profile={profile}
+            battleEngines={match.battleEngines}
             busy={aiBusy || runState === 'connecting'}
             onMode={(next) => void match.changeMode(next)}
             onProfile={(next) => void match.changeProfile(next)}
+            onBattleEngine={(player, engine) => void match.changeBattleEngine(player, engine)}
           />
 
           <section className="go-turn-card">
@@ -109,7 +120,7 @@ export function GoGamePage() {
           <section className="go-players" aria-label="棋手信息">
             <PlayerStrip
               color="black"
-              name={mode === 'ai' ? 'KataGo · 黑' : '本地棋手 A'}
+              name={mode === 'battle' ? `${goAIEngineName(match.battleEngines.black)} · 黑` : mode === 'ai' ? 'KataGo · 黑' : '本地棋手 A'}
               active={state.phase === 'playing' && state.turn === 'black'}
               prisoners={state.prisoners.black}
               analysis={analysisByPlayer.black}
@@ -117,7 +128,7 @@ export function GoGamePage() {
             <div className="go-players__versus"><span />VS<span /></div>
             <PlayerStrip
               color="white"
-              name={mode === 'ai' ? 'KataGo · 白' : '本地棋手 B'}
+              name={mode === 'battle' ? `${goAIEngineName(match.battleEngines.white)} · 白` : mode === 'ai' ? 'KataGo · 白' : '本地棋手 B'}
               active={state.phase === 'playing' && state.turn === 'white'}
               prisoners={state.prisoners.white}
               analysis={analysisByPlayer.white}
@@ -167,7 +178,7 @@ export function GoGamePage() {
             )}
           </section>
 
-          <KataGoPanel
+          <AIEnginePanel
             mode={mode}
             runState={runState}
             profile={profile}
@@ -179,7 +190,7 @@ export function GoGamePage() {
 
       <footer className="go-match-footer">
         <span>中国规则 · 面积计分 · 贴目 7.5 · 位置超级劫</span>
-        <span>{mode === 'ai' ? `GO LAB / KATAGO ${profile.toUpperCase()}` : 'GO LAB / LOCAL SESSION · AI STANDBY'}</span>
+        <span>{mode === 'battle' ? 'GO LAB / AI ENGINE BATTLE · MATCHED BUDGETS' : mode === 'ai' ? `GO LAB / KATAGO ${profile.toUpperCase()}` : 'GO LAB / LOCAL SESSION · AI STANDBY'}</span>
       </footer>
     </main>
   )
@@ -188,29 +199,57 @@ export function GoGamePage() {
 function ModePanel({
   mode,
   profile,
+  battleEngines,
   busy,
   onMode,
   onProfile,
+  onBattleEngine,
 }: {
   mode: GoMatchMode
   profile: KataGoSearchProfile
+  battleEngines: Record<GoPlayer, GoAIEngineId>
   busy: boolean
   onMode: (mode: GoMatchMode) => void
   onProfile: (profile: KataGoSearchProfile) => void
+  onBattleEngine: (player: GoPlayer, engine: GoAIEngineId) => void
 }) {
   return (
     <section className="go-mode-panel" aria-label="围棋对局模式">
-      <header><span>MATCH MODE</span><small>{mode === 'ai' ? 'KATAGO LAB' : 'LOCAL ROOM'}</small></header>
+      <header><span>MATCH MODE</span><small>{mode === 'battle' ? 'ENGINE BATTLE' : mode === 'ai' ? 'KATAGO LAB' : 'LOCAL ROOM'}</small></header>
       <div className="go-segmented">
         <button type="button" aria-pressed={mode === 'local'} onClick={() => onMode('local')}>本地双人</button>
         <button type="button" aria-pressed={mode === 'ai'} onClick={() => onMode('ai')}>AI 自对弈</button>
+        <button type="button" aria-pressed={mode === 'battle'} onClick={() => onMode('battle')}>AI 互对弈</button>
       </div>
       <div className="go-profile-selector" aria-label="KataGo 搜索档位">
         <span>SEARCH</span>
         <button type="button" disabled={mode !== 'ai' || busy} aria-pressed={profile === 'fast'} onClick={() => onProfile('fast')}>快 · 2000</button>
         <button type="button" disabled={mode !== 'ai' || busy} aria-pressed={profile === 'strong'} onClick={() => onProfile('strong')}>强 · 20000</button>
       </div>
+      {mode === 'battle' && (
+        <div className="go-engine-selectors" aria-label="AI 互对弈引擎选择">
+          <EngineSelect label="黑方 AI 引擎" value={battleEngines.black} disabled={busy} onChange={(engine) => onBattleEngine('black', engine)} />
+          <EngineSelect label="白方 AI 引擎" value={battleEngines.white} disabled={busy} onChange={(engine) => onBattleEngine('white', engine)} />
+          <p>KataGo 仅在本模式使用 2000 visits；Leela Zero 使用 3200 playouts。现有 AI 自对弈配置不变。</p>
+        </div>
+      )}
     </section>
+  )
+}
+
+function EngineSelect({ label, value, disabled, onChange }: {
+  label: string
+  value: GoAIEngineId
+  disabled: boolean
+  onChange: (value: GoAIEngineId) => void
+}) {
+  return (
+    <label>
+      <span>{label}</span>
+      <select aria-label={label} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value as GoAIEngineId)}>
+        {GO_AI_ENGINES.map((engine) => <option key={engine.id} value={engine.id}>{engine.name}</option>)}
+      </select>
+    </label>
   )
 }
 
@@ -242,7 +281,7 @@ function MatchControls({ match, aiBusy }: { match: ReturnType<typeof useGoMatch>
     )
   }
 
-  if (mode === 'ai') {
+  if (mode !== 'local') {
     const canStart = state.phase === 'playing' && !aiBusy && runState !== 'connecting'
     return (
       <section className="go-controls go-controls--ai" aria-label="AI 对弈操作">
@@ -280,7 +319,7 @@ function MatchControls({ match, aiBusy }: { match: ReturnType<typeof useGoMatch>
   )
 }
 
-function KataGoPanel({
+function AIEnginePanel({
   mode,
   runState,
   profile,
@@ -291,30 +330,33 @@ function KataGoPanel({
   runState: GoAIRunState
   profile: KataGoSearchProfile
   capabilities: ReturnType<typeof useGoMatch>['capabilities']
-  analysis: KataGoAnalysis | null
+  analysis: GoAIAnalysis | null
 }) {
-  const online = mode === 'ai' && capabilities?.ready
+  const kataGoAnalysis = analysis?.engineId === 'katago' ? analysis as KataGoAnalysis : null
+  const online = mode !== 'local' && runState !== 'error'
+  const engineName = analysis?.engineName ?? (mode === 'battle' ? '多引擎' : 'KataGo')
+  const runtime = analysis?.runtimeLabel ?? kataGoRuntimeBackendLabel(capabilities?.runtimeBackend)
   return (
     <section className={`go-ai-slot${online ? ' go-ai-slot--online' : ''}`} aria-label="KataGo AI 信息面板">
       <header>
-        <span><i />AI ENGINE · KATAGO</span>
-        <b>{mode === 'ai' ? runtimeLabel(runState) : 'STANDBY'}</b>
+        <span><i />AI ENGINE · {engineName.toUpperCase()}</span>
+        <b>{mode !== 'local' ? runtimeLabel(runState) : 'STANDBY'}</b>
       </header>
-      <div className="go-ai-slot__core" aria-hidden="true"><span>KG</span><i /><i /><i /></div>
+      <div className="go-ai-slot__core" aria-hidden="true"><span>{analysis?.engineId === 'leela-zero' ? 'LZ' : 'KG'}</span><i /><i /><i /></div>
       <div className="go-ai-slot__summary">
-        <strong>{online ? (runState === 'thinking' ? 'KataGo 正在计算' : 'KataGo 引擎已就绪') : 'KataGo 引擎待命'}</strong>
+        <strong>{online ? (runState === 'thinking' ? `${engineName} 正在计算` : `${engineName} 引擎已就绪`) : 'KataGo 引擎待命'}</strong>
         <p>{analysis ? `主变化：${analysis.pvNotation.join(' ') || '—'}` : engineDescription(capabilities)}</p>
       </div>
       <dl>
-        <div className="go-ai-slot__wide"><dt>BACKEND</dt><dd>{kataGoRuntimeBackendLabel(analysis?.runtimeBackend ?? capabilities?.runtimeBackend)}</dd></div>
-        <div><dt>REQUESTED</dt><dd>{kataGoRuntimeBackendLabel(analysis?.requestedBackend ?? capabilities?.requestedBackend)}</dd></div>
+        <div className="go-ai-slot__wide"><dt>BACKEND</dt><dd>{runtime}</dd></div>
+        <div><dt>REQUESTED</dt><dd>{kataGoRuntimeBackendLabel(kataGoAnalysis?.requestedBackend ?? capabilities?.requestedBackend)}</dd></div>
         <div className="go-ai-slot__wide"><dt>MODEL</dt><dd>{analysis?.modelName ?? capabilities?.modelName ?? '—'}</dd></div>
         <div><dt>ENGINE</dt><dd>{analysis?.engineVersion ?? capabilities?.engineVersion ?? '—'}</dd></div>
-        <div><dt>BACKEND FALLBACK</dt><dd title={analysis?.backendFallbackReason ?? capabilities?.backendFallbackReason ?? undefined}>{yesNo(analysis?.backendFallback ?? capabilities?.backendFallback)}</dd></div>
-        <div><dt>MODEL FALLBACK</dt><dd title={analysis?.modelFallbackReason ?? capabilities?.modelFallbackReason ?? undefined}>{yesNo(analysis?.modelFallback ?? capabilities?.modelFallback)}</dd></div>
-        <div><dt>BLACK WR</dt><dd>{analysis ? percent(analysis.blackWinRate) : '—'}</dd></div>
-        <div><dt>DELTA</dt><dd>{analysis ? delta(analysis.winRateChange) : '—'}</dd></div>
-        <div><dt>PROFILE</dt><dd>{profile === 'fast' ? 'FAST · 2000' : 'STRONG · 20000'}</dd></div>
+        <div><dt>BACKEND FALLBACK</dt><dd title={kataGoAnalysis?.backendFallbackReason ?? capabilities?.backendFallbackReason ?? undefined}>{yesNo(kataGoAnalysis?.backendFallback ?? capabilities?.backendFallback)}</dd></div>
+        <div><dt>MODEL FALLBACK</dt><dd title={kataGoAnalysis?.modelFallbackReason ?? capabilities?.modelFallbackReason ?? undefined}>{yesNo(kataGoAnalysis?.modelFallback ?? capabilities?.modelFallback)}</dd></div>
+        <div><dt>BLACK WR</dt><dd>{analysis?.winRateAvailable ? percent(analysis.blackWinRate) : '—'}</dd></div>
+        <div><dt>DELTA</dt><dd>{analysis?.winRateAvailable ? delta(analysis.winRateChange) : '—'}</dd></div>
+        <div><dt>PROFILE</dt><dd>{analysis?.profileLabel ?? (profile === 'fast' ? 'FAST · 2000' : 'STRONG · 20000')}</dd></div>
         <div><dt>VISITS</dt><dd>{analysis ? `${analysis.visits} / ${analysis.requestedVisits}` : `— / ${capabilities?.profiles[profile].maxVisits ?? '—'}`}</dd></div>
         <div><dt>ELAPSED</dt><dd>{analysis ? `${(analysis.elapsedMs / 1000).toFixed(1)}s` : '—'}</dd></div>
         <div><dt>TIMEOUT CUT</dt><dd>{analysis ? (analysis.timedOut ? 'YES · TRUNCATED' : 'NO') : '—'}</dd></div>
@@ -327,7 +369,7 @@ function KataGoPanel({
             <li key={`${candidate.order}-${candidate.notation}`}>
               <b>{candidate.order + 1}</b>
               <span>{candidate.notation}</span>
-              <small>{percent(candidate.blackWinRate)} · {candidate.visits}v</small>
+              <small>{analysis.winRateAvailable ? `${percent(candidate.blackWinRate)} · ` : ''}{candidate.visits}{analysis.engineId === 'leela-zero' ? 'p' : 'v'}</small>
             </li>
           ))}
         </ol>
@@ -347,9 +389,9 @@ function PlayerStrip({
   name: string
   active: boolean
   prisoners: number
-  analysis?: KataGoAnalysis
+  analysis?: GoAIAnalysis
 }) {
-  const winRate = analysis ? (color === 'black' ? analysis.blackWinRate : analysis.whiteWinRate) : null
+  const winRate = analysis?.winRateAvailable ? (color === 'black' ? analysis.blackWinRate : analysis.whiteWinRate) : null
   return (
     <div className={`go-player-strip${active ? ' go-player-strip--active' : ''}`}>
       <i className={`go-player-strip__stone go-player-strip__stone--${color}`} aria-hidden="true" />
@@ -379,7 +421,7 @@ function getStatusCopy(
   if (state.phase === 'finished') {
     return { eyebrow: 'SESSION COMPLETE', title: '对局结束', detail: '本局已经完成结算' }
   }
-  if (mode === 'ai') {
+  if (mode !== 'local') {
     return {
       eyebrow: runState === 'thinking' ? 'ENGINE THINKING' : state.turn === 'black' ? 'BLACK AI' : 'WHITE AI',
       title: `${playerName(state.turn)}方行棋`,
@@ -407,12 +449,12 @@ function runtimeLabel(state: GoAIRunState): string {
 }
 
 function aiStatusDetail(state: GoAIRunState): string {
-  if (state === 'thinking') return 'KataGo 正在计算候选着'
+  if (state === 'thinking') return '当前 AI 引擎正在计算候选着'
   if (state === 'connecting') return '正在加载本地 AI 模型'
   if (state === 'paused') return 'AI 对弈已暂停'
   if (state === 'error') return 'AI 初始化异常，棋盘状态已保留'
   if (state === 'running') return '自动对弈运行中'
-  return '等待开始 AI 自对弈'
+  return '等待开始 AI 对弈'
 }
 
 function percent(value: number): string {

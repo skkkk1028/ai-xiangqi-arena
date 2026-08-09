@@ -58,3 +58,16 @@
 
 上述 GPLv3 引擎的对应上游源码、项目内修改补丁、构建参数与许可证均在本说明中链接或随仓库
 分发。以后若继续修改任一 GPL 引擎本身，必须同步公开对应修改源码并保留 GPLv3 权利与义务。
+
+## Leela Zero
+
+- 项目：[leela-zero/leela-zero](https://github.com/leela-zero/leela-zero)
+- 固定发行版：`v0.17`，提交 `3f29788`
+- 许可证：GNU General Public License v3.0
+- 对应源码：[v0.17 source](https://github.com/leela-zero/leela-zero/tree/v0.17)
+- 许可证全文：[upstream COPYING](https://github.com/leela-zero/leela-zero/blob/v0.17/COPYING)
+- 最终网络来源：[Leela Zero training server](https://zero.sjeng.org/)
+
+仓库不提交 Leela Zero 二进制或网络。`scripts/setup-leela-zero.ps1` 直接从上游下载固定文件到
+Git 忽略的本地运行目录并执行 SHA-256 校验；本项目未修改 Leela Zero 搜索或网络文件，只通过
+标准 GTP 命令调用。桥接服务本身为本项目代码，不把降低 KataGo 等级伪装成另一个引擎。

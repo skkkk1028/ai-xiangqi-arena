@@ -1771,7 +1771,7 @@
 
 .go-segmented {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 1px;
   padding: 2px;
   border: 1px solid rgba(116, 145, 123, 0.13);
@@ -1828,6 +1828,40 @@
 }
 
 .go-profile-selector button:disabled { opacity: 0.32; cursor: not-allowed; }
+
+.go-engine-selectors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  padding-top: 0.1rem;
+}
+
+.go-engine-selectors label {
+  display: grid;
+  gap: 0.25rem;
+  color: #77867b;
+  font-size: 0.5rem;
+}
+
+.go-engine-selectors select {
+  width: 100%;
+  padding: 0.42rem 0.45rem;
+  border: 1px solid rgba(113, 136, 117, 0.2);
+  border-radius: 2px;
+  color: #b7c1b5;
+  background: #111814;
+  font: 0.55rem "Segoe UI", sans-serif;
+}
+
+.go-engine-selectors select:disabled { opacity: 0.42; }
+
+.go-engine-selectors p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #57635b;
+  font-size: 0.46rem;
+  line-height: 1.55;
+}
 
 .go-runtime-badge--thinking i,
 .go-runtime-badge--running i {

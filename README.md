@@ -52,6 +52,27 @@ Windows 日常测试可直接双击 `start-local-preview.cmd`。它每次都会�
 `http://127.0.0.1:4173/`；如果该端口已被旧预览占用，脚本会停止并显示 PID，避免浏览器误开
 旧版本。预览服务只在本机可访问，重启 Windows 后再次双击即可。
 
+### 围棋 AI 互对弈
+
+围棋页面现在有三个相互独立的模式：“本地双人”、“AI 自对弈”和“AI 互对弈”。新模式可分别
+选择黑白引擎，支持 KataGo/KataGo、KataGo/Leela Zero、Leela Zero/KataGo 和
+Leela Zero/Leela Zero。原有本地双人流程不创建 AI；原有 AI 自对弈仍固定 KataGo，并保留
+原来的 2000/20000 visits 档位。
+
+双击 `start-local-preview.cmd` 会启动端口 8788 的 KataGo bridge 和端口 8789 的
+Leela Zero bridge。首次使用会从上游官方下载 Leela Zero 0.17 Windows OpenCL 构建及最终
+40×256 网络，校验固定 SHA-256 后放入 Git 忽略的本地 `runtime/`。也可手动执行：
+
+```powershell
+pnpm setup:leela-zero
+pnpm test:leela-zero-service
+```
+
+为了缩小不同年代网络的差距，仅在“AI 互对弈”中把 KataGo 固定为 2000 visits，Leela Zero
+固定为 3200 playouts；这不是已经证明的同等级 Elo。当前 RTX 4050 Laptop GPU 上已验证
+Leela Zero 能完成真实搜索，但严谨的棋力匹配仍需进行交换黑白的多局统计。具体接入、校验值和
+限制见 [`services/leela-zero-bridge/README.md`](./services/leela-zero-bridge/README.md)。
+
 ## 公开部署（Cloudflare Pages）
 
 本项目不能使用 GitHub Pages 作为专业引擎的生产托管：该平台不能为静态响应配置

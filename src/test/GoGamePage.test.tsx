@@ -171,4 +171,22 @@ describe('围棋 React 页面', () => {
     expect(screen.getByRole('gridcell', { name: 'D16，空点' })).toBeDisabled()
     expect(screen.queryByText('1 手')).not.toBeInTheDocument()
   })
+
+  it('提供独立 AI 互对弈入口和黑白双方引擎选择', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json(
+      { code: 'LOCAL_ENGINE_REQUIRED', message: '本测试未启动原生引擎。' },
+      { status: 503 },
+    )))
+    render(<GoGamePage />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI 互对弈' }))
+
+    const black = await screen.findByRole('combobox', { name: '黑方 AI 引擎' })
+    const white = screen.getByRole('combobox', { name: '白方 AI 引擎' })
+    expect(black).toHaveValue('katago')
+    expect(white).toHaveValue('leela-zero')
+    expect(black.querySelectorAll('option')).toHaveLength(2)
+    expect(white.querySelectorAll('option')).toHaveLength(2)
+    expect(screen.getByText(/现有 AI 自对弈配置不变/)).toBeInTheDocument()
+  })
 })

@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { GameController } from '../core'
+import { GameController, type AIEngine } from '../core'
 import {
+  GO_AI_ENGINES,
+  HttpLeelaZeroTransport,
   KataGoEngine,
   KataGoMatchAnalysisStore,
+  LeelaZeroEngine,
+  goAIEngineName,
+  type GoAIAnalysis,
+  type GoAIAnalysisListener,
+  type GoAIEngineId,
   type KataGoAnalysis,
   type KataGoCapabilities,
   type KataGoSearchProfile,
@@ -13,16 +20,19 @@ import { GoGameEngine } from './game-engine'
 import { getGoGroup } from './rules'
 import type { GoGameState, GoMove, GoMoveRecord, GoPlayer, GoPoint } from './types'
 
-export type GoMatchMode = 'local' | 'ai'
+export type GoMatchMode = 'local' | 'ai' | 'battle'
 export type GoAIRunState = 'offline' | 'connecting' | 'ready' | 'running' | 'thinking' | 'paused' | 'error'
 
-type GoController = GameController<GoGameState, GoMove, GoPlayer, GoMoveRecord, KataGoAnalysis>
+type GoController = GameController<GoGameState, GoMove, GoPlayer, GoMoveRecord, GoAIAnalysis>
+type GoSeatEngine = AIEngine<GoGameState, GoMove, GoPlayer, GoMoveRecord, GoAIAnalysis> & {
+  subscribe(listener: GoAIAnalysisListener): () => void
+}
 
 interface AISession {
   controller: GoController
-  transport: KataGoTransport
+  transports: readonly { dispose(): void | Promise<void> }[]
   unsubscribe: readonly (() => void)[]
-  capabilities: KataGoCapabilities
+  capabilities: KataGoCapabilities | null
 }
 
 const GO_ENGINE = new GoGameEngine()
@@ -32,10 +42,14 @@ export function useGoMatch() {
   const [state, setStateValue] = useState<GoGameState>(() => GO_ENGINE.init())
   const [mode, setModeValue] = useState<GoMatchMode>('local')
   const [profile, setProfileValue] = useState<KataGoSearchProfile>('strong')
+  const [battleEngines, setBattleEnginesValue] = useState<Record<GoPlayer, GoAIEngineId>>({
+    black: 'katago',
+    white: 'leela-zero',
+  })
   const [runState, setRunStateValue] = useState<GoAIRunState>('offline')
   const [notice, setNotice] = useState<string | null>(null)
   const [capabilities, setCapabilities] = useState<KataGoCapabilities | null>(null)
-  const [analysisByPlayer, setAnalysisByPlayer] = useState<Partial<Record<GoPlayer, KataGoAnalysis>>>({})
+  const [analysisByPlayer, setAnalysisByPlayer] = useState<Partial<Record<GoPlayer, GoAIAnalysis>>>({})
   const [deadStoneRepresentatives, setDeadStoneRepresentatives] = useState<GoPoint[]>([])
   const [scoringConfirmations, setScoringConfirmations] = useState<Record<GoPlayer, boolean>>({
     black: false,
@@ -45,6 +59,7 @@ export function useGoMatch() {
   const stateRef = useRef(state)
   const modeRef = useRef(mode)
   const profileRef = useRef(profile)
+  const battleEnginesRef = useRef(battleEngines)
   const runStateRef = useRef(runState)
   const sessionRef = useRef<AISession | null>(null)
   const loopTokenRef = useRef(0)
@@ -89,50 +104,79 @@ export function useGoMatch() {
     if (!session) return
     for (const unsubscribe of session.unsubscribe) unsubscribe()
     await session.controller.dispose()
-    session.transport.dispose()
+    for (const transport of session.transports) await transport.dispose()
   }, [])
 
   const createSession = useCallback(async (initialState?: GoGameState) => {
     await disposeSession()
-    // With VITE_KATAGO_BRIDGE=1 the Go AI talks to the local native KataGo
-    // bridge (pro-level). Otherwise it uses the fully-browser TF.js engine.
-    const transport = await createConfiguredKataGoTransport()
-    const store = new KataGoMatchAnalysisStore()
-    const black = new KataGoEngine('katago-black', {
-      transport,
-      profile: profileRef.current,
-      analysisStore: store,
-    })
-    const white = new KataGoEngine('katago-white', {
-      transport,
-      profile: profileRef.current,
-      analysisStore: store,
-    })
-    const sessionGame = new GoSessionGameEngine(initialState)
-    const controller = new GameController<GoGameState, GoMove, GoPlayer, GoMoveRecord, KataGoAnalysis>(
-      sessionGame,
-      [
-        { id: 'black', name: 'KataGo 黑方', kind: 'ai', engine: black },
-        { id: 'white', name: 'KataGo 白方', kind: 'ai', engine: white },
-      ],
-    )
-    const publish = (analysis: KataGoAnalysis) => {
-      if (!mountedRef.current) return
-      setAnalysisByPlayer((current) => ({ ...current, [analysis.player]: analysis }))
-    }
-    const unsubscribe = [black.subscribe(publish), white.subscribe(publish)]
+    const sessionMode = modeRef.current
+    const seatIds: Record<GoPlayer, GoAIEngineId> = sessionMode === 'ai'
+      ? { black: 'katago', white: 'katago' }
+      : battleEnginesRef.current
+    const transports: { dispose(): void | Promise<void> }[] = []
+    let kataGoTransport: KataGoTransport | null = null
+    let leelaZeroTransport: HttpLeelaZeroTransport | null = null
+    let kataGoCapabilities: KataGoCapabilities | null = null
+    const kataGoStore = new KataGoMatchAnalysisStore()
+    let controller: GoController | null = null
+    let unsubscribe: (() => void)[] = []
     try {
-      const serviceCapabilities = await transport.initialize()
+      const needsLeelaZero = seatIds.black === 'leela-zero' || seatIds.white === 'leela-zero'
+      if (needsLeelaZero && !USE_NATIVE_KATAGO) {
+        throw new Error('Leela Zero 仅支持 start-local-preview.cmd 启动的本地原生模式。')
+      }
+      if (seatIds.black === 'katago' || seatIds.white === 'katago') {
+        kataGoTransport = await createConfiguredKataGoTransport()
+        transports.push(kataGoTransport)
+        kataGoCapabilities = await kataGoTransport.initialize()
+      }
+      if (needsLeelaZero) {
+        leelaZeroTransport = new HttpLeelaZeroTransport()
+        transports.push(leelaZeroTransport)
+        await leelaZeroTransport.initialize()
+      }
+
+      const createSeatEngine = (player: GoPlayer): GoSeatEngine => {
+        const engineId = seatIds[player]
+        if (engineId === 'katago' && kataGoTransport) {
+          return new KataGoEngine(`katago-${player}`, {
+            transport: kataGoTransport,
+            // Existing AI self-play keeps its selected 2k/20k profile. Only the
+            // new battle mode uses the isolated 2k matching budget.
+            profile: sessionMode === 'battle' ? 'fast' : profileRef.current,
+            analysisStore: kataGoStore,
+          })
+        }
+        if (engineId === 'leela-zero' && leelaZeroTransport) {
+          return new LeelaZeroEngine(`leela-zero-${player}`, leelaZeroTransport)
+        }
+        throw new Error(`${goAIEngineName(engineId)} 传输层尚未就绪。`)
+      }
+      const black = createSeatEngine('black')
+      const white = createSeatEngine('white')
+      const sessionGame = new GoSessionGameEngine(initialState)
+      controller = new GameController<GoGameState, GoMove, GoPlayer, GoMoveRecord, GoAIAnalysis>(
+        sessionGame,
+        [
+          { id: 'black', name: `${goAIEngineName(seatIds.black)} 黑方`, kind: 'ai', engine: black },
+          { id: 'white', name: `${goAIEngineName(seatIds.white)} 白方`, kind: 'ai', engine: white },
+        ],
+      )
+      const publish = (analysis: GoAIAnalysis) => {
+        if (!mountedRef.current) return
+        setAnalysisByPlayer((current) => ({ ...current, [analysis.player]: analysis }))
+      }
+      unsubscribe = [black.subscribe(publish), white.subscribe(publish)]
       const snapshot = await controller.start()
-      const session = { controller, transport, unsubscribe, capabilities: serviceCapabilities }
+      const session = { controller, transports, unsubscribe, capabilities: kataGoCapabilities }
       sessionRef.current = session
-      setCapabilities(serviceCapabilities)
+      setCapabilities(kataGoCapabilities)
       setState(snapshot.state)
       return session
     } catch (error) {
       for (const release of unsubscribe) release()
-      await controller.dispose().catch(() => undefined)
-      transport.dispose()
+      await controller?.dispose().catch(() => undefined)
+      for (const transport of transports) await transport.dispose()
       throw error
     }
   }, [disposeSession, setState])
@@ -147,7 +191,7 @@ export function useGoMatch() {
 
   const playOneAITurn = useCallback(async (): Promise<boolean> => {
     const session = sessionRef.current
-    if (!session) throw new Error('KataGo 会话尚未建立。')
+    if (!session) throw new Error('围棋 AI 会话尚未建立。')
     const current = session.controller.getSnapshot()
     if (current.state.phase !== 'playing') {
       setState(current.state)
@@ -173,7 +217,7 @@ export function useGoMatch() {
     try {
       while (
         mountedRef.current &&
-        modeRef.current === 'ai' &&
+        modeRef.current !== 'local' &&
         autoRunningRef.current &&
         token === loopTokenRef.current
       ) {
@@ -191,7 +235,7 @@ export function useGoMatch() {
   }, [playOneAITurn, setRunState])
 
   const startAI = useCallback(async () => {
-    if (modeRef.current !== 'ai' || autoRunningRef.current) return
+    if (modeRef.current === 'local' || autoRunningRef.current) return
     try {
       if (!sessionRef.current) {
         setRunState('connecting')
@@ -205,12 +249,12 @@ export function useGoMatch() {
     } catch (error) {
       autoRunningRef.current = false
       setRunState('error')
-      setNotice(errorMessage(error, 'KataGo 无法启动。'))
+      setNotice(errorMessage(error, '围棋 AI 无法启动。'))
     }
   }, [createSession, runAILoop, setRunState])
 
   const stepAI = useCallback(async () => {
-    if (modeRef.current !== 'ai' || autoRunningRef.current) return
+    if (modeRef.current === 'local' || autoRunningRef.current) return
     try {
       if (!sessionRef.current) {
         setRunState('connecting')
@@ -222,7 +266,7 @@ export function useGoMatch() {
     } catch (error) {
       if (isAbortError(error)) return
       setRunState('error')
-      setNotice(errorMessage(error, 'KataGo 单步搜索失败。'))
+      setNotice(errorMessage(error, '围棋 AI 单步搜索失败。'))
     }
   }, [createSession, playOneAITurn, setRunState])
 
@@ -245,20 +289,46 @@ export function useGoMatch() {
       return
     }
     setRunState('connecting')
-    setNotice(USE_NATIVE_KATAGO
-      ? '正在启动 Native KataGo 并加载本机 GPU 模型…'
-      : '正在浏览器中加载 KataGo 模型，首次使用需要下载模型…')
+    setNotice(next === 'battle'
+      ? '正在连接黑白双方的本地 AI 引擎…'
+      : USE_NATIVE_KATAGO
+        ? '正在启动 Native KataGo 并加载本机 GPU 模型…'
+        : '正在浏览器中加载 KataGo 模型，首次使用需要下载模型…')
     try {
       await createSession(fresh)
       setRunState('ready')
-      setNotice(USE_NATIVE_KATAGO
-        ? 'Native KataGo 已就绪，可以开始自对弈。'
-        : '浏览器 KataGo 已就绪，可以开始自对弈。')
+      setNotice(next === 'battle'
+        ? 'AI 互对弈引擎已就绪，可以开始对弈。'
+        : USE_NATIVE_KATAGO
+          ? 'Native KataGo 已就绪，可以开始自对弈。'
+          : '浏览器 KataGo 已就绪，可以开始自对弈。')
     } catch (error) {
       setRunState('error')
       setNotice(errorMessage(error, 'KataGo 初始化失败。'))
     }
   }, [createSession, disposeSession, resetScoringReview, setRunState, setState])
+
+  const changeBattleEngine = useCallback(async (player: GoPlayer, engineId: GoAIEngineId) => {
+    if (modeRef.current !== 'battle' || autoRunningRef.current) return
+    if (!GO_AI_ENGINES.some((engine) => engine.id === engineId)) return
+    if (battleEnginesRef.current[player] === engineId) return
+    const next = { ...battleEnginesRef.current, [player]: engineId }
+    battleEnginesRef.current = next
+    setBattleEnginesValue(next)
+    setAnalysisByPlayer({})
+    const fresh = GO_ENGINE.init()
+    setState(fresh)
+    setRunState('connecting')
+    setNotice('引擎组合已更改，正在建立新的互对弈会话。')
+    try {
+      await createSession(fresh)
+      setRunState('ready')
+      setNotice('AI 互对弈引擎已就绪，可以开始对弈。')
+    } catch (error) {
+      setRunState('error')
+      setNotice(errorMessage(error, '围棋 AI 组合初始化失败。'))
+    }
+  }, [createSession, setRunState, setState])
 
   const changeProfile = useCallback(async (next: KataGoSearchProfile) => {
     if (next === profileRef.current || autoRunningRef.current) return
@@ -351,13 +421,13 @@ export function useGoMatch() {
       resetScoringReview()
       setState(resumed)
       setNotice('已恢复落子，虚着计数已清零。')
-      if (modeRef.current === 'ai') {
+      if (modeRef.current !== 'local') {
         setRunState('connecting')
         await createSession(resumed)
         setRunState('paused')
       }
     } catch (error) {
-      setRunState(modeRef.current === 'ai' ? 'error' : 'offline')
+      setRunState(modeRef.current !== 'local' ? 'error' : 'offline')
       setNotice(errorMessage(error, '当前无法恢复落子。'))
     }
   }, [createSession, resetScoringReview, setRunState, setState])
@@ -373,6 +443,7 @@ export function useGoMatch() {
     state,
     mode,
     profile,
+    battleEngines,
     runState,
     notice,
     capabilities,
@@ -384,6 +455,7 @@ export function useGoMatch() {
     execute,
     changeMode,
     changeProfile,
+    changeBattleEngine,
     startAI,
     pauseAI,
     stepAI,

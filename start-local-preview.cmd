@@ -6,12 +6,15 @@ if "%ROOT_DIR:~-1%"=="\" set "ROOT_DIR=%ROOT_DIR:~0,-1%"
 
 set "PREVIEW_PORT=4173"
 set "BRIDGE_PORT=8788"
+set "LEELA_BRIDGE_PORT=8789"
 set "VERIFY_ONLY=0"
 set "NO_PAUSE=0"
 set "BRIDGE_STARTED=0"
 set "PREVIEW_STARTED=0"
+set "LEELA_BRIDGE_STARTED=0"
 set "BRIDGE_PID="
 set "PREVIEW_PID="
+set "LEELA_BRIDGE_PID="
 
 :parse_args
 if "%~1"=="" goto args_done
@@ -48,6 +51,11 @@ if not exist "%~dp0services\katago-bridge\runtime\katago.exe" (
 if not exist "%~dp0services\katago-bridge\config\analysis.cfg" (
   echo Native KataGo analysis configuration is missing.
   goto :fail
+)
+if not exist "%~dp0services\leela-zero-bridge\.env" (
+  echo Leela Zero runtime is not configured. Running the verified one-time setup...
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\setup-leela-zero.ps1"
+  if errorlevel 1 goto :fail
 )
 
 set "LISTEN_PID="
@@ -98,6 +106,43 @@ if errorlevel 1 goto :wait_bridge
 "%NODE_EXE%" "%~dp0scripts\verify-native-katago.mjs" --capabilities-only
 if errorlevel 1 goto :fail
 
+"%NODE_EXE%" "%~dp0scripts\verify-native-leela-zero.mjs" --capabilities-only >nul 2>nul
+if not errorlevel 1 (
+  echo A verified Native Leela Zero bridge is already running on port %LEELA_BRIDGE_PORT%.
+  goto :leela_bridge_ready
+)
+
+set "LEELA_LISTEN_PID="
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":%LEELA_BRIDGE_PORT% .*LISTENING"') do set "LEELA_LISTEN_PID=%%P"
+if defined LEELA_LISTEN_PID (
+  echo Port %LEELA_BRIDGE_PORT% is occupied by PID %LEELA_LISTEN_PID%, but it is not the configured Leela Zero bridge.
+  goto :fail
+)
+
+echo Starting Native Leela Zero bridge in a hidden background process...
+for /f "delims=" %%P in ('call "%NODE_EXE%" "%~dp0scripts\start-detached-process.mjs" --cwd "%ROOT_DIR%" --stdout "%TEMP%\project10-leela-zero-bridge.out.log" --stderr "%TEMP%\project10-leela-zero-bridge.err.log" "%NODE_EXE%" "--env-file=%~dp0services\leela-zero-bridge\.env" "%~dp0services\leela-zero-bridge\src\server.mjs"') do set "LEELA_BRIDGE_PID=%%P"
+if not defined LEELA_BRIDGE_PID (
+  echo Failed to start the Native Leela Zero bridge.
+  goto :fail
+)
+set "LEELA_BRIDGE_STARTED=1"
+
+echo Waiting for Leela Zero model and OpenCL initialization...
+set "LEELA_READY_WAIT=0"
+:wait_leela_bridge
+set /a LEELA_READY_WAIT+=1
+if %LEELA_READY_WAIT% GTR 300 (
+  echo Native Leela Zero did not become ready. See %TEMP%\project10-leela-zero-bridge.err.log
+  goto :fail
+)
+powershell -NoProfile -Command "Start-Sleep -Seconds 2"
+"%NODE_EXE%" "%~dp0scripts\verify-native-leela-zero.mjs" --capabilities-only >nul 2>nul
+if errorlevel 1 goto :wait_leela_bridge
+
+:leela_bridge_ready
+"%NODE_EXE%" "%~dp0scripts\verify-native-leela-zero.mjs" --capabilities-only
+if errorlevel 1 goto :fail
+
 echo Starting Vite preview in a hidden background process...
 for /f "delims=" %%P in ('call "%NODE_EXE%" "%~dp0scripts\start-detached-process.mjs" --cwd "%ROOT_DIR%" --stdout "%TEMP%\project10-vite-preview.out.log" --stderr "%TEMP%\project10-vite-preview.err.log" "%NODE_EXE%" "%~dp0node_modules\vite\bin\vite.js" preview --outDir .vite-output --host 127.0.0.1 --port %PREVIEW_PORT% --strictPort') do set "PREVIEW_PID=%%P"
 if not defined PREVIEW_PID (
@@ -121,6 +166,9 @@ if "%VERIFY_ONLY%"=="1" (
   echo Running a real 2000-visit Native KataGo analysis...
   "%NODE_EXE%" "%~dp0scripts\verify-native-katago.mjs"
   if errorlevel 1 goto :fail
+  echo Running a real 3200-playout Native Leela Zero analysis...
+  "%NODE_EXE%" "%~dp0scripts\verify-native-leela-zero.mjs"
+  if errorlevel 1 goto :fail
   echo Local preview verification passed.
   call :cleanup
   endlocal
@@ -130,7 +178,8 @@ if "%VERIFY_ONLY%"=="1" (
 start "" "http://127.0.0.1:%PREVIEW_PORT%/"
 echo AI Xiangqi is available at http://127.0.0.1:%PREVIEW_PORT%/
 echo Native KataGo bridge is available at http://127.0.0.1:%BRIDGE_PORT%/
-echo Process IDs: preview=%PREVIEW_PID% bridge=%BRIDGE_PID%
+echo Native Leela Zero bridge is available at http://127.0.0.1:%LEELA_BRIDGE_PORT%/
+echo Process IDs: preview=%PREVIEW_PID% katago=%BRIDGE_PID% leela-zero=%LEELA_BRIDGE_PID%
 if "%NO_PAUSE%"=="0" pause
 endlocal
 exit /b 0
@@ -147,6 +196,7 @@ exit /b %errorlevel%
 :cleanup
 if "%PREVIEW_STARTED%"=="1" if defined PREVIEW_PID taskkill /PID %PREVIEW_PID% /T /F >nul 2>nul
 if "%BRIDGE_STARTED%"=="1" if defined BRIDGE_PID taskkill /PID %BRIDGE_PID% /T /F >nul 2>nul
+if "%LEELA_BRIDGE_STARTED%"=="1" if defined LEELA_BRIDGE_PID taskkill /PID %LEELA_BRIDGE_PID% /T /F >nul 2>nul
 exit /b 0
 
 :fail

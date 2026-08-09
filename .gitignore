@@ -4,6 +4,8 @@ dist/
 coverage/
 .env
 services/katago-bridge/runtime/
+services/leela-zero-bridge/runtime/
+leelaz_opencl_tuning
 *.log
 *.tsbuildinfo
 .DS_Store

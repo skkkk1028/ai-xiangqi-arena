@@ -176,6 +176,8 @@ export class KataGoEngine
     const currentPlayerWinRate = player === 'black' ? blackWinRate : 1 - blackWinRate
     const previousForPlayer = previous === null ? null : player === 'black' ? previous : 1 - previous
     return {
+      engineId: 'katago',
+      engineName: 'KataGo',
       requestId: event.requestId,
       player,
       stage: event.stage,
@@ -183,12 +185,14 @@ export class KataGoEngine
       blackWinRate,
       whiteWinRate: 1 - blackWinRate,
       currentPlayerWinRate,
+      winRateAvailable: true,
       winRateChange: previousForPlayer === null ? null : currentPlayerWinRate - previousForPlayer,
       scoreLeadBlack: finiteOrNull(event.root.scoreLead),
       visits: Math.max(0, Math.trunc(event.root.visits)),
       elapsedMs: Math.max(0, Math.trunc(event.elapsedMs)),
       requestedVisits: Math.max(0, Math.trunc(event.requestedVisits)),
       runtimeBackend: event.runtimeBackend,
+      runtimeLabel: event.runtimeBackend === 'native-katago' ? 'Native KataGo · OpenCL' : event.runtimeBackend,
       requestedBackend: event.requestedBackend,
       backendFallback: event.backendFallback,
       backendFallbackReason: event.backendFallbackReason,
@@ -203,6 +207,7 @@ export class KataGoEngine
       engineVersion: event.engineVersion,
       modelName: event.modelName,
       profile: event.profile,
+      profileLabel: event.profile === 'fast' ? 'FAST · 2000' : 'STRONG · 20000',
     }
   }
 

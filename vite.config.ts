@@ -5,6 +5,25 @@ import { loadEnv } from 'vite'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '')
   const kataGoOrigin = env.KATAGO_DEV_ORIGIN || 'http://127.0.0.1:8788'
+  const leelaZeroOrigin = env.LEELA_ZERO_DEV_ORIGIN || 'http://127.0.0.1:8789'
+  const apiProxy = {
+    '/api/go/model/strong.bin.gz': {
+      target: 'https://media.katagotraining.org',
+      changeOrigin: true,
+      rewrite: () => '/uploaded/networks/models/kata1/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz',
+    },
+    '/api/go/katago': {
+      target: kataGoOrigin,
+      changeOrigin: true,
+      headers: env.KATAGO_PROXY_SECRET
+        ? { 'X-KataGo-Proxy-Secret': env.KATAGO_PROXY_SECRET }
+        : undefined,
+    },
+    '/api/go/leela-zero': {
+      target: leelaZeroOrigin,
+      changeOrigin: true,
+    },
+  }
   return {
     base: './',
     plugins: [react()],
@@ -14,20 +33,7 @@ export default defineConfig(({ mode }) => {
         'Cross-Origin-Embedder-Policy': 'require-corp',
         'Cross-Origin-Resource-Policy': 'same-origin',
       },
-      proxy: {
-        '/api/go/model/strong.bin.gz': {
-          target: 'https://media.katagotraining.org',
-          changeOrigin: true,
-          rewrite: () => '/uploaded/networks/models/kata1/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz',
-        },
-        '/api/go/katago': {
-          target: kataGoOrigin,
-          changeOrigin: true,
-          headers: env.KATAGO_PROXY_SECRET
-            ? { 'X-KataGo-Proxy-Secret': env.KATAGO_PROXY_SECRET }
-            : undefined,
-        },
-      },
+      proxy: apiProxy,
     },
     preview: {
       headers: {
@@ -35,6 +41,7 @@ export default defineConfig(({ mode }) => {
         'Cross-Origin-Embedder-Policy': 'require-corp',
         'Cross-Origin-Resource-Policy': 'same-origin',
       },
+      proxy: apiProxy,
     },
     build: {
       outDir: '.vite-output',
