@@ -65,6 +65,9 @@ export class BrowserKataGoTransport implements KataGoTransport {
     options: KataGoAnalyzeOptions = {},
   ): Promise<KataGoWireAnalysisEvent> {
     this.assertActive()
+    if (request.profile === 'battle-matched') {
+      throw new Error('AI 互对弈的匹配档位仅支持本机 Native KataGo。')
+    }
     const capabilities = await this.initialize(options.signal)
     if (this.activeRequestId) throw new Error('浏览器 KataGo 已有一个进行中的搜索。')
 
@@ -210,6 +213,9 @@ function toWireEvent(
   stage: 'partial' | 'final',
   capabilities: KataGoCapabilities,
 ): KataGoWireAnalysisEvent {
+  if (request.profile === 'battle-matched') {
+    throw new Error('浏览器 KataGo 不支持 battle-matched 档位。')
+  }
   const info = getKataGoEngineClient().getEngineInfo()
   const requestedVisits = PROFILES[request.profile].maxVisits
   const visits = analysis.rootVisits

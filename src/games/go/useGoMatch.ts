@@ -3,13 +3,17 @@ import { GameController, type AIEngine } from '../core'
 import {
   GO_AI_ENGINES,
   HttpLeelaZeroTransport,
+  HttpSayuriTransport,
   KataGoEngine,
   KataGoMatchAnalysisStore,
   LeelaZeroEngine,
+  SayuriEngine,
   goAIEngineName,
+  kataGoRuntimeBackendLabel,
   type GoAIAnalysis,
   type GoAIAnalysisListener,
   type GoAIEngineId,
+  type GoAIEngineRuntimeDetails,
   type KataGoAnalysis,
   type KataGoCapabilities,
   type KataGoSearchProfile,
@@ -33,6 +37,7 @@ interface AISession {
   transports: readonly { dispose(): void | Promise<void> }[]
   unsubscribe: readonly (() => void)[]
   capabilities: KataGoCapabilities | null
+  engineDetails: Partial<Record<GoAIEngineId, GoAIEngineRuntimeDetails>>
 }
 
 const GO_ENGINE = new GoGameEngine()
@@ -49,6 +54,7 @@ export function useGoMatch() {
   const [runState, setRunStateValue] = useState<GoAIRunState>('offline')
   const [notice, setNotice] = useState<string | null>(null)
   const [capabilities, setCapabilities] = useState<KataGoCapabilities | null>(null)
+  const [engineDetails, setEngineDetails] = useState<Partial<Record<GoAIEngineId, GoAIEngineRuntimeDetails>>>({})
   const [analysisByPlayer, setAnalysisByPlayer] = useState<Partial<Record<GoPlayer, GoAIAnalysis>>>({})
   const [deadStoneRepresentatives, setDeadStoneRepresentatives] = useState<GoPoint[]>([])
   const [scoringConfirmations, setScoringConfirmations] = useState<Record<GoPlayer, boolean>>({
@@ -116,24 +122,56 @@ export function useGoMatch() {
     const transports: { dispose(): void | Promise<void> }[] = []
     let kataGoTransport: KataGoTransport | null = null
     let leelaZeroTransport: HttpLeelaZeroTransport | null = null
+    let sayuriTransport: HttpSayuriTransport | null = null
     let kataGoCapabilities: KataGoCapabilities | null = null
+    const sessionEngineDetails: Partial<Record<GoAIEngineId, GoAIEngineRuntimeDetails>> = {}
     const kataGoStore = new KataGoMatchAnalysisStore()
     let controller: GoController | null = null
     let unsubscribe: (() => void)[] = []
     try {
       const needsLeelaZero = seatIds.black === 'leela-zero' || seatIds.white === 'leela-zero'
-      if (needsLeelaZero && !USE_NATIVE_KATAGO) {
-        throw new Error('Leela Zero 仅支持 start-local-preview.cmd 启动的本地原生模式。')
+      const needsSayuri = seatIds.black === 'sayuri' || seatIds.white === 'sayuri'
+      if ((needsLeelaZero || needsSayuri) && !USE_NATIVE_KATAGO) {
+        throw new Error(`${needsSayuri ? 'Sayuri' : 'Leela Zero'} 仅支持 start-local-preview.cmd 启动的本地原生模式。`)
       }
       if (seatIds.black === 'katago' || seatIds.white === 'katago') {
         kataGoTransport = await createConfiguredKataGoTransport()
         transports.push(kataGoTransport)
         kataGoCapabilities = await kataGoTransport.initialize()
+        const battleProfile = kataGoCapabilities.profiles['battle-matched']
+        const activeProfile = sessionMode === 'battle' ? battleProfile : kataGoCapabilities.profiles[profileRef.current]
+        if (!activeProfile) throw new Error('KataGo 服务未提供 battle-matched 独立搜索档位。')
+        sessionEngineDetails.katago = {
+          engineVersion: kataGoCapabilities.engineVersion,
+          modelName: kataGoCapabilities.modelName,
+          budget: activeProfile.maxVisits,
+          budgetUnit: 'visits',
+          runtimeLabel: kataGoRuntimeBackendLabel(kataGoCapabilities.runtimeBackend),
+        }
       }
       if (needsLeelaZero) {
         leelaZeroTransport = new HttpLeelaZeroTransport()
         transports.push(leelaZeroTransport)
-        await leelaZeroTransport.initialize()
+        const details = await leelaZeroTransport.initialize()
+        sessionEngineDetails['leela-zero'] = {
+          engineVersion: details.engineVersion,
+          modelName: details.modelName,
+          budget: details.playouts,
+          budgetUnit: 'playouts',
+          runtimeLabel: 'Native Leela Zero · OpenCL',
+        }
+      }
+      if (needsSayuri) {
+        sayuriTransport = new HttpSayuriTransport()
+        transports.push(sayuriTransport)
+        const details = await sayuriTransport.initialize()
+        sessionEngineDetails.sayuri = {
+          engineVersion: details.engineVersion,
+          modelName: details.modelName,
+          budget: details.playouts,
+          budgetUnit: 'playouts',
+          runtimeLabel: 'Native Sayuri · CUDA 12',
+        }
       }
 
       const createSeatEngine = (player: GoPlayer): GoSeatEngine => {
@@ -142,13 +180,16 @@ export function useGoMatch() {
           return new KataGoEngine(`katago-${player}`, {
             transport: kataGoTransport,
             // Existing AI self-play keeps its selected 2k/20k profile. Only the
-            // new battle mode uses the isolated 2k matching budget.
-            profile: sessionMode === 'battle' ? 'fast' : profileRef.current,
+            // battle mode can request the independently calibrated budget.
+            profile: sessionMode === 'battle' ? 'battle-matched' : profileRef.current,
             analysisStore: kataGoStore,
           })
         }
         if (engineId === 'leela-zero' && leelaZeroTransport) {
           return new LeelaZeroEngine(`leela-zero-${player}`, leelaZeroTransport)
+        }
+        if (engineId === 'sayuri' && sayuriTransport) {
+          return new SayuriEngine(`sayuri-${player}`, sayuriTransport)
         }
         throw new Error(`${goAIEngineName(engineId)} 传输层尚未就绪。`)
       }
@@ -168,9 +209,10 @@ export function useGoMatch() {
       }
       unsubscribe = [black.subscribe(publish), white.subscribe(publish)]
       const snapshot = await controller.start()
-      const session = { controller, transports, unsubscribe, capabilities: kataGoCapabilities }
+      const session = { controller, transports, unsubscribe, capabilities: kataGoCapabilities, engineDetails: sessionEngineDetails }
       sessionRef.current = session
       setCapabilities(kataGoCapabilities)
+      setEngineDetails(sessionEngineDetails)
       setState(snapshot.state)
       return session
     } catch (error) {
@@ -280,6 +322,7 @@ export function useGoMatch() {
     setModeValue(next)
     setAnalysisByPlayer({})
     setCapabilities(null)
+    setEngineDetails({})
     resetScoringReview()
     const fresh = GO_ENGINE.init()
     setState(fresh)
@@ -447,6 +490,7 @@ export function useGoMatch() {
     runState,
     notice,
     capabilities,
+    engineDetails,
     analysisByPlayer,
     legalMoveKeys,
     scorePreview,

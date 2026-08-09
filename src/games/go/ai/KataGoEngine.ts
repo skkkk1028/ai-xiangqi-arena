@@ -12,13 +12,13 @@ import {
   KataGoMatchAnalysisStore,
   type KataGoAnalysis,
   type KataGoAnalysisListener,
-  type KataGoSearchProfile,
+  type KataGoRequestProfile,
   type KataGoWireAnalysisEvent,
 } from './types'
 
 export interface KataGoEngineOptions {
   transport: KataGoTransport
-  profile?: KataGoSearchProfile
+  profile?: KataGoRequestProfile
   analysisStore?: KataGoMatchAnalysisStore
 }
 
@@ -27,7 +27,7 @@ export class KataGoEngine
 {
   readonly id: string
   readonly name = 'KataGo'
-  readonly profile: KataGoSearchProfile
+  readonly profile: KataGoRequestProfile
 
   private readonly transport: KataGoTransport
   private readonly ownsTransport: boolean
@@ -207,7 +207,11 @@ export class KataGoEngine
       engineVersion: event.engineVersion,
       modelName: event.modelName,
       profile: event.profile,
-      profileLabel: event.profile === 'fast' ? 'FAST · 2000' : 'STRONG · 20000',
+      profileLabel: event.profile === 'fast'
+        ? 'FAST · 2000'
+        : event.profile === 'strong'
+          ? 'STRONG · 20000'
+          : `BATTLE MATCHED · ${event.requestedVisits}`,
     }
   }
 

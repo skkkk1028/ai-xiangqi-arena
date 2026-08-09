@@ -55,9 +55,8 @@ Windows 日常测试可直接双击 `start-local-preview.cmd`。它每次都会�
 ### 围棋 AI 互对弈
 
 围棋页面现在有三个相互独立的模式：“本地双人”、“AI 自对弈”和“AI 互对弈”。新模式可分别
-选择黑白引擎，支持 KataGo/KataGo、KataGo/Leela Zero、Leela Zero/KataGo 和
-Leela Zero/Leela Zero。原有本地双人流程不创建 AI；原有 AI 自对弈仍固定 KataGo，并保留
-原来的 2000/20000 visits 档位。
+选择黑白引擎，KataGo、Leela Zero、Sayuri 可组成全部 9 种有序黑白组合。原有本地双人流程
+不创建 AI；原有 AI 自对弈仍固定 KataGo，并保留原来的 2000/20000 visits 档位。
 
 双击 `start-local-preview.cmd` 会启动端口 8788 的 KataGo bridge 和端口 8789 的
 Leela Zero bridge。首次使用会从上游官方下载 Leela Zero 0.17 Windows OpenCL 构建及最终
@@ -68,10 +67,21 @@ pnpm setup:leela-zero
 pnpm test:leela-zero-service
 ```
 
-为了缩小不同年代网络的差距，仅在“AI 互对弈”中把 KataGo 固定为 2000 visits，Leela Zero
-固定为 3200 playouts；这不是已经证明的同等级 Elo。当前 RTX 4050 Laptop GPU 上已验证
-Leela Zero 能完成真实搜索，但严谨的棋力匹配仍需进行交换黑白的多局统计。具体接入、校验值和
-限制见 [`services/leela-zero-bridge/README.md`](./services/leela-zero-bridge/README.md)。
+Sayuri 是可选安装，不会在双击启动时自动下载；未安装时网站、KataGo 和 Leela Zero 仍照常
+启动。安装后端口 8790 只先启动桥接服务，首次在互对弈中选中 Sayuri 才加载 CUDA 模型：
+
+```powershell
+pnpm setup:sayuri
+pnpm test:sayuri-service
+pnpm verify:sayuri
+```
+
+Sayuri 默认请求 20000 playouts。KataGo 在“AI 互对弈”中使用独立
+`KATAGO_BATTLE_MATCHED_VISITS`，不会改变自对弈的 2000/20000 档位。仓库默认 250 只是正式
+校准前的保守占位值，不是已证明的同等级 Elo。`pnpm benchmark:sayuri` 用实际完成、耗时和
+崩溃/OOM 情况筛选线程/batch；`pnpm calibrate:go-ai` 使用 50 个固定开局、交换黑白跑 100 局并
+输出 Wilson 95% 区间。未跑满且无技术失败前，不应宣称已匹配。具体限制见
+[`services/sayuri-bridge/README.md`](./services/sayuri-bridge/README.md)。
 
 ## 公开部署（Cloudflare Pages）
 

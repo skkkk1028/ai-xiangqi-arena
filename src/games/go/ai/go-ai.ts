@@ -1,6 +1,6 @@
 import type { GoMove, GoPlayer } from '../types'
 
-export type GoAIEngineId = 'katago' | 'leela-zero'
+export type GoAIEngineId = 'katago' | 'leela-zero' | 'sayuri'
 
 export interface GoAIEngineOption {
   id: GoAIEngineId
@@ -13,7 +13,7 @@ export const GO_AI_ENGINES: readonly GoAIEngineOption[] = [
   {
     id: 'katago',
     name: 'KataGo',
-    description: 'Native OpenCL · 互对弈匹配预算 2000 visits',
+    description: 'Native OpenCL · 互对弈使用独立校准 visits',
     localOnly: false,
   },
   {
@@ -22,7 +22,21 @@ export const GO_AI_ENGINES: readonly GoAIEngineOption[] = [
     description: 'v0.17 · 最终 40×256 网络 · 3200 playouts',
     localOnly: true,
   },
+  {
+    id: 'sayuri',
+    name: 'Sayuri',
+    description: 'v0.10.0 · CUDA 12 · 独立神经网络与 MCTS',
+    localOnly: true,
+  },
 ] as const
+
+export interface GoAIEngineRuntimeDetails {
+  engineVersion: string
+  modelName: string
+  budget: number
+  budgetUnit: 'visits' | 'playouts'
+  runtimeLabel: string
+}
 
 export interface GoAICandidateAnalysis {
   action: GoMove

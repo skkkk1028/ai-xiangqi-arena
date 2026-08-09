@@ -34,6 +34,13 @@ const expectedModel = basename(env.KATAGO_MODEL_PATH ?? '').replace(/\.bin\.gz$/
 if (!expectedModel || !String(capabilities.modelName).includes(expectedModel)) {
   throw new Error(`Unexpected KataGo model: ${capabilities.modelName}`)
 }
+if (capabilities.profiles?.fast?.maxVisits !== 2_000 || capabilities.profiles?.strong?.maxVisits !== 20_000) {
+  throw new Error('KataGo fast/strong profiles changed unexpectedly.')
+}
+const expectedBattleVisits = Number(env.KATAGO_BATTLE_MATCHED_VISITS ?? 250)
+if (capabilities.profiles?.['battle-matched']?.maxVisits !== expectedBattleVisits) {
+  throw new Error(`KataGo battle-matched profile is missing or stale; expected ${expectedBattleVisits} visits.`)
+}
 
 if (capabilitiesOnly) {
   process.stdout.write(`Native KataGo ready: ${capabilities.engineVersion} / ${capabilities.modelName}\n`)

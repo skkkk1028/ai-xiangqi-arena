@@ -91,6 +91,27 @@ describe('KataGo 围棋 AI 适配器', () => {
     expect(kataGoRuntimeBackendLabel('native-katago')).toBe('Native KataGo · OpenCL')
   })
 
+  it('battle-matched 是独立请求档位，不改变 fast/strong 类型', async () => {
+    const game = new GoGameEngine()
+    const state = game.init()
+    const transport = new MockTransport()
+    const ai = new KataGoEngine('battle-katago', { transport, profile: 'battle-matched' })
+    await ai.initialize({ gameId: 'go', player: 'black' })
+    transport.analyze = vi.fn(async (request) => {
+      transport.requests.push(request)
+      return {
+        ...analysisEvent(request.requestId, 'D16', 0.5),
+        profile: 'battle-matched' as const,
+        requestedVisits: 250,
+      }
+    })
+    const result = await ai.think({
+      state, player: 'black', legalActions: game.getLegalActions(state), record: [],
+    })
+    expect(transport.requests[0].profile).toBe('battle-matched')
+    expect(result.analysis?.profileLabel).toBe('BATTLE MATCHED · 250')
+  })
+
   it('在 GTP 坐标中跳过 I 列并支持 pass', () => {
     expect(goPointToGtp({ row: 15, col: 3 })).toBe('D4')
     expect(goPointToGtp({ row: 3, col: 8 })).toBe('J16')

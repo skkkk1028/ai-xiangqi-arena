@@ -33,6 +33,10 @@ test('validates and clamps browser requests to fixed KataGo rules and profiles',
   assert.equal(query.reportDuringSearchEvery, 0.5)
   assert.throws(() => validateAnalyzeRequest({ ...VALID_REQUEST, komi: 6.5 }), /十九路/)
   assert.throws(() => validateAnalyzeRequest({ ...VALID_REQUEST, profile: 'unlimited' }), /未知/)
+  const battle = buildKataGoQuery(validateAnalyzeRequest({ ...VALID_REQUEST, profile: 'battle-matched' }))
+  assert.equal(battle.maxVisits, SEARCH_PROFILES['battle-matched'].maxVisits)
+  assert.equal(SEARCH_PROFILES.fast.maxVisits, 2_000)
+  assert.equal(SEARCH_PROFILES.strong.maxVisits, 20_000)
 })
 
 test('normalizes only five ordered candidates and black-perspective root data', () => {

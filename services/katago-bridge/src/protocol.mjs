@@ -11,6 +11,10 @@ export const KATAGO_RULES = Object.freeze({
 export const SEARCH_PROFILES = Object.freeze({
   fast: Object.freeze({ maxVisits: 2_000, timeoutMs: 30_000 }),
   strong: Object.freeze({ maxVisits: 20_000, timeoutMs: 180_000 }),
+  'battle-matched': Object.freeze({
+    maxVisits: positiveInteger(process.env.KATAGO_BATTLE_MATCHED_VISITS, 250),
+    timeoutMs: 30_000,
+  }),
 })
 
 export function validateAnalyzeRequest(value) {
@@ -150,4 +154,9 @@ function numberOr(value, fallback) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value))
+}
+
+function positiveInteger(value, fallback) {
+  const number = Number(value)
+  return Number.isInteger(number) && number > 0 ? number : fallback
 }

@@ -71,3 +71,16 @@
 仓库不提交 Leela Zero 二进制或网络。`scripts/setup-leela-zero.ps1` 直接从上游下载固定文件到
 Git 忽略的本地运行目录并执行 SHA-256 校验；本项目未修改 Leela Zero 搜索或网络文件，只通过
 标准 GTP 命令调用。桥接服务本身为本项目代码，不把降低 KataGo 等级伪装成另一个引擎。
+
+## Sayuri
+
+- 项目：[CGLemon/Sayuri](https://github.com/CGLemon/Sayuri)
+- 固定发行版：`v0.10.0` CUDA 12 Windows x64
+- 许可证：引擎代码 GNU General Public License v3.0
+- 对应源码：[v0.10.0 source](https://github.com/CGLemon/Sayuri/tree/v0.10.0)
+- 许可证全文：[upstream COPYING](https://github.com/CGLemon/Sayuri/blob/v0.10.0/COPYING)
+
+仓库不提交或打包 Sayuri 二进制、CUDA DLL 或模型。`scripts/setup-sayuri.ps1` 仅从官方发布页
+和官方模型下载站获取固定文件并校验 SHA-256，保存到 Git 忽略的本地运行目录。模型没有找到
+明确、独立的再分发许可，因此本项目不对其进行再分发。桥接只使用标准 GTP 命令，不修改
+Sayuri 搜索或模型。

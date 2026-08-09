@@ -16,4 +16,9 @@ The Windows local-preview script uses the same fully named model from
 `services/katago-bridge/.env`, reports `Native KataGo · OpenCL`, and verifies a
 real 2,000-visit analysis when invoked with `start-local-preview.cmd --verify`.
 
+`KATAGO_BATTLE_MATCHED_VISITS` is an independent, battle-mode-only budget. The
+`fast` and `strong` profiles remain fixed at 2,000 and 20,000 visits. Its default
+value of 250 is provisional until the paired 100-game Sayuri calibration has
+been completed on the target machine.
+
 For local UI development, set `KATAGO_PROXY_SECRET` in Vite and run the bridge with `NODE_ENV=development`; the browser still calls `/api/go/katago/*`.

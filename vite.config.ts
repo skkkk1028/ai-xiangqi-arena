@@ -6,6 +6,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '')
   const kataGoOrigin = env.KATAGO_DEV_ORIGIN || 'http://127.0.0.1:8788'
   const leelaZeroOrigin = env.LEELA_ZERO_DEV_ORIGIN || 'http://127.0.0.1:8789'
+  const sayuriOrigin = env.SAYURI_DEV_ORIGIN || 'http://127.0.0.1:8790'
   const apiProxy = {
     '/api/go/model/strong.bin.gz': {
       target: 'https://media.katagotraining.org',
@@ -21,6 +22,10 @@ export default defineConfig(({ mode }) => {
     },
     '/api/go/leela-zero': {
       target: leelaZeroOrigin,
+      changeOrigin: true,
+    },
+    '/api/go/sayuri': {
+      target: sayuriOrigin,
       changeOrigin: true,
     },
   }

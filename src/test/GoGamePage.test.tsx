@@ -156,6 +156,8 @@ describe('围棋 React 页面', () => {
     expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('200 / 2000')
     expect(screen.getByLabelText('KataGo 候选着')).toHaveTextContent('D16')
     expect(fetchMock).toHaveBeenCalledWith('/api/go/katago/analyze', expect.objectContaining({ method: 'POST' }))
+    const analyzeCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith('/analyze'))
+    expect(JSON.parse(String(analyzeCall?.[1]?.body)).profile).toBe('strong')
   })
 
   it('KataGo 服务未配置时保留空棋盘并显示可恢复错误', async () => {
@@ -185,8 +187,9 @@ describe('围棋 React 页面', () => {
     const white = screen.getByRole('combobox', { name: '白方 AI 引擎' })
     expect(black).toHaveValue('katago')
     expect(white).toHaveValue('leela-zero')
-    expect(black.querySelectorAll('option')).toHaveLength(2)
-    expect(white.querySelectorAll('option')).toHaveLength(2)
+    expect(black.querySelectorAll('option')).toHaveLength(3)
+    expect(white.querySelectorAll('option')).toHaveLength(3)
+    expect(black).toHaveTextContent('Sayuri')
     expect(screen.getByText(/现有 AI 自对弈配置不变/)).toBeInTheDocument()
   })
 })

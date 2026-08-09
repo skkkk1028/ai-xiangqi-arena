@@ -5,6 +5,7 @@ coverage/
 .env
 services/katago-bridge/runtime/
 services/leela-zero-bridge/runtime/
+services/sayuri-bridge/runtime/
 leelaz_opencl_tuning
 *.log
 *.tsbuildinfo

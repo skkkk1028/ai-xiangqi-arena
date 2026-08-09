@@ -101,6 +101,7 @@ export function GoGamePage() {
             mode={mode}
             profile={profile}
             battleEngines={match.battleEngines}
+            engineDetails={match.engineDetails}
             busy={aiBusy || runState === 'connecting'}
             onMode={(next) => void match.changeMode(next)}
             onProfile={(next) => void match.changeProfile(next)}
@@ -200,6 +201,7 @@ function ModePanel({
   mode,
   profile,
   battleEngines,
+  engineDetails,
   busy,
   onMode,
   onProfile,
@@ -208,6 +210,7 @@ function ModePanel({
   mode: GoMatchMode
   profile: KataGoSearchProfile
   battleEngines: Record<GoPlayer, GoAIEngineId>
+  engineDetails: ReturnType<typeof useGoMatch>['engineDetails']
   busy: boolean
   onMode: (mode: GoMatchMode) => void
   onProfile: (profile: KataGoSearchProfile) => void
@@ -230,7 +233,7 @@ function ModePanel({
         <div className="go-engine-selectors" aria-label="AI 互对弈引擎选择">
           <EngineSelect label="黑方 AI 引擎" value={battleEngines.black} disabled={busy} onChange={(engine) => onBattleEngine('black', engine)} />
           <EngineSelect label="白方 AI 引擎" value={battleEngines.white} disabled={busy} onChange={(engine) => onBattleEngine('white', engine)} />
-          <p>KataGo 仅在本模式使用 2000 visits；Leela Zero 使用 3200 playouts。现有 AI 自对弈配置不变。</p>
+          <p>{battleEngineLabel(battleEngines.black, engineDetails)} vs {battleEngineLabel(battleEngines.white, engineDetails)}。KataGo 的匹配档位仅用于本模式；现有 AI 自对弈配置不变。</p>
         </div>
       )}
     </section>
@@ -342,7 +345,7 @@ function AIEnginePanel({
         <span><i />AI ENGINE · {engineName.toUpperCase()}</span>
         <b>{mode !== 'local' ? runtimeLabel(runState) : 'STANDBY'}</b>
       </header>
-      <div className="go-ai-slot__core" aria-hidden="true"><span>{analysis?.engineId === 'leela-zero' ? 'LZ' : 'KG'}</span><i /><i /><i /></div>
+      <div className="go-ai-slot__core" aria-hidden="true"><span>{analysis?.engineId === 'leela-zero' ? 'LZ' : analysis?.engineId === 'sayuri' ? 'SY' : 'KG'}</span><i /><i /><i /></div>
       <div className="go-ai-slot__summary">
         <strong>{online ? (runState === 'thinking' ? `${engineName} 正在计算` : `${engineName} 引擎已就绪`) : 'KataGo 引擎待命'}</strong>
         <p>{analysis ? `主变化：${analysis.pvNotation.join(' ') || '—'}` : engineDescription(capabilities)}</p>
@@ -369,7 +372,7 @@ function AIEnginePanel({
             <li key={`${candidate.order}-${candidate.notation}`}>
               <b>{candidate.order + 1}</b>
               <span>{candidate.notation}</span>
-              <small>{analysis.winRateAvailable ? `${percent(candidate.blackWinRate)} · ` : ''}{candidate.visits}{analysis.engineId === 'leela-zero' ? 'p' : 'v'}</small>
+              <small>{analysis.winRateAvailable ? `${percent(candidate.blackWinRate)} · ` : ''}{candidate.visits}{analysis.engineId === 'katago' ? 'v' : 'p'}</small>
             </li>
           ))}
         </ol>
@@ -475,6 +478,15 @@ function scoreLead(value: number | null | undefined): string {
 function yesNo(value: boolean | undefined): string {
   if (value === undefined) return '—'
   return value ? 'YES' : 'NO'
+}
+
+function battleEngineLabel(
+  engineId: GoAIEngineId,
+  details: ReturnType<typeof useGoMatch>['engineDetails'],
+): string {
+  const detail = details[engineId]
+  if (!detail) return goAIEngineName(engineId)
+  return `${goAIEngineName(engineId)} · ${detail.modelName} · ${detail.budget} ${detail.budgetUnit}`
 }
 
 function engineDescription(capabilities: ReturnType<typeof useGoMatch>['capabilities']): string {

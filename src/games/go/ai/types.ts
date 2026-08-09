@@ -2,6 +2,7 @@ import type { GoMove, GoPlayer } from '../types'
 import type { GoAIAnalysis, GoAICandidateAnalysis } from './go-ai'
 
 export type KataGoSearchProfile = 'fast' | 'strong'
+export type KataGoRequestProfile = KataGoSearchProfile | 'battle-matched'
 export type KataGoRuntimeBackend =
   | 'browser-webgpu'
   | 'browser-wasm'
@@ -27,7 +28,10 @@ export interface KataGoCapabilities {
   backendFallbackReason: string | null
   modelFallback: boolean
   modelFallbackReason: string | null
-  profiles: Readonly<Record<KataGoSearchProfile, { maxVisits: number; timeoutMs: number }>>
+  profiles: Readonly<
+    Record<KataGoSearchProfile, { maxVisits: number; timeoutMs: number }>
+    & Partial<Record<'battle-matched', { maxVisits: number; timeoutMs: number }>>
+  >
 }
 
 export interface KataGoRules {
@@ -56,7 +60,7 @@ export interface KataGoAnalyzeRequest {
   requestId: string
   gameId: string
   player: GoPlayer
-  profile: KataGoSearchProfile
+  profile: KataGoRequestProfile
   boardSize: 19
   komi: 7.5
   rules: KataGoRules
@@ -79,7 +83,7 @@ export interface KataGoWireAnalysisEvent {
   requestId: string
   engineVersion: string
   modelName: string
-  profile: KataGoSearchProfile
+  profile: KataGoRequestProfile
   elapsedMs: number
   requestedVisits: number
   runtimeBackend: KataGoRuntimeBackend
@@ -122,7 +126,7 @@ export interface KataGoAnalysis extends GoAIAnalysis {
   modelFallback: boolean
   modelFallbackReason: string | null
   candidates: readonly KataGoCandidateAnalysis[]
-  profile: KataGoSearchProfile
+  profile: KataGoRequestProfile
   profileLabel: string
 }
 
