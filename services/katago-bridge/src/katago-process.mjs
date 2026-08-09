@@ -45,7 +45,7 @@ export class KataGoProcess {
       '-config', this.configPath,
       '-model', this.modelPath,
       '-quit-without-waiting',
-    ], { stdio: ['pipe', 'pipe', 'pipe'] })
+    ], { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
     this.child = child
     this.stdoutBuffer = ''
     child.stdout.setEncoding('utf8')

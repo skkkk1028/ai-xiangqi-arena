@@ -50,7 +50,7 @@ export class SayuriProcess {
       '--use-optimistic-policy',
       '--friendly-pass',
       '--resign-threshold', '0',
-    ], { cwd: dirname(this.binaryPath), stdio: ['pipe', 'pipe', 'pipe'] })
+    ], { cwd: dirname(this.binaryPath), windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
     this.child = child
     this.stdoutBuffer = ''
     child.stdout.setEncoding('utf8')

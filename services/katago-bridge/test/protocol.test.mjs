@@ -101,15 +101,17 @@ test('KataGo process parses fragmented async JSON and sends terminate on abort',
   ])
   const writes = []
   const child = createFakeChild(writes)
+  let spawnOptions
   const process = new KataGoProcess({
     binaryPath: binary,
     binarySha256: await sha256File(binary),
     modelPath: model,
     modelSha256: await sha256File(model),
     configPath: config,
-    spawn: () => child,
+    spawn: (_binary, _args, options) => { spawnOptions = options; return child },
   })
   const capabilities = await process.start()
+  assert.equal(spawnOptions.windowsHide, true)
   assert.deepEqual(capabilities, { engineVersion: '1.16-test', modelName: 'fake-model.bin.gz' })
 
   const updates = []

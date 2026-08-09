@@ -14,6 +14,7 @@ test('parses fragmented GTP responses and replays the full position before genmo
   await Promise.all([writeFile(binary, 'fake binary'), writeFile(model, 'fake model')])
   const commands = []
   const child = fakeGtpChild(commands)
+  let spawnOptions
   const engine = new LeelaZeroProcess({
     binaryPath: binary,
     binarySha256: await sha256File(binary),
@@ -21,11 +22,12 @@ test('parses fragmented GTP responses and replays the full position before genmo
     modelSha256: await sha256File(model),
     playouts: 3200,
     threads: 8,
-    spawn: () => child,
+    spawn: (_binary, _args, options) => { spawnOptions = options; return child },
   })
 
   const capabilities = await engine.start()
   assert.equal(capabilities.engineVersion, 'Leela Zero 0.17')
+  assert.equal(spawnOptions.windowsHide, true)
   const result = await engine.analyze({
     player: 'black',
     moves: [['B', 'D16'], ['W', 'Q4']],

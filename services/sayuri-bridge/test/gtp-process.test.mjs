@@ -12,12 +12,13 @@ test('uses the verified search flags and replays the full position before genmov
   const commands = []
   const child = fakeGtpChild(commands)
   let spawnArgs
+  let spawnOptions
   const engine = new SayuriProcess({
     ...fixture,
     playouts: 20_000,
     threads: 16,
     batchSize: 8,
-    spawn: (_binary, args) => { spawnArgs = args; return child },
+    spawn: (_binary, args, options) => { spawnArgs = args; spawnOptions = options; return child },
   })
 
   const capabilities = await engine.start()
@@ -26,6 +27,7 @@ test('uses the verified search flags and replays the full position before genmov
   assert.ok(spawnArgs.includes('--use-optimistic-policy'))
   assert.ok(spawnArgs.includes('--friendly-pass'))
   assert.deepEqual(spawnArgs.slice(-2), ['--resign-threshold', '0'])
+  assert.equal(spawnOptions.windowsHide, true)
   const result = await engine.analyze({
     player: 'black',
     moves: [['B', 'D16'], ['W', 'Q4']],
