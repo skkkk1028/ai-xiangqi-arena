@@ -18,9 +18,12 @@ import type { KataGoAnalyzeOptions, KataGoTransport } from './KataGoTransport'
 const STRONG_MODEL_PATH = 'api/go/model/strong.bin.gz'
 const FALLBACK_MODEL_PATH = 'models/katago-small.bin.gz'
 
-const PROFILES: Readonly<Record<KataGoSearchProfile, { maxVisits: number; timeoutMs: number }>> = {
+const PROFILES: Readonly<
+  Record<KataGoSearchProfile | 'winrate', { maxVisits: number; timeoutMs: number }>
+> = {
   fast: { maxVisits: 2_000, timeoutMs: 30_000 },
   strong: { maxVisits: 20_000, timeoutMs: 180_000 },
+  winrate: { maxVisits: 256, timeoutMs: 12_000 },
 }
 
 export interface BrowserKataGoTransportOptions {
@@ -43,8 +46,8 @@ export class BrowserKataGoTransport implements KataGoTransport {
   private activeModelUrl: string
   private modelFallback = false
   private modelFallbackReason: string | null = null
-  private activeRequestId: string | null = null
-  private activeReject: ((error: Error) => void) | null = null
+  private readonly activeRequests = new Map<string, 'interactive' | 'background'>()
+  private readonly activeRejects = new Map<string, (error: Error) => void>()
   private disposed = false
 
   constructor(options: BrowserKataGoTransportOptions = {}) {
@@ -69,18 +72,21 @@ export class BrowserKataGoTransport implements KataGoTransport {
       throw new Error('AI 互对弈的匹配档位仅支持本机 Native KataGo。')
     }
     const capabilities = await this.initialize(options.signal)
-    if (this.activeRequestId) throw new Error('浏览器 KataGo 已有一个进行中的搜索。')
+    const analysisGroup = options.analysisGroup ?? 'interactive'
+    if ([...this.activeRequests.values()].includes(analysisGroup)) {
+      throw new Error(`浏览器 KataGo 的 ${analysisGroup} 分析组已有一个进行中的搜索。`)
+    }
 
     const position = replayPosition(request)
     const profile = PROFILES[request.profile]
     const client = getKataGoEngineClient()
-    this.activeRequestId = request.requestId
+    this.activeRequests.set(request.requestId, analysisGroup)
     const abortSearch = () => this.cancel(request.requestId)
     options.signal?.addEventListener('abort', abortSearch, { once: true })
 
     const startedAt = performance.now()
     const search = client.analyze({
-      analysisGroup: 'interactive',
+      analysisGroup,
       positionId: position.positionKey,
       parentPositionId: position.parentPositionKey,
       positionKey: position.positionKey,
@@ -107,37 +113,38 @@ export class BrowserKataGoTransport implements KataGoTransport {
       wideRootNoise: 0,
       nnRandomize: false,
       onProgress: (analysis) => {
-        if (this.activeRequestId !== request.requestId) return
+        if (!this.activeRequests.has(request.requestId)) return
         options.onUpdate?.(toWireEvent(request, analysis, startedAt, 'partial', capabilities))
       },
     })
 
     try {
       const analysis = await raceCancellation(search, options.signal, (reject) => {
-        this.activeReject = reject
+        this.activeRejects.set(request.requestId, reject)
       })
       return toWireEvent(request, analysis, startedAt, 'final', capabilities)
     } finally {
       options.signal?.removeEventListener('abort', abortSearch)
-      if (this.activeRequestId === request.requestId) {
-        this.activeRequestId = null
-        this.activeReject = null
-      }
+      this.activeRequests.delete(request.requestId)
+      this.activeRejects.delete(request.requestId)
     }
   }
 
   cancel(requestId: string): void {
-    if (requestId !== this.activeRequestId) return
-    this.activeReject?.(createAbortError('浏览器 KataGo 搜索已停止。'))
-    getKataGoEngineClient().cancelAnalysis('interactive')
-    this.activeRequestId = null
-    this.activeReject = null
+    const group = this.activeRequests.get(requestId)
+    if (!group) return
+    this.activeRejects.get(requestId)?.(createAbortError('浏览器 KataGo 搜索已停止。'))
+    getKataGoEngineClient().cancelAnalysis(group)
+    this.activeRequests.delete(requestId)
+    this.activeRejects.delete(requestId)
   }
 
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
-    this.activeReject?.(createAbortError('浏览器 KataGo 已释放。'))
+    for (const reject of this.activeRejects.values()) reject(createAbortError('浏览器 KataGo 已释放。'))
+    this.activeRequests.clear()
+    this.activeRejects.clear()
     this.resetWorker()
   }
 
@@ -195,8 +202,8 @@ export class BrowserKataGoTransport implements KataGoTransport {
   private resetWorker(): void {
     resetKataGoEngineClientForTests()
     this.initialization = null
-    this.activeRequestId = null
-    this.activeReject = null
+    this.activeRequests.clear()
+    this.activeRejects.clear()
   }
 
   private assertActive(): void {

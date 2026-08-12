@@ -10,7 +10,7 @@ export class SayuriProcess {
     this.modelPath = options.modelPath
     this.binarySha256 = options.binarySha256
     this.modelSha256 = options.modelSha256
-    this.playouts = options.playouts ?? 20_000
+    this.playouts = options.playouts ?? 250
     this.threads = options.threads ?? 16
     this.batchSize = options.batchSize ?? 8
     this.timeoutMs = options.timeoutMs ?? 180_000

@@ -1,4 +1,5 @@
 export * from './ai-engine'
+export * from './archive'
 export * from './controller-ai'
 export * from './game-engine'
 export * from './registration'

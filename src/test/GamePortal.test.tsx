@@ -23,28 +23,28 @@ describe('AI 棋类大厅', () => {
     expect(screen.getByRole('link', { name: /围棋/ })).toHaveAttribute('href', '#/games/go')
   })
 
-  it('中国象棋路由只挂载原有应用并提供大厅返回入口', () => {
+  it('中国象棋路由只挂载原有应用并提供大厅返回入口', async () => {
     window.history.replaceState(null, '', '#/games/xiangqi')
     render(<GamePortal />)
 
-    expect(screen.getByLabelText('现有中国象棋页面')).toHaveTextContent('象棋现有功能')
+    expect(await screen.findByLabelText('现有中国象棋页面')).toHaveTextContent('象棋现有功能')
     expect(screen.getByRole('link', { name: '返回 AI 棋类大厅' })).toHaveAttribute('href', '#/')
   })
 
-  it('围棋入口进入可交互的十九路棋院页面', () => {
+  it('围棋入口进入可交互的十九路棋院页面', async () => {
     window.history.replaceState(null, '', '#/games/go')
     render(<GamePortal />)
 
-    expect(screen.getByRole('heading', { name: '静室手谈' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '静室手谈' })).toBeInTheDocument()
     expect(screen.getByRole('grid', { name: '十九路围棋棋盘' })).toBeInTheDocument()
     expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('KataGo 引擎待命')
   })
 
-  it('hash 变化时在大厅与棋类模块之间切换', () => {
+  it('hash 变化时在大厅与棋类模块之间切换', async () => {
     render(<GamePortal />)
     window.history.replaceState(null, '', '#/games/go')
     fireEvent(window, new HashChangeEvent('hashchange'))
 
-    expect(screen.getByRole('heading', { name: '静室手谈' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '静室手谈' })).toBeInTheDocument()
   })
 })

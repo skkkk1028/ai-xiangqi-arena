@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { GameController, type AIEngine } from '../core'
+import { GameController, type AIEngine, type AnalysisPolicy } from '../core'
 import {
   GO_AI_ENGINES,
   HttpLeelaZeroTransport,
@@ -23,8 +23,12 @@ import { pointKey } from './board'
 import { GoGameEngine } from './game-engine'
 import { getGoGroup } from './rules'
 import type { GoGameState, GoMove, GoMoveRecord, GoPlayer, GoPoint } from './types'
+import { useGoWinRateAnalysis } from './useGoWinRateAnalysis'
+import { loadLatestArchive } from '../core'
+import { restoreGoArchive } from './sgf'
 
-export type GoMatchMode = 'local' | 'ai' | 'battle'
+export type GoMatchMode = 'local' | 'human' | 'ai' | 'battle'
+export type GoHumanColorChoice = GoPlayer | 'random'
 export type GoAIRunState = 'offline' | 'connecting' | 'ready' | 'running' | 'thinking' | 'paused' | 'error'
 
 type GoController = GameController<GoGameState, GoMove, GoPlayer, GoMoveRecord, GoAIAnalysis>
@@ -38,15 +42,18 @@ interface AISession {
   unsubscribe: readonly (() => void)[]
   capabilities: KataGoCapabilities | null
   engineDetails: Partial<Record<GoAIEngineId, GoAIEngineRuntimeDetails>>
+  analysisTransport: KataGoTransport | null
 }
 
 const GO_ENGINE = new GoGameEngine()
 const USE_NATIVE_KATAGO = import.meta.env.VITE_KATAGO_BRIDGE === '1'
+const DEFAULT_ANALYSIS_POLICY: AnalysisPolicy = 'postgame'
 
 export function useGoMatch() {
   const [state, setStateValue] = useState<GoGameState>(() => GO_ENGINE.init())
   const [mode, setModeValue] = useState<GoMatchMode>('local')
   const [profile, setProfileValue] = useState<KataGoSearchProfile>('strong')
+  const [humanColor, setHumanColorValue] = useState<GoPlayer>('black')
   const [battleEngines, setBattleEnginesValue] = useState<Record<GoPlayer, GoAIEngineId>>({
     black: 'katago',
     white: 'leela-zero',
@@ -61,10 +68,12 @@ export function useGoMatch() {
     black: false,
     white: false,
   })
+  const winRateAnalysis = useGoWinRateAnalysis({ createTransport: createConfiguredKataGoTransport })
 
   const stateRef = useRef(state)
   const modeRef = useRef(mode)
   const profileRef = useRef(profile)
+  const humanColorRef = useRef(humanColor)
   const battleEnginesRef = useRef(battleEngines)
   const runStateRef = useRef(runState)
   const sessionRef = useRef<AISession | null>(null)
@@ -114,11 +123,14 @@ export function useGoMatch() {
   }, [])
 
   const createSession = useCallback(async (initialState?: GoGameState) => {
+    await winRateAnalysis.detachTransport(true)
     await disposeSession()
     const sessionMode = modeRef.current
     const seatIds: Record<GoPlayer, GoAIEngineId> = sessionMode === 'ai'
       ? { black: 'katago', white: 'katago' }
-      : battleEnginesRef.current
+      : sessionMode === 'human'
+        ? { black: 'katago', white: 'katago' }
+        : battleEnginesRef.current
     const transports: { dispose(): void | Promise<void> }[] = []
     let kataGoTransport: KataGoTransport | null = null
     let leelaZeroTransport: HttpLeelaZeroTransport | null = null
@@ -129,12 +141,16 @@ export function useGoMatch() {
     let controller: GoController | null = null
     let unsubscribe: (() => void)[] = []
     try {
-      const needsLeelaZero = seatIds.black === 'leela-zero' || seatIds.white === 'leela-zero'
-      const needsSayuri = seatIds.black === 'sayuri' || seatIds.white === 'sayuri'
+      const aiPlayers: GoPlayer[] = sessionMode === 'human'
+        ? [humanColorRef.current === 'black' ? 'white' : 'black']
+        : ['black', 'white']
+      const needsLeelaZero = aiPlayers.some((player) => seatIds[player] === 'leela-zero')
+      const needsSayuri = aiPlayers.some((player) => seatIds[player] === 'sayuri')
+      const needsKataGo = aiPlayers.some((player) => seatIds[player] === 'katago')
       if ((needsLeelaZero || needsSayuri) && !USE_NATIVE_KATAGO) {
         throw new Error(`${needsSayuri ? 'Sayuri' : 'Leela Zero'} 仅支持 start-local-preview.cmd 启动的本地原生模式。`)
       }
-      if (seatIds.black === 'katago' || seatIds.white === 'katago') {
+      if (needsKataGo) {
         kataGoTransport = await createConfiguredKataGoTransport()
         transports.push(kataGoTransport)
         kataGoCapabilities = await kataGoTransport.initialize()
@@ -193,23 +209,32 @@ export function useGoMatch() {
         }
         throw new Error(`${goAIEngineName(engineId)} 传输层尚未就绪。`)
       }
-      const black = createSeatEngine('black')
-      const white = createSeatEngine('white')
+      const seatEngines = new Map<GoPlayer, GoSeatEngine>()
+      for (const player of aiPlayers) seatEngines.set(player, createSeatEngine(player))
       const sessionGame = new GoSessionGameEngine(initialState)
       controller = new GameController<GoGameState, GoMove, GoPlayer, GoMoveRecord, GoAIAnalysis>(
         sessionGame,
-        [
-          { id: 'black', name: `${goAIEngineName(seatIds.black)} 黑方`, kind: 'ai', engine: black },
-          { id: 'white', name: `${goAIEngineName(seatIds.white)} 白方`, kind: 'ai', engine: white },
-        ],
+        (['black', 'white'] as const).map((player) => {
+          const engine = seatEngines.get(player)
+          return engine
+            ? { id: player, name: `${goAIEngineName(seatIds[player])} ${player === 'black' ? '黑方' : '白方'}`, kind: 'ai' as const, engine }
+            : { id: player, name: '真人玩家', kind: 'human' as const }
+        }),
       )
       const publish = (analysis: GoAIAnalysis) => {
         if (!mountedRef.current) return
         setAnalysisByPlayer((current) => ({ ...current, [analysis.player]: analysis }))
       }
-      unsubscribe = [black.subscribe(publish), white.subscribe(publish)]
+      unsubscribe = [...seatEngines.values()].map((engine) => engine.subscribe(publish))
       const snapshot = await controller.start()
-      const session = { controller, transports, unsubscribe, capabilities: kataGoCapabilities, engineDetails: sessionEngineDetails }
+      const session = {
+        controller,
+        transports,
+        unsubscribe,
+        capabilities: kataGoCapabilities,
+        engineDetails: sessionEngineDetails,
+        analysisTransport: kataGoTransport,
+      }
       sessionRef.current = session
       setCapabilities(kataGoCapabilities)
       setEngineDetails(sessionEngineDetails)
@@ -221,7 +246,7 @@ export function useGoMatch() {
       for (const transport of transports) await transport.dispose()
       throw error
     }
-  }, [disposeSession, setState])
+  }, [disposeSession, setState, winRateAnalysis.detachTransport])
 
   const pauseAI = useCallback(async (message = 'AI 对弈已暂停。') => {
     autoRunningRef.current = false
@@ -283,6 +308,8 @@ export function useGoMatch() {
         setRunState('connecting')
         await createSession(stateRef.current)
       }
+      winRateAnalysis.reset()
+      await winRateAnalysis.detachTransport(true)
       setNotice(null)
       autoRunningRef.current = true
       const token = ++loopTokenRef.current
@@ -293,7 +320,7 @@ export function useGoMatch() {
       setRunState('error')
       setNotice(errorMessage(error, '围棋 AI 无法启动。'))
     }
-  }, [createSession, runAILoop, setRunState])
+  }, [createSession, runAILoop, setRunState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
 
   const stepAI = useCallback(async () => {
     if (modeRef.current === 'local' || autoRunningRef.current) return
@@ -302,6 +329,8 @@ export function useGoMatch() {
         setRunState('connecting')
         await createSession(stateRef.current)
       }
+      winRateAnalysis.reset()
+      await winRateAnalysis.detachTransport(true)
       setNotice(null)
       await playOneAITurn()
       if (stateRef.current.phase === 'playing') setRunState('paused')
@@ -310,17 +339,19 @@ export function useGoMatch() {
       setRunState('error')
       setNotice(errorMessage(error, '围棋 AI 单步搜索失败。'))
     }
-  }, [createSession, playOneAITurn, setRunState])
+  }, [createSession, playOneAITurn, setRunState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
 
   const changeMode = useCallback(async (next: GoMatchMode) => {
     if (next === modeRef.current) return
     autoRunningRef.current = false
     loopTokenRef.current += 1
     await sessionRef.current?.controller.cancelPendingTurn('对局模式已切换。').catch(() => undefined)
+    await winRateAnalysis.detachTransport(true)
     await disposeSession()
     modeRef.current = next
     setModeValue(next)
     setAnalysisByPlayer({})
+    winRateAnalysis.reset()
     setCapabilities(null)
     setEngineDetails({})
     resetScoringReview()
@@ -342,14 +373,20 @@ export function useGoMatch() {
       setRunState('ready')
       setNotice(next === 'battle'
         ? 'AI 互对弈引擎已就绪，可以开始对弈。'
+        : next === 'human'
+          ? `人机对局已就绪，你执${humanColorRef.current === 'black' ? '黑' : '白'}。`
         : USE_NATIVE_KATAGO
           ? 'Native KataGo 已就绪，可以开始自对弈。'
           : '浏览器 KataGo 已就绪，可以开始自对弈。')
+      if (next === 'human' && humanColorRef.current === 'white') {
+        await playOneAITurn()
+        setRunState('paused')
+      }
     } catch (error) {
       setRunState('error')
       setNotice(errorMessage(error, 'KataGo 初始化失败。'))
     }
-  }, [createSession, disposeSession, resetScoringReview, setRunState, setState])
+  }, [createSession, disposeSession, playOneAITurn, resetScoringReview, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
 
   const changeBattleEngine = useCallback(async (player: GoPlayer, engineId: GoAIEngineId) => {
     if (modeRef.current !== 'battle' || autoRunningRef.current) return
@@ -359,6 +396,7 @@ export function useGoMatch() {
     battleEnginesRef.current = next
     setBattleEnginesValue(next)
     setAnalysisByPlayer({})
+    winRateAnalysis.reset()
     const fresh = GO_ENGINE.init()
     setState(fresh)
     setRunState('connecting')
@@ -371,15 +409,43 @@ export function useGoMatch() {
       setRunState('error')
       setNotice(errorMessage(error, '围棋 AI 组合初始化失败。'))
     }
-  }, [createSession, setRunState, setState])
+  }, [createSession, setRunState, setState, winRateAnalysis.reset])
+
+  const changeHumanColor = useCallback(async (choice: GoHumanColorChoice) => {
+    if (autoRunningRef.current) return
+    const next: GoPlayer = choice === 'random'
+      ? (crypto.getRandomValues(new Uint8Array(1))[0] % 2 === 0 ? 'black' : 'white')
+      : choice
+    humanColorRef.current = next
+    setHumanColorValue(next)
+    if (modeRef.current !== 'human') return
+    const fresh = GO_ENGINE.init()
+    setState(fresh)
+    setAnalysisByPlayer({})
+    winRateAnalysis.reset()
+    setRunState('connecting')
+    try {
+      await createSession(fresh)
+      setRunState('ready')
+      setNotice(`人机对局已就绪，你执${next === 'black' ? '黑' : '白'}。`)
+      if (next === 'white') {
+        await playOneAITurn()
+        setRunState('paused')
+      }
+    } catch (error) {
+      setRunState('error')
+      setNotice(errorMessage(error, '围棋人机对局无法启动。'))
+    }
+  }, [createSession, playOneAITurn, setRunState, setState, winRateAnalysis.reset])
 
   const changeProfile = useCallback(async (next: KataGoSearchProfile) => {
     if (next === profileRef.current || autoRunningRef.current) return
     profileRef.current = next
     setProfileValue(next)
     setAnalysisByPlayer({})
+    winRateAnalysis.reset()
     resetScoringReview()
-    if (modeRef.current !== 'ai') return
+    if (modeRef.current !== 'ai' && modeRef.current !== 'human') return
     autoRunningRef.current = false
     loopTokenRef.current += 1
     setRunState('connecting')
@@ -389,27 +455,88 @@ export function useGoMatch() {
     try {
       await createSession(fresh)
       setRunState('ready')
+      if (modeRef.current === 'human' && humanColorRef.current === 'white') {
+        await playOneAITurn()
+        setRunState('paused')
+      }
     } catch (error) {
       setRunState('error')
       setNotice(errorMessage(error, 'KataGo 无法启动。'))
     }
-  }, [createSession, resetScoringReview, setRunState, setState])
+  }, [createSession, playOneAITurn, resetScoringReview, setRunState, setState, winRateAnalysis.reset])
 
   const execute = useCallback((move: GoMove) => {
-    if (modeRef.current !== 'local') return
+    if (modeRef.current !== 'local' && modeRef.current !== 'human') return
     try {
-      setState(GO_ENGINE.applyMove(stateRef.current, move))
+      winRateAnalysis.reset()
+      void winRateAnalysis.detachTransport(true)
+      if (modeRef.current === 'human') {
+        if (stateRef.current.turn !== humanColorRef.current) return
+        const controller = sessionRef.current?.controller
+        if (!controller) throw new Error('围棋人机会话尚未就绪。')
+        const next = controller.play(move).state
+        setState(next)
+        if (next.phase === 'playing') {
+          setRunState('running')
+          void playOneAITurn().then(() => setRunState('paused')).catch((error) => {
+            if (isAbortError(error)) return
+            setRunState('error')
+            setNotice(errorMessage(error, '围棋 AI 行棋失败，局面已保留。'))
+          })
+        }
+      } else {
+        setState(GO_ENGINE.applyMove(stateRef.current, move))
+      }
       setNotice(null)
     } catch (error) {
       setNotice(errorMessage(error, '当前着法无法执行。'))
     }
-  }, [setState])
+  }, [playOneAITurn, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
+
+  const analyzePostgame = useCallback(async () => {
+    if (autoRunningRef.current || runStateRef.current === 'thinking') {
+      setNotice('请先暂停 AI 对弈，再启动赛后分析。')
+      return
+    }
+    if (stateRef.current.history.length === 0) {
+      setNotice('至少完成一手后才能分析棋谱。')
+      return
+    }
+    winRateAnalysis.reset()
+    const shared = sessionRef.current?.analysisTransport
+    if (shared) await winRateAnalysis.attachTransport(shared)
+    winRateAnalysis.enqueuePostgame(replayAnalysisPositions(stateRef.current))
+    setNotice('已启动赛后分析；分析不会修改棋谱、结果或对局耗时。')
+  }, [winRateAnalysis.attachTransport, winRateAnalysis.enqueuePostgame, winRateAnalysis.reset])
+
+  const restoreLatest = useCallback(async () => {
+    try {
+      const archive = loadLatestArchive('go')
+      if (!archive) {
+        setNotice('没有可恢复的围棋棋局。')
+        return
+      }
+      autoRunningRef.current = false
+      loopTokenRef.current += 1
+      await winRateAnalysis.detachTransport(true)
+      await disposeSession()
+      modeRef.current = 'local'
+      setModeValue('local')
+      setState(restoreGoArchive(archive))
+      setRunState('offline')
+      setNotice('已逐手验证并恢复最近保存的围棋棋局。')
+    } catch (error) {
+      setNotice(errorMessage(error, '最近棋局无法恢复。'))
+    }
+  }, [disposeSession, setRunState, setState, winRateAnalysis.detachTransport])
 
   const newGame = useCallback(async () => {
     autoRunningRef.current = false
     loopTokenRef.current += 1
+    await winRateAnalysis.detachTransport(true)
     const fresh = GO_ENGINE.init()
     setAnalysisByPlayer({})
+    winRateAnalysis.reset()
     resetScoringReview()
     setState(fresh)
     setNotice(null)
@@ -418,11 +545,15 @@ export function useGoMatch() {
     try {
       await createSession(fresh)
       setRunState('ready')
+      if (modeRef.current === 'human' && humanColorRef.current === 'white') {
+        await playOneAITurn()
+        setRunState('paused')
+      }
     } catch (error) {
       setRunState('error')
       setNotice(errorMessage(error, 'KataGo 无法启动。'))
     }
-  }, [createSession, resetScoringReview, setRunState, setState])
+  }, [createSession, playOneAITurn, resetScoringReview, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
 
   const toggleDeadGroup = useCallback((point: GoPoint) => {
     if (stateRef.current.phase !== 'scoring') return
@@ -460,6 +591,8 @@ export function useGoMatch() {
 
   const resumePlay = useCallback(async () => {
     try {
+      winRateAnalysis.reset()
+      await winRateAnalysis.detachTransport(true)
       const resumed = GO_ENGINE.resumePlay(stateRef.current)
       resetScoringReview()
       setState(resumed)
@@ -473,7 +606,7 @@ export function useGoMatch() {
       setRunState(modeRef.current !== 'local' ? 'error' : 'offline')
       setNotice(errorMessage(error, '当前无法恢复落子。'))
     }
-  }, [createSession, resetScoringReview, setRunState, setState])
+  }, [createSession, resetScoringReview, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
 
   useEffect(() => () => {
     mountedRef.current = false
@@ -486,12 +619,17 @@ export function useGoMatch() {
     state,
     mode,
     profile,
+    humanColor,
     battleEngines,
     runState,
     notice,
     capabilities,
     engineDetails,
     analysisByPlayer,
+    analysisPolicy: DEFAULT_ANALYSIS_POLICY,
+    winRateHistory: winRateAnalysis.history,
+    winRateAnalysisStatus: winRateAnalysis.status,
+    winRateAnalysisError: winRateAnalysis.error,
     legalMoveKeys,
     scorePreview,
     deadStoneKeys,
@@ -500,6 +638,7 @@ export function useGoMatch() {
     changeMode,
     changeProfile,
     changeBattleEngine,
+    changeHumanColor,
     startAI,
     pauseAI,
     stepAI,
@@ -507,7 +646,22 @@ export function useGoMatch() {
     toggleDeadGroup,
     confirmScoring,
     resumePlay,
+    analyzePostgame,
+    restoreLatest,
   }
+}
+
+function replayAnalysisPositions(source: GoGameState): GoGameState[] {
+  let state = GO_ENGINE.init()
+  const positions: GoGameState[] = []
+  for (const record of source.history) {
+    const move: GoMove = record.kind === 'pass'
+      ? { kind: 'pass' }
+      : { row: record.point!.row, col: record.point!.col }
+    state = GO_ENGINE.applyMove(state, move)
+    positions.push(state)
+  }
+  return positions
 }
 
 async function createConfiguredKataGoTransport(): Promise<KataGoTransport> {

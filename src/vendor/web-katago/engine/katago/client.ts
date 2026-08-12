@@ -29,7 +29,12 @@ class KataGoEngineClient {
   private pendingInit: { resolve: () => void; reject: (e: Error) => void } | null = null;
   private pending = new Map<
     number,
-    { resolve: (a: Analysis) => void; reject: (e: Error) => void; onProgress?: (a: Analysis) => void }
+    {
+      resolve: (a: Analysis) => void;
+      reject: (e: Error) => void;
+      onProgress?: (a: Analysis) => void;
+      analysisGroup: 'interactive' | 'background';
+    }
   >();
   private pendingEval = new Map<number, { resolve: (e: EvalResult) => void; reject: (e: Error) => void }>();
   private pendingEvalBatch = new Map<number, { resolve: (e: EvalBatchResult) => void; reject: (e: Error) => void }>();
@@ -158,6 +163,7 @@ class KataGoEngineClient {
     this.postToWorker({ type: 'katago:cancel', analysisGroup });
     const error = new KataGoCanceledError();
     for (const [id, pending] of this.pending) {
+      if (pending.analysisGroup !== analysisGroup) continue;
       this.pending.delete(id);
       pending.reject(error);
     }
@@ -196,10 +202,11 @@ class KataGoEngineClient {
     onProgress?: (analysis: Analysis) => void;
   }): Promise<Analysis> {
     const id = this.nextId++;
+    const analysisGroup = args.analysisGroup ?? 'background';
     const req: KataGoWorkerRequest = {
       type: 'katago:analyze',
       id,
-      analysisGroup: args.analysisGroup,
+      analysisGroup,
       positionId: args.positionId,
       parentPositionId: args.parentPositionId,
       positionKey: args.positionKey,
@@ -230,7 +237,7 @@ class KataGoEngineClient {
       ownershipMode: args.ownershipMode,
     };
     const promise = new Promise<Analysis>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject, onProgress: args.onProgress });
+      this.pending.set(id, { resolve, reject, onProgress: args.onProgress, analysisGroup });
     });
     try {
       this.postToWorker(req);

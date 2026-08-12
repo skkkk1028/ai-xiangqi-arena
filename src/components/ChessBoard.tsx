@@ -1,4 +1,5 @@
 import { pieceLabel } from '../game/notation'
+import { useRef } from 'react'
 import type { BoardState, Color, Move, Position } from '../game/types'
 
 interface ChessBoardProps {
@@ -29,6 +30,12 @@ export function ChessBoard({
   onSquareClick,
 }: ChessBoardProps) {
   const legalTargetKeys = new Set(legalTargets.map(({ row, col }) => `${row}-${col}`))
+  const squareRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const moveFocus = (row: number, col: number, rowDelta: number, colDelta: number) => {
+    const nextRow = Math.max(0, Math.min(9, row + rowDelta))
+    const nextCol = Math.max(0, Math.min(8, col + colDelta))
+    squareRefs.current[nextRow * 9 + nextCol]?.focus()
+  }
   return (
     <div
       className={`chess-board-shell ${paused ? 'is-paused' : ''}`}
@@ -108,6 +115,7 @@ export function ChessBoard({
           return (
             <button
               key={`hit-${row}-${col}`}
+              ref={(node) => { squareRefs.current[row * 9 + col] = node }}
               type="button"
               className={`board-hit-target ${isLegalTarget ? 'is-legal-target' : ''}`}
               style={{
@@ -115,6 +123,17 @@ export function ChessBoard({
                 top: `${((50 + row * 100) / 1000) * 100}%`,
               }}
               onClick={() => onSquareClick?.({ row, col })}
+              onKeyDown={(event) => {
+                const direction = {
+                  ArrowUp: [-1, 0],
+                  ArrowDown: [1, 0],
+                  ArrowLeft: [0, -1],
+                  ArrowRight: [0, 1],
+                }[event.key]
+                if (!direction) return
+                event.preventDefault()
+                moveFocus(row, col, direction[0], direction[1])
+              }}
               aria-label={piece
                 ? `${piece.color === 'red' ? '红方' : '黑方'}${pieceLabel(piece)} ${row + 1}行${col + 1}列`
                 : `${row + 1}行${col + 1}列空位`}

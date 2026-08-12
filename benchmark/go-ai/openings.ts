@@ -2,6 +2,8 @@ import { goMoveToGtp, gtpToGoMove } from '../../src/games/go/ai/coordinates'
 
 export interface CalibrationOpening {
   id: string
+  familyId: string
+  transform: 'identity' | 'rotate-90' | 'rotate-180' | 'rotate-270'
   moves: readonly string[]
 }
 
@@ -22,17 +24,21 @@ const BASE_OPENINGS: readonly (readonly string[])[] = [
 ]
 
 const transforms = [
-  (row: number, col: number) => ({ row, col }),
-  (row: number, col: number) => ({ row: col, col: 18 - row }),
-  (row: number, col: number) => ({ row: 18 - row, col: 18 - col }),
-  (row: number, col: number) => ({ row: 18 - col, col: row }),
+  { name: 'identity', apply: (row: number, col: number) => ({ row, col }) },
+  { name: 'rotate-90', apply: (row: number, col: number) => ({ row: col, col: 18 - row }) },
+  { name: 'rotate-180', apply: (row: number, col: number) => ({ row: 18 - row, col: 18 - col }) },
+  { name: 'rotate-270', apply: (row: number, col: number) => ({ row: 18 - col, col: row }) },
 ] as const
 
-export const GO_CALIBRATION_OPENINGS: readonly CalibrationOpening[] = BASE_OPENINGS
-  .flatMap((moves) => transforms.map((transform) => moves.map((vertex) => {
-    const move = gtpToGoMove(vertex)
-    if ('kind' in move && move.kind === 'pass') throw new Error('校准开局不得包含虚着。')
-    return goMoveToGtp(transform(move.row, move.col))
+export const GO_CALIBRATION_OPENINGS: readonly CalibrationOpening[] = transforms
+  .flatMap((transform) => BASE_OPENINGS.map((moves, familyIndex) => ({
+    familyId: `F${String(familyIndex + 1).padStart(2, '0')}`,
+    transform: transform.name,
+    moves: moves.map((vertex) => {
+      const move = gtpToGoMove(vertex)
+      if ('kind' in move && move.kind === 'pass') throw new Error('校准开局不得包含虚着。')
+      return goMoveToGtp(transform.apply(move.row, move.col))
+    }),
   })))
   .slice(0, 50)
-  .map((moves, index) => ({ id: `O${String(index + 1).padStart(2, '0')}`, moves }))
+  .map((opening, index) => ({ id: `O${String(index + 1).padStart(2, '0')}`, ...opening }))

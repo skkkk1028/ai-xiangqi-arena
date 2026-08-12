@@ -6,6 +6,15 @@ export type GameStatus<TPlayer extends GamePlayerId> =
       currentPlayer: TPlayer
     }
   | {
+      /**
+       * A non-playing workflow owned by the concrete game (for example Go
+       * dead-stone review). The controller keeps the session alive, but must
+       * not request another human or AI move until the game returns to play.
+       */
+      phase: 'review'
+      reason: string
+    }
+  | {
       phase: 'finished'
       winner: TPlayer | null
       reason: string

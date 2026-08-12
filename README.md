@@ -76,12 +76,21 @@ pnpm test:sayuri-service
 pnpm verify:sayuri
 ```
 
-Sayuri 默认请求 20000 playouts。KataGo 在“AI 互对弈”中使用独立
-`KATAGO_BATTLE_MATCHED_VISITS`，不会改变自对弈的 2000/20000 档位。仓库默认 250 只是正式
-校准前的保守占位值，不是已证明的同等级 Elo。`pnpm benchmark:sayuri` 用实际完成、耗时和
-崩溃/OOM 情况筛选线程/batch；`pnpm calibrate:go-ai` 使用 50 个固定开局、交换黑白跑 100 局并
-输出 Wilson 95% 区间。未跑满且无技术失败前，不应宣称已匹配。具体限制见
+Sayuri 对战默认请求 250 playouts，使用 16 threads / batch 8；KataGo 在“AI 互对弈”中使用独立
+的 250 `KATAGO_BATTLE_MATCHED_VISITS`，不会改变自对弈的 2000/20000 档位。两边的 250 都是
+正式校准阶段采用的保守值，不代表已证明同等级，更不是 Elo 结论。`pnpm benchmark:sayuri` 用
+实际完成、耗时和崩溃/OOM 情况筛选线程/batch；`pnpm calibrate:go-ai` 使用 50 个固定位置、交换
+黑白跑 100 局并输出完成率、耗时、故障分类和描述性的 Wilson 95% 区间。这 50 个位置来自 13 个
+基础开局族及其旋转，且每个位置成对换色，因此 100 局并不相互独立。未完整跑满且无技术失败，
+或 Wilson 区间未整体落入预先声明的 40%–60% 实用等效带时，UI 只显示保守校准值，不宣称匹配。
+具体限制见
 [`services/sayuri-bridge/README.md`](./services/sayuri-bridge/README.md)。
+
+2026-08-11 本机正式校准使用 Sayuri 250 playouts 对 KataGo 最低可用的 2 visits：100/100 局完成，
+耗时 1:42:11，Sayuri 29 胜、KataGo 71 胜，超时、崩溃、OOM、非法着和会话失败均为 0；Sayuri
+描述性 Wilson 95% 区间为 21.0%–38.5%。1 visit 因 KataGo 不返回候选着而不可用。因此现有证据
+明确是“未匹配”，不是 Elo 结论；运行默认回退并保留显式标注的保守 250/250，而不把 2 visits
+包装成已证明的公平值。完整方法和报告指纹见 [`benchmark/go-ai/README.md`](./benchmark/go-ai/README.md)。
 
 ## 公开部署（Cloudflare Pages）
 

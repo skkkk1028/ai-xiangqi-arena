@@ -9,10 +9,12 @@ const configurations = [
   { threads: 16, batchSize: 8 },
   { threads: 24, batchSize: 12 },
 ]
-const budgets = [20_000, 10_000, 5_000]
+const configuredPlayouts = positiveInt(process.env.SAYURI_PLAYOUTS, 250)
+const budgets = argumentInts('--playouts', [configuredPlayouts])
 const movesPerConfiguration = argumentInt('--moves', 20)
 const timeoutMs = 180_000
 const kataGoResidentAtStart = await kataGoReady()
+const startedAt = Date.now()
 const report = {
   generatedAt: new Date().toISOString(),
   engineVersion: 'Sayuri v0.10.0 CUDA 12 Windows x64',
@@ -20,9 +22,9 @@ const report = {
   modelSha256: process.env.SAYURI_MODEL_SHA256,
   gpu: gpuInfo(),
   kataGoResidentAtStart,
-  criterion: 'highest playout budget with 20 normal returns, every move <=180s, then lowest average latency',
+  criterion: `configured playout budget (${configuredPlayouts}) with ${movesPerConfiguration} normal returns, every move <=180s, then lowest average latency`,
   exactCompletedPlayoutsObservable: false,
-  note: 'GTP genmove does not return an exact completed-playout count; a normal return without const-time is treated as reaching the configured maximum, but no 95% numeric claim is made.',
+  note: 'GTP genmove does not return an exact completed-playout count; a normal return without const-time is treated as reaching the configured maximum. This short stability screen is not a strength or Elo result.',
   trials: [],
   selected: null,
 }
@@ -44,12 +46,14 @@ for (const playouts of budgets) {
 
 const outputDir = resolve('reports/go-ai-calibration')
 await mkdir(outputDir, { recursive: true })
+report.elapsedMs = Date.now() - startedAt
 const output = resolve(outputDir, `sayuri-stability-${Date.now()}.json`)
 await writeFile(output, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
 process.stdout.write(`Report: ${output}\n`)
 if (!report.selected) process.exitCode = 1
 
 async function runTrial({ threads, batchSize, playouts }) {
+  const startedAt = Date.now()
   const engine = new SayuriProcess({
     binaryPath: process.env.SAYURI_BIN_PATH,
     binarySha256: process.env.SAYURI_BIN_SHA256,
@@ -92,13 +96,23 @@ async function runTrial({ threads, batchSize, playouts }) {
     playouts, threads, batchSize,
     requestedMoves: movesPerConfiguration,
     completedMoves: durations.length,
+    completionRate: durations.length / movesPerConfiguration,
     stable,
     eligibleForSelection: stable && kataGoResidentAtStart && kataGoResidentAtEnd,
     failure,
+    failureKind: failure ? classifyFailure(failure) : null,
+    elapsedMs: Date.now() - startedAt,
     averageMoveMs: durations.length ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length) : null,
     maximumMoveMs: durations.length ? Math.max(...durations) : null,
     kataGoResidentAtEnd,
   }
+}
+
+function classifyFailure(message) {
+  if (/out of memory|\boom\b|cuda.*alloc|allocation failed/i.test(message)) return 'oom'
+  if (/timed out|timeout|exceeded/i.test(message)) return 'timeout'
+  if (/exited|broken pipe|stdin.*not writable/i.test(message)) return 'crash'
+  return 'other'
 }
 
 async function kataGoReady() {
@@ -121,6 +135,19 @@ function gpuInfo() {
 function argumentInt(name, fallback) {
   const prefix = `${name}=`
   const value = process.argv.find((argument) => argument.startsWith(prefix))?.slice(prefix.length)
+  const parsed = Number(value)
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function argumentInts(name, fallback) {
+  const prefix = `${name}=`
+  const value = process.argv.find((argument) => argument.startsWith(prefix))?.slice(prefix.length)
+  if (!value) return fallback
+  const parsed = value.split(',').map(Number)
+  return parsed.length && parsed.every((item) => Number.isInteger(item) && item > 0) ? parsed : fallback
+}
+
+function positiveInt(value, fallback) {
   const parsed = Number(value)
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback
 }

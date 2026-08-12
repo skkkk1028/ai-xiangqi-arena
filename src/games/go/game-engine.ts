@@ -147,13 +147,8 @@ export class GoGameEngine implements GameEngine<GoGameState, GoMove, GoPlayer, G
     return this.executeAction(state, action)
   }
 
-  /**
-   * The generic GameController has no scoring status. Treat scoring as
-   * terminal there so no further turns are requested; callers that understand
-   * Go can distinguish it through `state.phase`.
-   */
   isFinished(state: GoGameState): boolean {
-    return state.phase !== 'playing'
+    return state.phase === 'finished'
   }
 
   isGameOver(state: GoGameState): boolean {
@@ -162,7 +157,7 @@ export class GoGameEngine implements GameEngine<GoGameState, GoMove, GoPlayer, G
 
   getStatus(state: GoGameState): GameStatus<GoPlayer> {
     if (state.phase === 'playing') return { phase: 'playing', currentPlayer: state.turn }
-    if (state.phase === 'scoring') return { phase: 'finished', winner: null, reason: 'scoring' }
+    if (state.phase === 'scoring') return { phase: 'review', reason: 'scoring' }
     return {
       phase: 'finished',
       winner: state.result?.winner ?? null,

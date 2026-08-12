@@ -90,6 +90,30 @@ describe('通用棋类平台契约', () => {
     expect(blackAI.initialized).toHaveBeenCalledWith({ gameId: 'xiangqi', player: 'black' })
   })
 
+  it('review 阶段保留会话但拒绝继续行棋', async () => {
+    const game = {
+      id: 'review-game',
+      name: 'Review Game',
+      initializeGame: () => ({ phase: 'playing' as const, turn: 'a' as const }),
+      getCurrentPlayer: () => 'a' as const,
+      getLegalActions: (state: { phase: 'playing' | 'review'; turn: 'a' }) => state.phase === 'playing' ? ['review'] : [],
+      actionsEqual: (left: string, right: string) => left === right,
+      executeAction: () => ({ phase: 'review' as const, turn: 'a' as const }),
+      isFinished: () => false,
+      getStatus: (state: { phase: 'playing' | 'review'; turn: 'a' }) => state.phase === 'playing'
+        ? { phase: 'playing' as const, currentPlayer: 'a' as const }
+        : { phase: 'review' as const, reason: 'approval' },
+      getRecord: () => [] as string[],
+    }
+    const controller = new GameController(game, [{ id: 'a', name: 'A', kind: 'human' }])
+    await controller.start()
+    controller.play('review')
+
+    expect(controller.getSnapshot().status).toEqual({ phase: 'review', reason: 'approval' })
+    expect(controller.getLegalActions()).toEqual([])
+    expect(() => controller.play('review')).toThrow('审查阶段')
+  })
+
   it('同一 AI 实例用于红黑双方时只发送一次生命周期命令', async () => {
     const sharedAI = new FirstLegalMoveAI('shared-ai')
     const controller = new GameController(new XiangqiGameEngine(), [

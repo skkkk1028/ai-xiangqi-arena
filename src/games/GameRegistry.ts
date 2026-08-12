@@ -17,7 +17,8 @@ export interface GameLobbyDefinition {
 export interface RegisteredGame {
   id: string
   route: string
-  Page: ComponentType
+  /** Lazily loads the complete game module. Lobby metadata stays lightweight. */
+  loadPage: () => Promise<{ default: ComponentType }>
   lobby: GameLobbyDefinition
 }
 

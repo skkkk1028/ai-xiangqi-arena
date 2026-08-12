@@ -13,11 +13,13 @@ npm run benchmark:sayuri
 ```
 
 The script tests `(threads,batch)` = `(8,4)`, `(12,6)`, `(16,8)`, `(24,12)`
-at 20,000 playouts. It falls back to 10,000 and then 5,000 only when no
-configuration completes all 20 requested moves within 180 seconds. Sayuri GTP
-does not expose the exact completed-playout count for `genmove`, so the report
-records that the 95% completion number is not directly observable instead of
-inventing it.
+at the configured `SAYURI_PLAYOUTS` value (repository default: 250). Override
+the screen without editing `.env` with `--playouts=500,250`. Sayuri GTP does
+not expose the exact completed-playout count for `genmove`, so the report
+records normal-return completion, latency, crash/OOM classification, and
+concurrent KataGo residency without inventing a completed-playout confidence
+claim. This 20-move screen selects a resource configuration; it is not a
+strength or Elo result.
 
 ## 2. Two-model screen
 
@@ -59,8 +61,42 @@ npm run calibrate:go-ai
 ```
 
 The default pairing is Sayuri as engine A and KataGo as engine B. A full run
-creates 100 games, reports total/color win rates and a Wilson 95% interval, and
-fails acceptance unless Sayuri is within 40%–60%. A color-rate gap above 15
-percentage points is flagged for opening-set review. Reports are written under
-`reports/go-ai-calibration/`; partial or technical-failure reports remain
-provisional and cannot be used to update the battle-matched value.
+creates 100 games and reports completion, wall time, timeout/crash/OOM/illegal
+move counts, total/color win rates, and a game-level Wilson 95% interval. A
+checkpoint is overwritten after every completed game. Acceptance requires all
+100 games without a technical failure and the entire descriptive Wilson
+interval to fall inside the predeclared 40%–60% practical-equivalence band.
+
+These are 50 color-swapped positions derived from 13 base opening families by
+rotation. The 100 game outcomes therefore are not independent. The Wilson
+interval is supplied as a descriptive diagnostic and does not model the paired
+or shared-family structure; neither partial reports nor the completed report
+is an Elo estimate. A color-rate gap above 15 percentage points is flagged for
+opening-set review. Reports are written under `reports/go-ai-calibration/`;
+partial or technical-failure reports remain provisional and cannot justify a
+matched-strength label or a battle-budget change.
+
+## 4. 2026-08-11 local calibration result
+
+Host: NVIDIA GeForce RTX 4050 Laptop GPU (6 GiB). Sayuri v0.10.0 used the
+pinned CGF2026 B12 model at 250 playouts, 16 threads, and batch size 8. The
+resource screen kept KataGo resident: all four settings completed 20/20 moves
+without a crash or OOM; 16/8 had the lowest observed mean latency (299 ms).
+
+KataGo coarse screens at 250 and 16 visits scored Sayuri 0/20 and 2/20. One
+visit was technically unusable because KataGo returned no candidate. The
+lowest usable value, 2 visits, scored Sayuri 5/20 in the coarse screen and was
+therefore used only as the closest formal test candidate.
+
+The formal 50-opening, color-swapped run at Sayuri 250 playouts versus KataGo
+2 visits completed 100/100 games in 6,131,211 ms (1:42:11): Sayuri 29 wins,
+KataGo 71, no draws, and zero timeout/crash/OOM/illegal/session failures.
+Sayuri scored 32% as black and 26% as white; the descriptive game-level Wilson
+95% interval was 21.0%–38.5%. Status: `not-matched`. The full local JSON report
+is `reports/go-ai-calibration/calibration-2026-08-11T03-15-22-534Z-26308.json`
+(SHA-256 `38a98fb8ba8d2fa225ef1ec70df4a953701f899ee7b853f4bd667de8f25922a7`).
+
+This rejects a matched-strength label even at the lowest usable KataGo budget;
+it is not an Elo result. The checked-in and local runtime defaults therefore
+remain the explicitly conservative 250/250 values rather than presenting 2
+visits as a proven match.

@@ -1,5 +1,6 @@
 import type { SearchInfo } from '../game/types'
 import type { MultiPvCount } from './search-policy'
+import type { EngineDescriptor } from '../games/core/engine-runtime'
 
 export type EngineProtocol = 'UCCI' | 'UCI'
 
@@ -36,6 +37,27 @@ export interface AIEngineConfig {
   commit: string
   nnueSha256: string
   wasmSha256: string
+}
+
+export function xiangqiEngineDescriptor(config: Readonly<AIEngineConfig>): EngineDescriptor {
+  return {
+    id: config.id,
+    gameId: 'xiangqi',
+    name: config.name,
+    version: config.version,
+    model: config.nnuePath,
+    modelSha256: config.nnueSha256,
+    protocol: config.protocol,
+    runtime: 'browser-worker',
+    capabilities: {
+      winRate: true,
+      scoreLead: false,
+      multiCandidate: true,
+      streaming: true,
+      cancellation: true,
+      budgetUnits: ['milliseconds', 'depth'],
+    },
+  }
 }
 
 export interface EngineProgress {

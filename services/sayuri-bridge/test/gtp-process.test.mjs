@@ -15,7 +15,7 @@ test('uses the verified search flags and replays the full position before genmov
   let spawnOptions
   const engine = new SayuriProcess({
     ...fixture,
-    playouts: 20_000,
+    playouts: 250,
     threads: 16,
     batchSize: 8,
     spawn: (_binary, args, options) => { spawnArgs = args; spawnOptions = options; return child },
@@ -23,7 +23,7 @@ test('uses the verified search flags and replays the full position before genmov
 
   const capabilities = await engine.start()
   assert.equal(capabilities.engineVersion, 'Sayuri 0.10.0')
-  assert.deepEqual(spawnArgs.slice(0, 8), ['-w', fixture.modelPath, '-p', '20000', '-t', '16', '--batch-size', '8'])
+  assert.deepEqual(spawnArgs.slice(0, 8), ['-w', fixture.modelPath, '-p', '250', '-t', '16', '--batch-size', '8'])
   assert.ok(spawnArgs.includes('--use-optimistic-policy'))
   assert.ok(spawnArgs.includes('--friendly-pass'))
   assert.deepEqual(spawnArgs.slice(-2), ['--resign-threshold', '0'])

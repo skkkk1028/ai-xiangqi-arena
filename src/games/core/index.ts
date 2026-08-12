@@ -1,2 +1,6 @@
 export * from './contracts'
 export * from './GameController'
+export * from './engine-runtime'
+export * from './MatchSession'
+export * from './BoardWorkbench'
+export * from './archive'

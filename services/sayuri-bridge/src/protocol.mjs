@@ -1,5 +1,5 @@
 export const MATCH_SETTINGS = Object.freeze({
-  playouts: 20_000,
+  playouts: 250,
   timeoutMs: 180_000,
 })
 

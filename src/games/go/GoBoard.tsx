@@ -1,5 +1,6 @@
 import { formatGoPoint } from './move-history'
 import { pointKey, pointsEqual } from './board'
+import { useRef } from 'react'
 import type {
   GoBoard as GoBoardState,
   GoMoveRecord,
@@ -36,6 +37,12 @@ export function GoBoard({
   onPlay,
   onToggleDead,
 }: GoBoardProps) {
+  const pointRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const moveFocus = (row: number, col: number, rowDelta: number, colDelta: number) => {
+    const nextRow = Math.max(0, Math.min(18, row + rowDelta))
+    const nextCol = Math.max(0, Math.min(18, col + colDelta))
+    pointRefs.current[nextRow * 19 + nextCol]?.focus()
+  }
   return (
     <div className="go-board" role="grid" aria-label="十九路围棋棋盘" aria-rowcount={19} aria-colcount={19}>
       <div className="go-board__grid" aria-hidden="true" />
@@ -62,6 +69,7 @@ export function GoBoard({
           return (
             <button
               key={key}
+              ref={(node) => { pointRefs.current[rowIndex * 19 + colIndex] = node }}
               className={`go-board__point${legal ? ' go-board__point--legal' : ''}${scorable ? ' go-board__point--scoring' : ''}${dead ? ' go-board__point--dead' : ''}`}
               type="button"
               role="gridcell"
@@ -70,6 +78,17 @@ export function GoBoard({
               aria-pressed={scorable ? dead : undefined}
               disabled={!legal && !scorable}
               onClick={() => scorable ? onToggleDead(point) : onPlay(point)}
+              onKeyDown={(event) => {
+                const direction = {
+                  ArrowUp: [-1, 0],
+                  ArrowDown: [1, 0],
+                  ArrowLeft: [0, -1],
+                  ArrowRight: [0, 1],
+                }[event.key]
+                if (!direction) return
+                event.preventDefault()
+                moveFocus(rowIndex, colIndex, direction[0], direction[1])
+              }}
             >
               {stone && (
                 <span className={`go-board__stone go-board__stone--${stone}`}>

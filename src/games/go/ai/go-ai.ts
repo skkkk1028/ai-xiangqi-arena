@@ -1,4 +1,5 @@
 import type { GoMove, GoPlayer } from '../types'
+import type { EngineDescriptor } from '../../core'
 
 export type GoAIEngineId = 'katago' | 'leela-zero' | 'sayuri'
 
@@ -13,7 +14,7 @@ export const GO_AI_ENGINES: readonly GoAIEngineOption[] = [
   {
     id: 'katago',
     name: 'KataGo',
-    description: 'Native OpenCL · 互对弈使用独立校准 visits',
+    description: 'Native OpenCL · 保守 250 visits（未证明匹配）',
     localOnly: false,
   },
   {
@@ -25,7 +26,7 @@ export const GO_AI_ENGINES: readonly GoAIEngineOption[] = [
   {
     id: 'sayuri',
     name: 'Sayuri',
-    description: 'v0.10.0 · CUDA 12 · 独立神经网络与 MCTS',
+    description: 'v0.10.0 · CUDA 12 · 250 playouts（保守校准值）',
     localOnly: true,
   },
 ] as const
@@ -82,4 +83,28 @@ export type GoAIAnalysisListener = (analysis: GoAIAnalysis) => void
 
 export function goAIEngineName(id: GoAIEngineId): string {
   return GO_AI_ENGINES.find((engine) => engine.id === id)?.name ?? id
+}
+
+export function goEngineDescriptor(
+  id: GoAIEngineId,
+  details?: Partial<GoAIEngineRuntimeDetails>,
+): EngineDescriptor {
+  const native = id !== 'katago'
+  return {
+    id,
+    gameId: 'go',
+    name: goAIEngineName(id),
+    version: details?.engineVersion ?? '运行时检测',
+    model: details?.modelName ?? '运行时检测',
+    protocol: id === 'katago' ? 'KataGo Analysis' : 'GTP',
+    runtime: native ? 'native-bridge' : 'browser-webgpu',
+    capabilities: {
+      winRate: id === 'katago',
+      scoreLead: id === 'katago',
+      multiCandidate: id === 'katago',
+      streaming: id === 'katago',
+      cancellation: true,
+      budgetUnits: [id === 'katago' ? 'visits' : 'playouts'],
+    },
+  }
 }

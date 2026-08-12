@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { GAME_ROUTES } from '../routes'
+import { BoardWorkbenchTabs, saveLatestArchive, serializeMatchArchive, type WorkbenchPanel } from '../core'
 import {
   GO_AI_ENGINES,
   goAIEngineName,
@@ -9,11 +11,14 @@ import {
   type KataGoSearchProfile,
 } from './ai'
 import { GoBoard } from './GoBoard'
+import { createGoArchive, exportGoSgf } from './sgf'
+import { WinRateChart } from './WinRateChart'
 import { GO_PASS_MOVE, type GoGameState, type GoPlayer, type GoScore } from './types'
 import { useGoMatch, type GoAIRunState, type GoMatchMode } from './useGoMatch'
 
 export function GoGamePage() {
   const match = useGoMatch()
+  const [activePanel, setActivePanel] = useState<GoWorkbenchPanel>('match')
   const {
     state,
     mode,
@@ -26,10 +31,24 @@ export function GoGamePage() {
   } = match
   const turnName = playerName(state.turn)
   const status = getStatusCopy(state, mode, runState)
-  const recentHistory = state.history.slice(-6).reverse()
+  const recentHistory = [...state.history.slice(-40)].reverse()
   const activeAnalysis = analysisByPlayer[state.turn] ?? analysisByPlayer.black ?? analysisByPlayer.white ?? null
   const aiBusy = runState === 'running' || runState === 'thinking'
   const aiMode = mode !== 'local'
+  const humanTurn = mode === 'human' && state.turn === match.humanColor
+
+  useEffect(() => {
+    if (state.phase === 'scoring') setActivePanel('match')
+  }, [state.phase])
+
+  useEffect(() => {
+    if (state.history.length === 0) return
+    try {
+      saveLatestArchive(createGoArchive(state))
+    } catch {
+      // Storage availability is optional; the active game remains authoritative.
+    }
+  }, [state])
 
   return (
     <main className="go-page go-match-page">
@@ -53,7 +72,7 @@ export function GoGamePage() {
         <div className={`go-runtime-badge go-runtime-badge--${aiMode ? runState : 'local'}`}>
           <i />
           <span>{aiMode ? runtimeLabel(runState) : 'LOCAL RULES ONLINE'}</span>
-          <b>{mode === 'battle' ? 'MULTI-ENGINE · LOCAL GPU' : mode === 'ai' ? kataGoRuntimeBackendLabel(capabilities?.runtimeBackend) : '中国规则 · 7.5 贴目'}</b>
+          <b>{mode === 'battle' ? 'MULTI-ENGINE · LOCAL GPU' : mode === 'ai' || mode === 'human' ? kataGoRuntimeBackendLabel(capabilities?.runtimeBackend) : '中国规则 · 7.5 贴目'}</b>
         </div>
       </header>
 
@@ -61,8 +80,8 @@ export function GoGamePage() {
         <div className="go-board-stage">
           <div className="go-board-heading">
             <div>
-              <p>十九路研习对局 · {mode === 'battle' ? 'AI ENGINE BATTLE' : mode === 'ai' ? 'KATAGO SELF-PLAY' : 'LOCAL SESSION'}</p>
-              <h1 id="go-page-title">{aiMode ? '双机弈境' : '静室手谈'}</h1>
+              <p>十九路研习对局 · {mode === 'battle' ? 'AI ENGINE BATTLE' : mode === 'ai' ? 'KATAGO SELF-PLAY' : mode === 'human' ? 'HUMAN VS KATAGO' : 'LOCAL SESSION'}</p>
+              <h1 id="go-page-title">{mode === 'human' ? '人机手谈' : aiMode ? '双机弈境' : '静室手谈'}</h1>
             </div>
             <div className={`go-phase go-phase--${state.phase}`}>
               <i />
@@ -80,7 +99,7 @@ export function GoGamePage() {
               lastMove={state.lastMove}
               legalMoveKeys={legalMoveKeys}
               deadStoneKeys={match.deadStoneKeys}
-              interactive={mode === 'local' && state.phase === 'playing'}
+              interactive={(mode === 'local' || humanTurn) && state.phase === 'playing' && !aiBusy}
               scoring={state.phase === 'scoring'}
               onPlay={match.execute}
               onToggleDead={match.toggleDeadGroup}
@@ -92,23 +111,12 @@ export function GoGamePage() {
             <i />
             <span>位置超级劫 · 禁止自杀</span>
             <i />
-            <span>{mode === 'battle' ? '独立本地引擎 · 统一规则校验' : mode === 'ai' ? `${kataGoRuntimeBackendLabel(capabilities?.runtimeBackend)} · ${capabilities?.runtimeBackend === 'native-katago' ? '本机 GPU 计算' : '访客设备计算'}` : '本地规则运算'}</span>
+            <span>{mode === 'battle' ? '独立本地引擎 · 统一规则校验' : mode === 'ai' || mode === 'human' ? `${kataGoRuntimeBackendLabel(capabilities?.runtimeBackend)} · ${capabilities?.runtimeBackend === 'native-katago' ? '本机 GPU 计算' : '访客设备计算'}` : '本地规则运算'}</span>
           </div>
         </div>
 
-        <aside className="go-console" aria-label="围棋对局信息">
-          <ModePanel
-            mode={mode}
-            profile={profile}
-            battleEngines={match.battleEngines}
-            engineDetails={match.engineDetails}
-            busy={aiBusy || runState === 'connecting'}
-            onMode={(next) => void match.changeMode(next)}
-            onProfile={(next) => void match.changeProfile(next)}
-            onBattleEngine={(player, engine) => void match.changeBattleEngine(player, engine)}
-          />
-
-          <section className="go-turn-card">
+        <aside className="go-console go-workbench-console" aria-label="围棋对局信息">
+          <section className="go-turn-card" aria-live="polite">
             <div className={`go-turn-card__stone go-turn-card__stone--${state.turn}`} aria-hidden="true" />
             <div>
               <span>CURRENT TURN</span>
@@ -121,7 +129,7 @@ export function GoGamePage() {
           <section className="go-players" aria-label="棋手信息">
             <PlayerStrip
               color="black"
-              name={mode === 'battle' ? `${goAIEngineName(match.battleEngines.black)} · 黑` : mode === 'ai' ? 'KataGo · 黑' : '本地棋手 A'}
+              name={mode === 'battle' ? `${goAIEngineName(match.battleEngines.black)} · 黑` : mode === 'ai' ? 'KataGo · 黑' : mode === 'human' ? (match.humanColor === 'black' ? '真人玩家 · 黑' : 'KataGo · 黑') : '本地棋手 A'}
               active={state.phase === 'playing' && state.turn === 'black'}
               prisoners={state.prisoners.black}
               analysis={analysisByPlayer.black}
@@ -129,7 +137,7 @@ export function GoGamePage() {
             <div className="go-players__versus"><span />VS<span /></div>
             <PlayerStrip
               color="white"
-              name={mode === 'battle' ? `${goAIEngineName(match.battleEngines.white)} · 白` : mode === 'ai' ? 'KataGo · 白' : '本地棋手 B'}
+              name={mode === 'battle' ? `${goAIEngineName(match.battleEngines.white)} · 白` : mode === 'ai' ? 'KataGo · 白' : mode === 'human' ? (match.humanColor === 'white' ? '真人玩家 · 白' : 'KataGo · 白') : '本地棋手 B'}
               active={state.phase === 'playing' && state.turn === 'white'}
               prisoners={state.prisoners.white}
               analysis={analysisByPlayer.white}
@@ -141,14 +149,66 @@ export function GoGamePage() {
             <div><span>回合</span><strong>{Math.ceil(state.history.length / 2)}</strong><small>ROUNDS</small></div>
             <div><span>连续虚着</span><strong>{state.consecutivePasses}</strong><small>PASSES</small></div>
           </section>
+          <BoardWorkbenchTabs
+            active={activePanel}
+            onChange={setActivePanel}
+            panels={createGoPanels({
+              match,
+              activeAnalysis,
+              recentHistory,
+              aiBusy,
+              notice,
+            })}
+          />
+        </aside>
+      </section>
 
+      <footer className="go-match-footer">
+        <span>中国规则 · 面积计分 · 贴目 7.5 · 位置超级劫</span>
+        <span>{mode === 'battle' ? 'GO LAB / FIXED BUDGETS · POSTGAME ANALYSIS' : mode === 'ai' ? `GO LAB / KATAGO ${profile.toUpperCase()}` : 'GO LAB / LOCAL SESSION · ANALYSIS ON REQUEST'}</span>
+      </footer>
+    </main>
+  )
+}
+
+type GoWorkbenchPanel = 'match' | 'analysis' | 'history' | 'engine'
+
+function createGoPanels({
+  match,
+  activeAnalysis,
+  recentHistory,
+  aiBusy,
+  notice,
+}: {
+  match: ReturnType<typeof useGoMatch>
+  activeAnalysis: GoAIAnalysis | null
+  recentHistory: GoGameState['history']
+  aiBusy: boolean
+  notice: string | null
+}): WorkbenchPanel<GoWorkbenchPanel>[] {
+  const { state, mode, profile, runState, capabilities } = match
+  return [
+    {
+      id: 'match',
+      label: state.phase === 'scoring' ? '计分' : '对局',
+      eyebrow: 'MATCH',
+      content: (
+        <div className="go-workbench-stack">
+          <ModePanel
+            mode={mode}
+            profile={profile}
+            humanColor={match.humanColor}
+            battleEngines={match.battleEngines}
+            engineDetails={match.engineDetails}
+            busy={aiBusy || runState === 'connecting'}
+            onMode={(next) => void match.changeMode(next)}
+            onProfile={(next) => void match.changeProfile(next)}
+            onHumanColor={(next) => void match.changeHumanColor(next)}
+            onBattleEngine={(player, engine) => void match.changeBattleEngine(player, engine)}
+          />
           {state.phase === 'scoring' && match.scorePreview && (
-            <ScoringPreview
-              score={match.scorePreview}
-              confirmations={match.scoringConfirmations}
-            />
+            <ScoringPreview score={match.scorePreview} confirmations={match.scoringConfirmations} />
           )}
-
           {state.phase === 'finished' && state.result && (
             <section className="go-result-card" aria-live="polite">
               <span>FINAL SCORE · 中国面积计分</span>
@@ -156,84 +216,126 @@ export function GoGamePage() {
               <small>黑 {state.result.score.black.total} · 白 {state.result.score.white.total}</small>
             </section>
           )}
-
           <MatchControls match={match} aiBusy={aiBusy} />
-
           {notice && <p className="go-notice" role="status">{notice}</p>}
-
-          <section className="go-history-panel" aria-label="最近棋谱">
-            <header><span>最近棋谱</span><small>MOVE LOG</small></header>
-            {recentHistory.length > 0 ? (
-              <ol>
-                {recentHistory.map((record) => (
-                  <li key={record.moveNumber}>
-                    <b>{String(record.moveNumber).padStart(3, '0')}</b>
-                    <i className={`go-history-panel__stone go-history-panel__stone--${record.color}`} />
-                    <span>{record.notation}</span>
-                    <small>{record.captures.length ? `提 ${record.captures.length}` : '—'}</small>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <p>等待第一手落子</p>
-            )}
+        </div>
+      ),
+    },
+    {
+      id: 'analysis',
+      label: '分析',
+      eyebrow: 'REVIEW',
+      content: (
+        <div className="go-workbench-stack">
+          <section className="go-analysis-policy" aria-label="分析策略">
+            <span>分析策略 · POSTGAME</span>
+            <strong>公平对战默认关闭第三方实时分析</strong>
+            <p>暂停或结束后按棋谱顺序分析；不会修改落子、结果或耗时。</p>
+            <button type="button" disabled={state.history.length === 0 || aiBusy} onClick={() => void match.analyzePostgame()}>
+              启动赛后分析
+            </button>
           </section>
-
-          <AIEnginePanel
-            mode={mode}
-            runState={runState}
-            profile={profile}
-            capabilities={capabilities}
-            analysis={activeAnalysis}
+          <WinRateChart
+            points={match.winRateHistory}
+            status={match.winRateAnalysisStatus}
+            error={match.winRateAnalysisError}
           />
-        </aside>
-      </section>
-
-      <footer className="go-match-footer">
-        <span>中国规则 · 面积计分 · 贴目 7.5 · 位置超级劫</span>
-        <span>{mode === 'battle' ? 'GO LAB / AI ENGINE BATTLE · MATCHED BUDGETS' : mode === 'ai' ? `GO LAB / KATAGO ${profile.toUpperCase()}` : 'GO LAB / LOCAL SESSION · AI STANDBY'}</span>
-      </footer>
-    </main>
-  )
+        </div>
+      ),
+    },
+    {
+      id: 'history',
+      label: '棋谱',
+      eyebrow: 'MOVES',
+      content: (
+        <section className="go-history-panel" aria-label="最近棋谱">
+          <header><span>最近棋谱</span><small>MOVE LOG</small></header>
+          <div className="go-history-actions">
+            <button type="button" disabled={state.history.length === 0} onClick={() => downloadText('go-game.sgf', exportGoSgf(state), 'application/x-go-sgf')}>下载 SGF</button>
+            <button type="button" disabled={state.history.length === 0} onClick={() => downloadText('go-game.json', serializeMatchArchive(createGoArchive(state)), 'application/json')}>下载档案</button>
+            <button type="button" disabled={state.history.length === 0} onClick={() => void copyText(exportGoSgf(state))}>复制棋谱</button>
+            <button type="button" onClick={() => void match.restoreLatest()}>恢复最近一局</button>
+          </div>
+          {recentHistory.length > 0 ? (
+            <ol>{recentHistory.map((record) => (
+              <li key={record.moveNumber}>
+                <b>{String(record.moveNumber).padStart(3, '0')}</b>
+                <i className={`go-history-panel__stone go-history-panel__stone--${record.color}`} />
+                <span>{record.notation}</span>
+                <small>{record.captures.length ? `提 ${record.captures.length}` : '—'}</small>
+              </li>
+            ))}</ol>
+          ) : <p>等待第一手落子</p>}
+        </section>
+      ),
+    },
+    {
+      id: 'engine',
+      label: '引擎',
+      eyebrow: 'ENGINE',
+      content: (
+        <AIEnginePanel
+          mode={mode}
+          runState={runState}
+          profile={profile}
+          capabilities={capabilities}
+          analysis={activeAnalysis}
+        />
+      ),
+    },
+  ]
 }
 
 function ModePanel({
   mode,
   profile,
+  humanColor,
   battleEngines,
   engineDetails,
   busy,
   onMode,
   onProfile,
+  onHumanColor,
   onBattleEngine,
 }: {
   mode: GoMatchMode
   profile: KataGoSearchProfile
+  humanColor: GoPlayer
   battleEngines: Record<GoPlayer, GoAIEngineId>
   engineDetails: ReturnType<typeof useGoMatch>['engineDetails']
   busy: boolean
   onMode: (mode: GoMatchMode) => void
   onProfile: (profile: KataGoSearchProfile) => void
+  onHumanColor: (color: GoPlayer | 'random') => void
   onBattleEngine: (player: GoPlayer, engine: GoAIEngineId) => void
 }) {
   return (
     <section className="go-mode-panel" aria-label="围棋对局模式">
-      <header><span>MATCH MODE</span><small>{mode === 'battle' ? 'ENGINE BATTLE' : mode === 'ai' ? 'KATAGO LAB' : 'LOCAL ROOM'}</small></header>
+      <header><span>MATCH MODE</span><small>{mode === 'battle' ? 'ENGINE BATTLE' : mode === 'ai' ? 'KATAGO LAB' : mode === 'human' ? 'HUMAN VS AI' : 'LOCAL ROOM'}</small></header>
       <div className="go-segmented">
         <button type="button" aria-pressed={mode === 'local'} onClick={() => onMode('local')}>本地双人</button>
+        <button type="button" aria-pressed={mode === 'human'} onClick={() => onMode('human')}>真人 vs AI</button>
         <button type="button" aria-pressed={mode === 'ai'} onClick={() => onMode('ai')}>AI 自对弈</button>
         <button type="button" aria-pressed={mode === 'battle'} onClick={() => onMode('battle')}>AI 互对弈</button>
       </div>
+      {mode === 'human' && (
+        <div className="go-human-color" aria-label="真人执子">
+          <span>真人执子</span>
+          <button type="button" disabled={busy} aria-pressed={humanColor === 'black'} onClick={() => onHumanColor('black')}>黑 · 先手</button>
+          <button type="button" disabled={busy} aria-pressed={humanColor === 'white'} onClick={() => onHumanColor('white')}>白 · 后手</button>
+          <button type="button" disabled={busy} onClick={() => onHumanColor('random')}>随机</button>
+        </div>
+      )}
       <div className="go-profile-selector" aria-label="KataGo 搜索档位">
         <span>SEARCH</span>
-        <button type="button" disabled={mode !== 'ai' || busy} aria-pressed={profile === 'fast'} onClick={() => onProfile('fast')}>快 · 2000</button>
-        <button type="button" disabled={mode !== 'ai' || busy} aria-pressed={profile === 'strong'} onClick={() => onProfile('strong')}>强 · 20000</button>
+        <button type="button" disabled={(mode !== 'ai' && mode !== 'human') || busy} aria-pressed={profile === 'fast'} onClick={() => onProfile('fast')}>快 · 2000</button>
+        <button type="button" disabled={(mode !== 'ai' && mode !== 'human') || busy} aria-pressed={profile === 'strong'} onClick={() => onProfile('strong')}>强 · 20000</button>
       </div>
       {mode === 'battle' && (
         <div className="go-engine-selectors" aria-label="AI 互对弈引擎选择">
           <EngineSelect label="黑方 AI 引擎" value={battleEngines.black} disabled={busy} onChange={(engine) => onBattleEngine('black', engine)} />
           <EngineSelect label="白方 AI 引擎" value={battleEngines.white} disabled={busy} onChange={(engine) => onBattleEngine('white', engine)} />
-          <p>{battleEngineLabel(battleEngines.black, engineDetails)} vs {battleEngineLabel(battleEngines.white, engineDetails)}。KataGo 的匹配档位仅用于本模式；现有 AI 自对弈配置不变。</p>
+          <p>{battleEngineLabel(battleEngines.black, engineDetails)} vs {battleEngineLabel(battleEngines.white, engineDetails)}。KataGo 的独立档位仅用于本模式；正式校准未证明与 Sayuri 同强，现有 AI 自对弈配置不变。</p>
         </div>
       )}
     </section>
@@ -279,6 +381,26 @@ function MatchControls({ match, aiBusy }: { match: ReturnType<typeof useGoMatch>
         </button>
         <button type="button" className="go-control" onClick={() => void match.resumePlay()}>
           继续对局<small>RESUME</small>
+        </button>
+      </section>
+    )
+  }
+
+  if (mode === 'human') {
+    const humanTurn = state.turn === match.humanColor && state.phase === 'playing'
+    return (
+      <section className="go-controls" aria-label="棋局操作">
+        <button
+          type="button"
+          className="go-control go-control--primary"
+          aria-label="虚着"
+          disabled={!humanTurn || aiBusy}
+          onClick={() => match.execute(GO_PASS_MOVE)}
+        >
+          虚着<small>PASS</small>
+        </button>
+        <button type="button" className="go-control" onClick={() => void match.newGame()}>
+          重新开局<small>NEW GAME</small>
         </button>
       </section>
     )
@@ -424,6 +546,14 @@ function getStatusCopy(
   if (state.phase === 'finished') {
     return { eyebrow: 'SESSION COMPLETE', title: '对局结束', detail: '本局已经完成结算' }
   }
+  if (mode === 'human') {
+    const aiTurn = state.turn === 'black' || state.turn === 'white'
+    return {
+      eyebrow: runState === 'thinking' ? 'ENGINE THINKING' : 'HUMAN VS AI',
+      title: `${playerName(state.turn)}方行棋`,
+      detail: runState === 'thinking' && aiTurn ? 'KataGo 正在计算，局面已锁定' : '轮到真人时可在棋盘交叉点落子',
+    }
+  }
   if (mode !== 'local') {
     return {
       eyebrow: runState === 'thinking' ? 'ENGINE THINKING' : state.turn === 'black' ? 'BLACK AI' : 'WHITE AI',
@@ -518,4 +648,17 @@ function ScoringPreview({
       </footer>
     </section>
   )
+}
+
+function downloadText(filename: string, content: string, type: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: `${type};charset=utf-8` }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+async function copyText(content: string) {
+  if (navigator.clipboard) await navigator.clipboard.writeText(content)
 }

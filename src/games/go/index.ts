@@ -1,6 +1,7 @@
 export * from './module'
 export * from './registration'
 export * from './types'
+export * from './sgf'
 export * from './board'
 export * from './rules'
 export * from './move-history'

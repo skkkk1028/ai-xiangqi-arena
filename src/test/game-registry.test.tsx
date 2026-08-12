@@ -11,7 +11,7 @@ function game(id: string, route: string): RegisteredGame {
   return {
     id,
     route,
-    Page: () => null,
+    loadPage: async () => ({ default: () => null }),
     lobby: {
       theme: id,
       code: id.toUpperCase(),

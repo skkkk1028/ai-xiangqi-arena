@@ -8,6 +8,7 @@ import type {
 export interface KataGoAnalyzeOptions {
   signal?: AbortSignal
   onUpdate?: (event: KataGoWireAnalysisEvent) => void
+  analysisGroup?: 'interactive' | 'background'
 }
 
 export interface KataGoTransport {
@@ -60,7 +61,11 @@ export class HttpKataGoTransport implements KataGoTransport {
       const response = await this.fetchImpl(`${this.baseUrl}/analyze`, {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' },
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/x-ndjson',
+          'X-KataGo-Analysis-Group': options.analysisGroup ?? 'interactive',
+        },
         body: JSON.stringify(request),
         signal: controller.signal,
       })

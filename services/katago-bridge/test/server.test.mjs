@@ -95,6 +95,57 @@ test('rejects direct requests, expired sessions and mismatched rules', async (co
   assert.equal((await mismatched.json()).code, 'INVALID_RULES')
 })
 
+test('interactive analysis preempts same-session background winrate work', async (context) => {
+  const engine = new PreemptibleEngine()
+  const server = createKataGoBridgeServer({
+    engine,
+    proxySecret: PROXY_SECRET,
+    sessionSecret: SESSION_SECRET,
+    secureCookies: false,
+    limits: { maxConcurrent: 1, maxQueue: 8, maxPerIp: 2 },
+  })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  context.after(() => new Promise((resolve) => server.close(resolve)))
+  const address = server.address()
+  const base = `http://127.0.0.1:${address.port}`
+  const proxyHeaders = { 'x-katago-proxy-secret': PROXY_SECRET }
+  const sessionResponse = await fetch(`${base}/api/go/katago/session`, { method: 'POST', headers: proxyHeaders })
+  const cookie = sessionResponse.headers.get('set-cookie')
+
+  const backgroundResponse = await fetch(`${base}/api/go/katago/analyze`, {
+    method: 'POST',
+    headers: {
+      ...proxyHeaders,
+      Cookie: cookie,
+      'Content-Type': 'application/json',
+      'X-KataGo-Analysis-Group': 'background',
+    },
+    body: JSON.stringify(analysisRequest('background-winrate', 'winrate')),
+  })
+  const backgroundBody = backgroundResponse.text()
+  await engine.backgroundStarted
+
+  const interactiveResponse = await fetch(`${base}/api/go/katago/analyze`, {
+    method: 'POST',
+    headers: {
+      ...proxyHeaders,
+      Cookie: cookie,
+      'Content-Type': 'application/json',
+      'X-KataGo-Analysis-Group': 'interactive',
+    },
+    body: JSON.stringify(analysisRequest('interactive-move', 'fast')),
+  })
+
+  assert.equal(interactiveResponse.status, 200)
+  const interactiveEvents = (await interactiveResponse.text()).trim().split('\n').map(JSON.parse)
+  assert.equal(interactiveEvents.at(-1).stage, 'final')
+  const backgroundEvents = (await backgroundBody).trim().split('\n').map(JSON.parse)
+  assert.equal(backgroundEvents.at(-1).code, 'ANALYSIS_PREEMPTED')
+  assert.deepEqual(engine.queries.map((query) => query.id), ['background-winrate', 'interactive-move'])
+  assert.equal(engine.queries[0].priority, -10)
+  assert.equal(engine.queries[1].priority, 10)
+})
+
 class FakeEngine {
   ready = true
   capabilities = { engineVersion: '1.16-test', modelName: 'fake-model.bin.gz' }
@@ -106,6 +157,41 @@ class FakeEngine {
     const partial = result(query.id, true)
     options.onUpdate(partial)
     return result(query.id, false)
+  }
+}
+
+class PreemptibleEngine extends FakeEngine {
+  constructor() {
+    super()
+    this.backgroundStarted = new Promise((resolve) => { this.resolveBackgroundStarted = resolve })
+  }
+
+  analyze(query, options) {
+    this.queries.push(query)
+    if (query.id !== 'background-winrate') return Promise.resolve(result(query.id, false))
+    this.resolveBackgroundStarted()
+    return new Promise((resolve, reject) => {
+      const abort = () => {
+        const error = new Error('background aborted')
+        error.name = 'AbortError'
+        reject(error)
+      }
+      if (options.signal.aborted) abort()
+      else options.signal.addEventListener('abort', abort, { once: true })
+    })
+  }
+}
+
+function analysisRequest(requestId, profile) {
+  return {
+    requestId,
+    gameId: 'go',
+    player: 'black',
+    profile,
+    boardSize: 19,
+    komi: 7.5,
+    rules: KATAGO_RULES,
+    moves: [],
   }
 }
 

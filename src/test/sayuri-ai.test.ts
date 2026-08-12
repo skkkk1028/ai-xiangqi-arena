@@ -21,7 +21,7 @@ describe('Sayuri 围棋适配器', () => {
     expect(result.analysis).toMatchObject({
       engineId: 'sayuri',
       winRateAvailable: false,
-      requestedVisits: 20_000,
+      requestedVisits: 250,
       runtimeLabel: 'Native Sayuri · CUDA 12',
     })
     expect(transport.requests).toHaveLength(1)
@@ -54,7 +54,7 @@ class FakeSayuriTransport implements SayuriTransport {
       engineVersion: 'Sayuri 0.10.0',
       modelName: 'test.bin.txt',
       runtimeBackend: 'native-sayuri',
-      playouts: 20_000,
+      playouts: 250,
       timeoutMs: 180_000,
       threads: 16,
       batchSize: 8,
@@ -66,7 +66,7 @@ class FakeSayuriTransport implements SayuriTransport {
       requestId: request.requestId,
       move: this.move,
       elapsedMs: 25,
-      requestedPlayouts: 20_000,
+      requestedPlayouts: 250,
       timedOut: false,
       engineVersion: 'Sayuri 0.10.0',
       modelName: 'test.bin.txt',

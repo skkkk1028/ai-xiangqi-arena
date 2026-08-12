@@ -33,7 +33,7 @@ export interface AIBattleOptions<
 export interface AIBattleResult<TState, TPlayer extends GamePlayerId> {
   snapshot: GameControllerSnapshot<TState, TPlayer>
   turnsPlayed: number
-  stoppedBecause: 'finished' | 'human-turn' | 'turn-limit'
+  stoppedBecause: 'finished' | 'review' | 'human-turn' | 'turn-limit'
 }
 
 export class GameController<
@@ -101,20 +101,22 @@ export class GameController<
 
   getLegalActions(): readonly TAction[] {
     const state = this.requireState()
-    return this.game.isFinished(state) ? [] : this.game.getLegalActions(state)
+    return this.game.getStatus(state).phase === 'playing' ? this.game.getLegalActions(state) : []
   }
 
   play(action: TAction): GameControllerSnapshot<TState, TPlayer> {
     const state = this.requireState()
-    if (this.game.isFinished(state)) throw new Error('棋局已经结束。')
+    const status = this.game.getStatus(state)
+    if (status.phase === 'finished') throw new Error('棋局已经结束。')
+    if (status.phase === 'review') throw new Error('棋局正在审查阶段，当前不能继续行棋。')
     const canonicalAction = this.game
       .getLegalActions(state)
       .find((candidate) => this.game.actionsEqual(candidate, action))
     if (!canonicalAction) throw new Error('当前回合不能执行该动作。')
     this.state = this.game.executeAction(state, canonicalAction)
     this.revision += 1
-    const status = this.game.getStatus(this.state)
-    if (status.phase === 'playing') this.assertPlayerExists(status.currentPlayer)
+    const nextStatus = this.game.getStatus(this.state)
+    if (nextStatus.phase === 'playing') this.assertPlayerExists(nextStatus.currentPlayer)
     return this.getSnapshot()
   }
 
@@ -127,6 +129,7 @@ export class GameController<
     const state = this.requireState()
     const status = this.game.getStatus(state)
     if (status.phase === 'finished') throw new Error('棋局已经结束。')
+    if (status.phase === 'review') throw new Error('棋局正在审查阶段，当前不能请求 AI 行棋。')
     const player = this.players.get(status.currentPlayer)
     if (!player || player.kind !== 'ai') throw new Error('当前回合不是 AI 玩家。')
     if (signal?.aborted) throw new DOMException('AI 行棋已取消。', 'AbortError')
@@ -159,6 +162,9 @@ export class GameController<
       const snapshot = this.getSnapshot()
       if (snapshot.status.phase === 'finished') {
         return { snapshot, turnsPlayed, stoppedBecause: 'finished' }
+      }
+      if (snapshot.status.phase === 'review') {
+        return { snapshot, turnsPlayed, stoppedBecause: 'review' }
       }
       const player = this.players.get(snapshot.status.currentPlayer)
       if (!player || player.kind !== 'ai') {

@@ -11,6 +11,7 @@ export const KATAGO_RULES = Object.freeze({
 export const SEARCH_PROFILES = Object.freeze({
   fast: Object.freeze({ maxVisits: 2_000, timeoutMs: 30_000 }),
   strong: Object.freeze({ maxVisits: 20_000, timeoutMs: 180_000 }),
+  winrate: Object.freeze({ maxVisits: 256, timeoutMs: 12_000 }),
   'battle-matched': Object.freeze({
     maxVisits: positiveInteger(process.env.KATAGO_BATTLE_MATCHED_VISITS, 250),
     timeoutMs: 30_000,
@@ -61,6 +62,7 @@ export function buildKataGoQuery(request) {
     boardXSize: 19,
     boardYSize: 19,
     maxVisits: profile.maxVisits,
+    priority: request.profile === 'winrate' ? -10 : 10,
     analysisPVLen: 12,
     reportDuringSearchEvery: 0.5,
   }

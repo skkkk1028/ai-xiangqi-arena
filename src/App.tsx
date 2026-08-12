@@ -18,6 +18,8 @@ import { sideLabel } from './engine/ucci'
 import { AI_PERSONALITIES } from './engine/personality'
 import { useAiMatch } from './hooks/useAiMatch'
 import { useHumanVsEngine } from './hooks/useHumanVsEngine'
+import { serializeMatchArchive } from './games/core'
+import { createXiangqiArchive } from './games/xiangqi'
 
 function App() {
   const humanMatch = useHumanVsEngine()
@@ -129,6 +131,24 @@ function App() {
           </div>
         </div>
         <div className="header-actions">
+          <button
+            className="header-archive-button"
+            type="button"
+            disabled={state.history.length === 0}
+            onClick={() => {
+              const archive = createXiangqiArchive({
+                history: state.history,
+                players: [
+                  { seat: 'red', kind: 'ai', name: state.players.red.name },
+                  { seat: 'black', kind: 'ai', name: state.players.black.name },
+                ],
+                result: state.result,
+              })
+              downloadArchive('xiangqi-game.json', serializeMatchArchive(archive))
+            }}
+          >
+            导出棋谱
+          </button>
           <button
             className="icon-button"
             onClick={() => setSoundEnabled((value) => !value)}
@@ -243,6 +263,15 @@ function App() {
       )}
     </div>
   )
+}
+
+function downloadArchive(filename: string, content: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: 'application/json;charset=utf-8' }))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 export default App

@@ -243,10 +243,14 @@ if errorlevel 1 exit /b 1
 exit /b %errorlevel%
 
 :cleanup
-if "%PREVIEW_STARTED%"=="1" if defined PREVIEW_PID taskkill /PID %PREVIEW_PID% /T /F >nul 2>nul
-if "%BRIDGE_STARTED%"=="1" if defined BRIDGE_PID taskkill /PID %BRIDGE_PID% /T /F >nul 2>nul
-if "%LEELA_BRIDGE_STARTED%"=="1" if defined LEELA_BRIDGE_PID taskkill /PID %LEELA_BRIDGE_PID% /T /F >nul 2>nul
-if "%SAYURI_BRIDGE_STARTED%"=="1" if defined SAYURI_BRIDGE_PID taskkill /PID %SAYURI_BRIDGE_PID% /T /F >nul 2>nul
+if "%PREVIEW_STARTED%"=="1" if defined PREVIEW_PID call :stop_pid "%PREVIEW_PID%"
+if "%BRIDGE_STARTED%"=="1" if defined BRIDGE_PID call :stop_pid "%BRIDGE_PID%"
+if "%LEELA_BRIDGE_STARTED%"=="1" if defined LEELA_BRIDGE_PID call :stop_pid "%LEELA_BRIDGE_PID%"
+if "%SAYURI_BRIDGE_STARTED%"=="1" if defined SAYURI_BRIDGE_PID call :stop_pid "%SAYURI_BRIDGE_PID%"
+exit /b 0
+
+:stop_pid
+powershell -NoProfile -Command "Stop-Process -Id %~1 -Force -ErrorAction SilentlyContinue"
 exit /b 0
 
 :fail

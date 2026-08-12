@@ -2,7 +2,7 @@ import type { GoMove, GoPlayer } from '../types'
 import type { GoAIAnalysis, GoAICandidateAnalysis } from './go-ai'
 
 export type KataGoSearchProfile = 'fast' | 'strong'
-export type KataGoRequestProfile = KataGoSearchProfile | 'battle-matched'
+export type KataGoRequestProfile = KataGoSearchProfile | 'battle-matched' | 'winrate'
 export type KataGoRuntimeBackend =
   | 'browser-webgpu'
   | 'browser-wasm'
@@ -30,7 +30,7 @@ export interface KataGoCapabilities {
   modelFallbackReason: string | null
   profiles: Readonly<
     Record<KataGoSearchProfile, { maxVisits: number; timeoutMs: number }>
-    & Partial<Record<'battle-matched', { maxVisits: number; timeoutMs: number }>>
+    & Partial<Record<'battle-matched' | 'winrate', { maxVisits: number; timeoutMs: number }>>
   >
 }
 

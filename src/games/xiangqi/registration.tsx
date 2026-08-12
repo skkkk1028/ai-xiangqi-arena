@@ -1,5 +1,4 @@
 import type { RegisteredGame } from '../GameRegistry'
-import { XiangqiGamePage } from './XiangqiGamePage'
 
 function XiangqiLobbyVisual() {
   return (
@@ -24,7 +23,7 @@ function XiangqiLobbyVisual() {
 export const xiangqiGameRegistration: RegisteredGame = {
   id: 'xiangqi',
   route: '#/games/xiangqi',
-  Page: XiangqiGamePage,
+  loadPage: () => import('./XiangqiGamePage').then(({ XiangqiGamePage }) => ({ default: XiangqiGamePage })),
   lobby: {
     theme: 'xiangqi',
     code: 'XIANGQI',

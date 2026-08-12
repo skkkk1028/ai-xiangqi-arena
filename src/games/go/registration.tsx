@@ -1,5 +1,4 @@
 import type { RegisteredGame } from '../GameRegistry'
-import { GoGamePage } from './GoGamePage'
 
 function GoLobbyVisual() {
   return (
@@ -18,7 +17,7 @@ function GoLobbyVisual() {
 export const goGameRegistration: RegisteredGame = {
   id: 'go',
   route: '#/games/go',
-  Page: GoGamePage,
+  loadPage: () => import('./GoGamePage').then(({ GoGamePage }) => ({ default: GoGamePage })),
   lobby: {
     theme: 'go',
     code: 'GO · WEIQI',

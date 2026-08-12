@@ -24,6 +24,7 @@ export function createKataGoBridgeServer(options) {
   const allowedOrigins = new Set(options.allowedOrigins ?? [])
   const secureCookies = options.secureCookies ?? true
   const limiter = options.limiter ?? new AnalysisLimiter(options.limits)
+  const activeBackgrounds = new Map()
 
   const server = createServer(async (request, response) => {
     try {
@@ -60,7 +61,7 @@ export function createKataGoBridgeServer(options) {
       }
 
       if (request.method === 'POST' && url.pathname === '/api/go/katago/analyze') {
-        return await handleAnalyze({ request, response, engine, session, limiter })
+        return await handleAnalyze({ request, response, engine, session, limiter, activeBackgrounds })
       }
       return json(response, 404, { code: 'NOT_FOUND', message: '接口不存在。' })
     } catch (error) {
@@ -75,11 +76,15 @@ export function createKataGoBridgeServer(options) {
   return server
 }
 
-async function handleAnalyze({ request, response, engine, session, limiter }) {
+async function handleAnalyze({ request, response, engine, session, limiter, activeBackgrounds }) {
   if (!engine.ready) throw httpError(503, 'ENGINE_NOT_READY', 'KataGo 服务尚未就绪。')
   const body = await readJsonBody(request, 256 * 1024)
   const input = validateAnalyzeRequest(body)
+  const analysisGroup = request.headers['x-katago-analysis-group'] === 'background'
+    ? 'background'
+    : 'interactive'
   const disconnect = new AbortController()
+  let preempted = false
   const onAborted = () => disconnect.abort()
   const onClose = () => {
     if (!response.writableEnded) disconnect.abort()
@@ -87,7 +92,30 @@ async function handleAnalyze({ request, response, engine, session, limiter }) {
   request.once('aborted', onAborted)
   response.once('close', onClose)
   const ip = String(request.headers['cf-connecting-ip'] ?? request.socket.remoteAddress ?? 'unknown')
-  const release = await limiter.acquire(session.id, ip, disconnect.signal)
+  let finishBackground = null
+  if (analysisGroup === 'interactive') {
+    const background = activeBackgrounds.get(session.id)
+    if (background) {
+      background.preempt()
+      await background.done
+    }
+  } else {
+    let resolveDone
+    const done = new Promise((resolve) => { resolveDone = resolve })
+    const entry = {
+      done,
+      preempt: () => {
+        preempted = true
+        disconnect.abort()
+      },
+    }
+    activeBackgrounds.set(session.id, entry)
+    finishBackground = () => {
+      if (activeBackgrounds.get(session.id) === entry) activeBackgrounds.delete(session.id)
+      resolveDone()
+    }
+  }
+  let release = null
   const profile = SEARCH_PROFILES[input.profile]
   const metadata = {
     requestId: input.requestId,
@@ -98,57 +126,66 @@ async function handleAnalyze({ request, response, engine, session, limiter }) {
     truncated: false,
   }
 
-  response.writeHead(200, {
-    'Content-Type': 'application/x-ndjson; charset=utf-8',
-    'Cache-Control': 'no-store, no-transform',
-    'X-Content-Type-Options': 'nosniff',
-  })
-  response.flushHeaders?.()
-
-  const timeout = setTimeout(() => {
-    metadata.truncated = true
-    engine.terminate(input.requestId)
-  }, profile.timeoutMs)
-  timeout.unref?.()
+  let timeout = null
+  let forceAbort = null
   let forcedAbort = false
-  const forceAbort = setTimeout(() => {
-    if (metadata.truncated) {
-      forcedAbort = true
-      disconnect.abort()
-    }
-  }, profile.timeoutMs + 5_000)
-  forceAbort.unref?.()
 
   try {
-    const result = await engine.analyze(buildKataGoQuery(input), {
-      signal: disconnect.signal,
-      onUpdate: (raw) => {
-        if (!raw.isDuringSearch || response.destroyed) return
-        try {
-          response.write(`${JSON.stringify(normalizeAnalysisResult(raw, metadata))}\n`)
-        } catch {
-          // Ignore incomplete intermediary reports; final validation is strict.
-        }
-      },
+    release = await limiter.acquire(session.id, ip, disconnect.signal)
+    response.writeHead(200, {
+      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Cache-Control': 'no-store, no-transform',
+      'X-Content-Type-Options': 'nosniff',
     })
-    const event = normalizeAnalysisResult(result, metadata)
-    event.stage = 'final'
-    if (!response.destroyed) response.end(`${JSON.stringify(event)}\n`)
-  } catch (error) {
-    if (!response.destroyed && (!disconnect.signal.aborted || forcedAbort)) {
-      response.end(`${JSON.stringify({
-        type: 'error',
-        requestId: input.requestId,
-        code: forcedAbort ? 'ANALYSIS_TIMEOUT' : error.code ?? 'ANALYSIS_FAILED',
-        message: forcedAbort ? 'KataGo 搜索终止后未及时返回结果。' : error.message,
-      })}\n`)
+    response.flushHeaders?.()
+
+    timeout = setTimeout(() => {
+      metadata.truncated = true
+      engine.terminate(input.requestId)
+    }, profile.timeoutMs)
+    timeout.unref?.()
+    forceAbort = setTimeout(() => {
+      if (metadata.truncated) {
+        forcedAbort = true
+        disconnect.abort()
+      }
+    }, profile.timeoutMs + 5_000)
+    forceAbort.unref?.()
+
+    try {
+      const result = await engine.analyze(buildKataGoQuery(input), {
+        signal: disconnect.signal,
+        onUpdate: (raw) => {
+          if (!raw.isDuringSearch || response.destroyed) return
+          try {
+            response.write(`${JSON.stringify(normalizeAnalysisResult(raw, metadata))}\n`)
+          } catch {
+            // Ignore incomplete intermediary reports; final validation is strict.
+          }
+        },
+      })
+      const event = normalizeAnalysisResult(result, metadata)
+      event.stage = 'final'
+      if (!response.destroyed) response.end(`${JSON.stringify(event)}\n`)
+    } catch (error) {
+      if (!response.destroyed && (preempted || !disconnect.signal.aborted || forcedAbort)) {
+        response.end(`${JSON.stringify({
+          type: 'error',
+          requestId: input.requestId,
+          code: preempted ? 'ANALYSIS_PREEMPTED' : forcedAbort ? 'ANALYSIS_TIMEOUT' : error.code ?? 'ANALYSIS_FAILED',
+          message: preempted
+            ? 'KataGo background analysis canceled for interactive search.'
+            : forcedAbort ? 'KataGo 搜索终止后未及时返回结果。' : error.message,
+        })}\n`)
+      }
     }
   } finally {
-    clearTimeout(timeout)
-    clearTimeout(forceAbort)
+    if (timeout) clearTimeout(timeout)
+    if (forceAbort) clearTimeout(forceAbort)
     request.off('aborted', onAborted)
     response.off('close', onClose)
-    release()
+    release?.()
+    finishBackground?.()
     process.stdout.write(`[katago-analysis] id=${input.requestId} profile=${input.profile} elapsedMs=${Date.now() - metadata.startedAt} truncated=${metadata.truncated}\n`)
   }
 }

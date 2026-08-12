@@ -8,6 +8,7 @@ services/leela-zero-bridge/runtime/
 services/sayuri-bridge/runtime/
 leelaz_opencl_tuning
 *.log
+reports/**/*.json
 *.tsbuildinfo
 .DS_Store
 .openai/hosting.json

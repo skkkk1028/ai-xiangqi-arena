@@ -13,6 +13,22 @@ The v0.10.0 executable's `--help` confirms `-t/--threads`, `-p/--playouts`, and
 Thread/batch selection therefore uses measured completion, latency, crash/OOM
 behavior, and concurrent KataGo residency rather than a claimed benchmark Elo.
 
+The repository uses a conservative 250-playout match default with 16 threads
+and batch size 8. On the calibration host, the 2026-08-11 stability screen kept
+KataGo resident and completed 20/20 moves for every tested resource setting;
+16/8 had the lowest observed mean latency (299 ms) without a crash or OOM.
+That short screen supports the resource choice only. It does not prove that
+Sayuri 250 playouts matches KataGo 250 visits.
+
 The CGF2026 model is the provisional default. Its newer filename is not treated
 as proof of superior strength; the paired 40-game model screen and the full
-100-game engine calibration must be recorded before changing that status.
+100-game engine calibration must be recorded before changing that status. The
+formal harness records checkpoints and explicitly treats its color-swapped,
+rotation-related games as correlated samples, not an Elo experiment.
+
+The 2026-08-11 formal local run did not establish a match. Even against the
+lowest usable KataGo budget (2 visits; 1 visit returned no candidates), Sayuri
+won 29/100 with a descriptive Wilson 95% interval of 21.0%–38.5%. All 100
+games completed without timeout, crash, OOM, illegal move, or session failure.
+The UI and repository therefore retain conservative values and do not claim
+equal strength or an Elo relationship.

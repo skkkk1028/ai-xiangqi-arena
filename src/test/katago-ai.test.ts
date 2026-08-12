@@ -30,6 +30,7 @@ const CAPABILITIES: KataGoCapabilities = {
   profiles: {
     fast: { maxVisits: 2_000, timeoutMs: 30_000 },
     strong: { maxVisits: 20_000, timeoutMs: 180_000 },
+    winrate: { maxVisits: 256, timeoutMs: 12_000 },
   },
 }
 

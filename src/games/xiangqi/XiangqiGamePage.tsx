@@ -1,5 +1,6 @@
 import App from '../../App'
 import { GAME_ROUTES } from '../routes'
+import '../../styles.css'
 
 export function XiangqiGamePage() {
   return (
