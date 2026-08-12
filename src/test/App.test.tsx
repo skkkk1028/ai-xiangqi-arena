@@ -160,14 +160,14 @@ describe('观战界面', () => {
     fireEvent.click(screen.getByRole('button', { name: '开始人机对战' }))
 
     await waitFor(() => expect(HumanModeWorker.searchMessages).toHaveLength(1))
-    await waitFor(() => expect(screen.getAllByText('等待你行棋').length).toBeGreaterThan(0))
+    await waitFor(() => expect(screen.getAllByText('等待你行棋').length).toBeGreaterThan(0), { timeout: 4_000 })
     expect(HumanModeWorker.searchMessages[0]).toMatchObject({
       moves: [],
       multiPv: 4,
       maxDepth: 6,
     })
-    expect(HumanModeWorker.searchMessages[0].movetimeMs).toBeGreaterThanOrEqual(1_000)
-    expect(HumanModeWorker.searchMessages[0].movetimeMs).toBeLessThanOrEqual(2_000)
+    expect(HumanModeWorker.searchMessages[0].movetimeMs).toBeGreaterThanOrEqual(1_500)
+    expect(HumanModeWorker.searchMessages[0].movetimeMs).toBeLessThanOrEqual(3_000)
     expect(HumanModeWorker.initConfigs.at(-1)).toMatchObject({ hash: 16, threads: 1 })
     expect(screen.getByText('真人玩家 · 黑方')).toBeInTheDocument()
     view.unmount()
@@ -180,17 +180,18 @@ describe('观战界面', () => {
 
     await screen.findByRole('button', { name: '真人 vs AI' })
     fireEvent.click(screen.getByRole('button', { name: '真人 vs AI' }))
+    fireEvent.click(screen.getByText('入门').closest('label')!)
     fireEvent.click(screen.getByRole('button', { name: '开始人机对战' }))
     await screen.findByText('真人玩家 · 红方')
-    await waitFor(() => expect(screen.getAllByText('等待你行棋').length).toBeGreaterThan(0))
+    await waitFor(() => expect(screen.getAllByText('等待你行棋').length).toBeGreaterThan(0), { timeout: 4_000 })
 
     fireEvent.click(screen.getByRole('button', { name: '红方兵 7行1列' }))
     fireEvent.click(screen.getByRole('button', { name: '6行1列空位' }))
 
     await waitFor(() => expect(HumanModeWorker.searchMessages).toHaveLength(1))
     expect(HumanModeWorker.searchMessages[0].moves).toEqual(['a3a4'])
-    await waitFor(() => expect(screen.getByRole('button', { name: '红方兵 6行1列' })).toBeInTheDocument())
-    await waitFor(() => expect(screen.getAllByText('等待你行棋').length).toBeGreaterThan(0))
+    await waitFor(() => expect(screen.getByRole('button', { name: '红方兵 6行1列' })).toBeInTheDocument(), { timeout: 4_000 })
+    await waitFor(() => expect(screen.getAllByText('等待你行棋').length).toBeGreaterThan(0), { timeout: 4_000 })
     expect(screen.getByText('兵九进一')).toBeInTheDocument()
     expect(screen.getByText('2 步')).toBeInTheDocument()
 
@@ -230,10 +231,11 @@ describe('观战界面', () => {
     await screen.findByRole('button', { name: '真人 vs AI' })
     fireEvent.click(screen.getByRole('button', { name: '真人 vs AI' }))
     fireEvent.click(screen.getByLabelText('黑方 · 后手'))
+    fireEvent.click(screen.getByText('入门').closest('label')!)
     fireEvent.click(screen.getByRole('button', { name: '开始人机对战' }))
 
     await waitFor(() => expect(MockWorker.initializedEngineIds.length).toBeGreaterThanOrEqual(3))
-    await waitFor(() => expect(screen.getAllByText('等待你行棋').length).toBeGreaterThan(0))
+    await waitFor(() => expect(screen.getAllByText('等待你行棋').length).toBeGreaterThan(0), { timeout: 4_000 })
     expect(MockWorker.initializedEngineIds.slice(-2)).toEqual([
       'fairy-stockfish-nnue',
       'fairy-stockfish-nnue',

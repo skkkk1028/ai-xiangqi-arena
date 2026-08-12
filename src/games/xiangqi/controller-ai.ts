@@ -286,6 +286,14 @@ export function resolveHumanThinkPlan(context: HumanMatchTurnContext) {
   }
 }
 
+/**
+ * `go movetime … depth …` may finish as soon as its depth limit is reached.
+ * Retain that limit for strength control, but honor the human-mode time floor.
+ */
+export function minimumHumanThinkDelayMs(minThinkMs: number, elapsedMs: number): number {
+  return Math.max(0, Math.ceil(minThinkMs - elapsedMs))
+}
+
 export class HumanMatchControllerAI extends ManagedXiangqiAI {
   readonly id = 'xiangqi-human-match-controller'
   readonly name = '中国象棋人机兼容引擎'
@@ -299,6 +307,7 @@ export class HumanMatchControllerAI extends ManagedXiangqiAI {
     if (!adapter) throw new Error('人机对战 EngineAdapter 不存在。')
     const context = this.options.getContext()
     const { profile, mapped, budget } = resolveHumanThinkPlan(context)
+    const startedAt = performance.now()
     const response = await adapter.search(
       request.record.map((record) => record.ucci),
       budget,
@@ -309,6 +318,11 @@ export class HumanMatchControllerAI extends ManagedXiangqiAI {
           this.options.onInfo(request.player, info, context.requestToken),
       },
     )
+    const remainingThinkMs = minimumHumanThinkDelayMs(
+      profile.minThinkMs,
+      performance.now() - startedAt,
+    )
+    if (remainingThinkMs > 0) await wait(remainingThinkMs, request.signal)
     if (!response.bestmove) throw new XiangqiNoBestMoveError(noBestMoveResult(request.state))
     const decision = selectDifficultyMove(response, profile, context.seed)
     const action = decision.ucci

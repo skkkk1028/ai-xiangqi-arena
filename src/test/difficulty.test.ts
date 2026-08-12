@@ -5,6 +5,7 @@ import {
   mapDifficultyToEngine,
   selectDifficultyMove,
 } from '../engine/difficulty'
+import { minimumHumanThinkDelayMs } from '../games/xiangqi'
 import { FAIRY_STOCKFISH_CONFIG, PIKAFISH_CONFIG } from '../engine/config'
 import type { EngineSearchResponse } from '../game/types'
 
@@ -35,8 +36,14 @@ describe('统一人机难度', () => {
         expect(value).toBeLessThanOrEqual(profile.maxThinkMs)
       }
     }
-    expect(DIFFICULTY_PROFILES[1]).toMatchObject({ minThinkMs: 1_000, maxThinkMs: 2_000 })
-    expect(DIFFICULTY_PROFILES[5]).toMatchObject({ minThinkMs: 20_000, maxThinkMs: 60_000 })
+    expect(DIFFICULTY_PROFILES[1]).toMatchObject({ minThinkMs: 1_500, maxThinkMs: 3_000 })
+    expect(DIFFICULTY_PROFILES[3]).toMatchObject({ minThinkMs: 7_000, maxThinkMs: 12_000 })
+    expect(DIFFICULTY_PROFILES[5]).toMatchObject({ minThinkMs: 25_000, maxThinkMs: 60_000 })
+  })
+
+  it('在深度限制令引擎提前返回时，仍保留该难度的最短思考时长', () => {
+    expect(minimumHumanThinkDelayMs(7_000, 420)).toBe(6_580)
+    expect(minimumHumanThinkDelayMs(7_000, 7_220)).toBe(0)
   })
 
   it('按设备能力映射 Threads/Hash/深度，而非只修改 Skill', () => {
