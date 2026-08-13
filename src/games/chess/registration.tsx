@@ -17,7 +17,7 @@ function ChessLobbyVisual() {
 export const chessGameRegistration: RegisteredGame = {
   id: 'chess',
   route: '#/games/chess',
-  childRoutes: ['#/games/chess/theatre', '#/games/chess/arena'],
+  childRoutes: ['#/games/chess/theatre', '#/games/chess/arena', '#/games/chess/human'],
   loadPage: () => import('./ChessModulePage').then(({ ChessModulePage }) => ({ default: ChessModulePage })),
   lobby: {
     theme: 'chess',
@@ -27,7 +27,7 @@ export const chessGameRegistration: RegisteredGame = {
     availability: 'ready',
     description: 'Stockfish 18 专业 PV1 与 Fairy‑Stockfish 个性观赏双模式，采用标准 FIDE 规则。',
     highlights: ['Stockfish 18 · 专业 PV1', '个性模式 · 优先变招', 'PGN / JSON 棋谱恢复'],
-    actionLabel: '进入国际象棋剧场',
+    actionLabel: '进入国际象棋模式',
     Visual: ChessLobbyVisual,
   },
 }

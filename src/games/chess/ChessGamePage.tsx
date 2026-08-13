@@ -4,6 +4,7 @@ import { BoardWorkbenchTabs, type WorkbenchPanel } from '../core'
 import { serializeMatchArchive } from '../core/archive'
 import { createChessArchive, exportChessPgn } from './archive'
 import { ChessBoard } from './ChessBoard'
+import { ChessMatchInfoPanel } from './ChessMatchInfoPanel'
 import { CHESS_PERSONALITIES, CHESS_SEARCH_PROFILES, chessPersonalityForColor } from './ai-engine'
 import { evaluationCpForWhite, formatWhiteScore, pvToSan, wdlForWhite } from './analysis'
 import { useChessMatch } from './useChessMatch'
@@ -36,6 +37,7 @@ export function ChessGamePage() {
         <div className="chess-stage">
           <div className="chess-heading"><div><p>FIDE 标准规则 · UCI / NNUE · 可审计运行时</p><h1 id="chess-page-title">{match.profile.mode === 'professional' ? 'Stockfish 18 专业对弈' : '双人格观战剧场'}</h1></div><div className="chess-phase"><span>{status}</span><strong>{String(match.state.history.length).padStart(2, '0')} PLY</strong></div></div>
           <ChessBoard state={match.state} />
+          <ChessMatchInfoPanel state={match.state} analyses={match.analyses} liveInfo={match.liveInfo} />
           <div className="chess-seats">
             <Seat color="w" active={match.state.turn === 'w' && busy} name={match.profile.mode === 'professional' ? 'Stockfish 18 · PV1' : CHESS_PERSONALITIES[match.seats.w?.personality ?? personalityFor(match.state, 'w')].label} analysis={match.analyses.w} profile={match.seats.w?.profile?.version} />
             <div className="chess-versus">VS</div>

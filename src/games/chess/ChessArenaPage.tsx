@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { BoardWorkbenchTabs, type WorkbenchPanel } from '../core'
 import { GAME_ROUTES } from '../routes'
 import { ChessBoard } from './ChessBoard'
+import { ChessMatchInfoPanel } from './ChessMatchInfoPanel'
 import { createChessArchive, exportChessArenaPgn } from './archive'
 import { serializeMatchArchive } from '../core/archive'
 import { CHESS_ARENA_PROFILES, arenaEngineLabel, useChessMatch } from './useChessMatch'
@@ -46,6 +47,7 @@ export function ChessArenaPage() {
             <EngineBadge color="b" id={match.arenaEngines.b} active={busy && match.state.turn === 'b'} />
           </div>
           <ChessBoard state={match.state} />
+          <ChessMatchInfoPanel state={match.state} analyses={match.analyses} liveInfo={match.liveInfo} />
         </div>
         <aside className="chess-console" aria-label="多引擎竞技场工作台">
           <section className="chess-console__status" aria-live="polite"><span className="chess-console__eyebrow">FAIR MATCH SESSION</span><strong>{status}</strong><small>{match.notice}</small></section>

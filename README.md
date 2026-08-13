@@ -7,11 +7,12 @@
 
 ## 当前能力
 
-### 第三棋种：国际象棋双入口与多引擎竞技场
+### 第三棋种：国际象棋三种对弈入口
 
-国际象棋现在包含三个可直接刷新的地址：`#/games/chess` 是模式选择页，
-`#/games/chess/theatre` 是原双人格观战剧场，`#/games/chess/arena` 是
-Stockfish 18、Fairy-Stockfish Chess NNUE 与 Obsidian 16.0 的多引擎竞技场。
+国际象棋现在包含四个可直接刷新的地址：`#/games/chess` 是模式选择页，
+`#/games/chess/theatre` 是双人格观战剧场，`#/games/chess/arena` 是
+Stockfish 18、Fairy-Stockfish Chess NNUE 与 Obsidian 16.0 的多引擎竞技场，
+`#/games/chess/human` 是可选择执子颜色、AI 对手与思考强度的人机对战入口。
 
 Obsidian 16.0 是可选本地原生引擎。先运行 `npm run setup:stockfish18`，再运行
 `npm run setup:obsidian16`；`start-local-preview.cmd` 会在 8792 端口延迟启动双会话桥接，
@@ -22,15 +23,16 @@ Obsidian 16.0 是可选本地原生引擎。先运行 `npm run setup:stockfish18
 
 ### 双人格观战剧场
 
-大厅现在并列提供中国象棋、围棋和国际象棋三个模块。国际象棋路由为
-`#/games/chess`，首版固定为 AI 对 AI 观战：白方“曜刃 · 进攻型”和黑方“玄垒 · 稳健型”使用相同
+大厅现在并列提供中国象棋、围棋和国际象棋三个模块。国际象棋模式页路由为
+`#/games/chess`；双人格剧场固定为 AI 对 AI 观战：白方“曜刃 · 进攻型”和黑方“玄垒 · 稳健型”使用相同
 Fairy‑Stockfish 核心、相同 `MultiPV 4` 和 1/3/8 秒搜索档位；它们不是两个不同引擎，也不代表双方
 Elo 相等。页面进入后才按需加载约 47.7 MB 的标准国际象棋 NNUE（首次下载会拆成三个小于 20 MiB
 的分片），Worker 合并并校验 SHA‑256 后才允许开局。
 
 规则裁判固定为 `chess.js@1.4.0`（BSD‑2‑Clause），棋谱保存初始 FEN、完整 UCI 序列和每步 FEN，
 恢复时逐手重放并拒绝非法或篡改档案。三次重复和五十回合在无“申请和棋”交互的 AI 观战中采用自动
-申请规则；400 半回合是技术停止上限。首版不包含真人走棋、联网匹配、残局表库或云分析。
+申请规则；400 半回合是技术停止上限。人机入口复用同一套 FIDE 规则与合法着法校验，
+并将真人走子、AI 走子和双方优势分放在同一对局面板中；不包含联网匹配、残局表库或云分析。
 
 - 完整基础走棋、将军、将死、困毙与将帅照面规则
 - `fairy-stockfish-nnue.wasm@1.1.11`，固定中国象棋 NNUE 网络

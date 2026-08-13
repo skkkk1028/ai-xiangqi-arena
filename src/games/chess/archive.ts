@@ -97,8 +97,8 @@ export function restoreChessArchive(value: unknown): ChessGameState {
   if (!legacy && archive.ruleset !== CHESS_RULESET) throw new Error('国际象棋档案规则集不受支持。')
   if (Date.parse(archive.updatedAt) < Date.parse(archive.createdAt)) throw new Error('国际象棋档案更新时间早于创建时间。')
   const seats = archive.players.map((player) => player.seat).sort()
-  if (seats[0] !== 'b' || seats[1] !== 'w' || archive.players.some((player) => player.kind !== 'ai' || player.name.trim().length === 0)) {
-    throw new Error('国际象棋 AI 档案必须包含唯一的白方和黑方席位。')
+  if (seats[0] !== 'b' || seats[1] !== 'w' || archive.players.some((player) => (player.kind !== 'ai' && player.kind !== 'human') || player.name.trim().length === 0)) {
+    throw new Error('国际象棋档案必须包含唯一的白方和黑方席位，且玩家类型有效。')
   }
   const metadata = archive.metadata
   const openingId = typeof metadata?.openingId === 'string' ? metadata.openingId : ''

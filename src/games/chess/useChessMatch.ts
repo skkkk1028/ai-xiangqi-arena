@@ -57,22 +57,27 @@ export const CHESS_ARENA_PROFILES: Record<ChessArenaBudgetId, ChessSearchProfile
   deep: { id: 'deep', label: '深思 · 30 秒', movetimeMs: 30_000, threads: 4, hashMb: 256, multiPv: 1, mode: 'professional' },
 }
 
-export interface ChessMatchOptions { mode?: 'theatre' | 'arena' }
+export interface ChessMatchOptions { mode?: 'theatre' | 'arena' | 'human' }
 
 export function useChessMatch(options: ChessMatchOptions = {}) {
   const arena = options.mode === 'arena'
+  const human = options.mode === 'human'
   const [seed, setSeed] = useState(() => createChessSeed())
   const [budgetId, setBudgetId] = useState<ChessSearchBudgetId>('standard')
   const [arenaEngines, setArenaEngines] = useState<Record<ChessColor, ChessArenaEngineId>>({ w: 'stockfish-18', b: 'obsidian-16' })
+  const [humanColor, setHumanColor] = useState<ChessColor>('w')
+  const [humanEngine, setHumanEngine] = useState<ChessArenaEngineId>('stockfish-18')
   const [archivePlayers, setArchivePlayers] = useState<readonly MatchArchivePlayer[]>([])
   const [state, setState] = useState(() => createChessState(seed))
   const [runState, setRunState] = useState<ChessAIRunState>('ready')
   const [analyses, setAnalyses] = useState<Partial<Record<ChessColor, ChessTurnAnalysis>>>({})
   const [liveInfo, setLiveInfo] = useState<Partial<Record<ChessColor, ChessLiveAnalysis>>>({})
   const [seats, setSeats] = useState<Record<ChessColor, SeatRuntime | null>>({ w: null, b: null })
-  const [notice, setNotice] = useState(arena
-    ? '竞技场已就绪；选择双方引擎与统一资源后点击“开始对战”。Obsidian 需要本地预览桥接。'
-    : '新局已就绪，不会自动开赛；点击“开始观战”后才会加载国际象棋 NNUE。')
+  const [notice, setNotice] = useState(human
+    ? '人机对战已就绪；选择执子方、对手引擎与思考强度后点击“开始对战”。'
+    : arena
+      ? '竞技场已就绪；选择双方引擎与统一资源后点击“开始对战”。Obsidian 需要本地预览桥接。'
+      : '新局已就绪，不会自动开赛；点击“开始观战”后才会加载国际象棋 NNUE。')
   const [error, setError] = useState<string | null>(null)
   const controllerRef = useRef<ChessController | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -82,12 +87,16 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
   const stateRef = useRef(state)
   const budgetRef = useRef(budgetId)
   const arenaEnginesRef = useRef(arenaEngines)
+  const humanColorRef = useRef(humanColor)
+  const humanEngineRef = useRef(humanEngine)
   const seatsRef = useRef(seats)
   const recoveringSeatsRef = useRef(new Set<ChessColor>())
   const recoverSeatRef = useRef<(color: ChessColor, runtimeError: Error) => Promise<void>>(async () => undefined)
   stateRef.current = state
   budgetRef.current = budgetId
   arenaEnginesRef.current = arenaEngines
+  humanColorRef.current = humanColor
+  humanEngineRef.current = humanEngine
   seatsRef.current = seats
 
   const updateSnapshot = useCallback((controller: ChessController) => {
@@ -116,7 +125,11 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
     profile: ChessSearchProfile,
     resources: SeatResources,
   ) => {
-    const arenaEngineId = arena ? arenaEnginesRef.current[color] : undefined
+    const arenaEngineId = human
+      ? humanEngineRef.current
+      : arena
+        ? arenaEnginesRef.current[color]
+        : undefined
     const engineId = arenaEngineId ? chessArenaEngineConfigId(arenaEngineId) : chessEngineId(profile, resources)
     const adapter = engineRegistry.createEngine('chess', engineId, {
       assetBase: new URL('./', window.location.origin).href,
@@ -139,10 +152,10 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
       })),
     })
     return { runtime, engine }
-  }, [arena])
+  }, [arena, human])
 
   const createController = useCallback(async (initial: ChessGameState) => {
-    const profile = activeProfile(arena, budgetRef.current)
+    const profile = activeProfile(arena || human, budgetRef.current)
     const support = detectEngineSupport()
     if (profile.mode === 'personality' && !support.supported) {
       throw new Error(support.reason ?? '当前浏览器不支持国际象棋 Worker 所需的 WebAssembly 隔离环境。')
@@ -151,36 +164,45 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
       throw new Error('当前浏览器不支持专业模式所需的 WebAssembly。')
     }
     const resources = deviceResources(profile, support.mobile, support.supported)
-    const whitePersonality = chessPersonalityForColor(initial.seed, 'w')
-    const blackPersonality = chessPersonalityForColor(initial.seed, 'b')
-    const seatMap: Record<ChessColor, SeatRuntime> = {} as Record<ChessColor, SeatRuntime>
-    const white = makeSeat('w', whitePersonality, profile, resources)
-    const black = makeSeat('b', blackPersonality, profile, resources)
-    seatMap.w = white.runtime
-    seatMap.b = black.runtime
+    const seatMap: Record<ChessColor, SeatRuntime | null> = { w: null, b: null }
+    const players: Array<import('../core').GamePlayer<ChessGameState, ChessAction, ChessColor, import('./types').ChessMoveRecord, ChessTurnAnalysis>> = []
+    for (const color of ['w', 'b'] as const) {
+      if (human && color === humanColorRef.current) {
+        players.push({ id: color, name: `真人 · ${color === 'w' ? '白方' : '黑方'}`, kind: 'human' })
+        continue
+      }
+      const personality = chessPersonalityForColor(initial.seed, color)
+      const created = makeSeat(color, personality, profile, resources)
+      seatMap[color] = created.runtime
+      players.push({
+        id: color,
+        name: arena || human ? arenaEngineLabel(created.runtime.arenaEngineId!) : CHESS_PERSONALITIES[personality].label,
+        kind: 'ai',
+        engine: created.engine,
+      })
+    }
     setSeats(seatMap)
-    const controller = new GameController(new SeededChessEngine(initial), [
-      { id: 'w', name: arena ? arenaEngineLabel(arenaEnginesRef.current.w) : CHESS_PERSONALITIES[whitePersonality].label, kind: 'ai', engine: white.engine },
-      { id: 'b', name: arena ? arenaEngineLabel(arenaEnginesRef.current.b) : CHESS_PERSONALITIES[blackPersonality].label, kind: 'ai', engine: black.engine },
-    ])
+    const controller = new GameController(new SeededChessEngine(initial), players)
     controllerRef.current = controller
     setRunState('loading')
     const snapshot = await controller.start()
-    const players = controller.getPlayers()
+    const startedPlayers = controller.getPlayers()
     setSeats((current) => ({
-      w: { ...current.w!, profile: (players[0]?.kind === 'ai' ? (players[0].engine as ChessAIEngineAdapter).engineProfile : null) },
-      b: { ...current.b!, profile: (players[1]?.kind === 'ai' ? (players[1].engine as ChessAIEngineAdapter).engineProfile : null) },
+      w: current.w ? { ...current.w, profile: profileForPlayer(startedPlayers, 'w') } : null,
+      b: current.b ? { ...current.b, profile: profileForPlayer(startedPlayers, 'b') } : null,
     }))
     setState(snapshot.state)
     setRunState('ready')
-    const runtime = arena
+    const runtime = human
+      ? `${arenaEngineLabel(humanEngineRef.current)} 对手`
+      : arena
       ? `${arenaEngineLabel(arenaEnginesRef.current.w)} VS ${arenaEngineLabel(arenaEnginesRef.current.b)}`
       : profile.mode === 'professional'
       ? resources.threads > 1 ? 'Stockfish 18 完整多线程' : 'Stockfish 18 完整单线程'
       : 'Fairy-Stockfish 个性模式'
-    setNotice(`已建立双 Worker 会话；${profile.label} · ${runtime} · ${resources.threads} 线程 / ${resources.hash} MB Hash。`)
+    setNotice(`${human ? '已建立人机引擎会话' : '已建立双 Worker 会话'}；${profile.label} · ${runtime} · ${resources.threads} 线程 / ${resources.hash} MB Hash。`)
     return controller
-  }, [arena, makeSeat])
+  }, [arena, human, makeSeat])
 
   const recoverSeat = useCallback(async (color: ChessColor, runtimeError: Error) => {
     if (stateRef.current.result) {
@@ -206,7 +228,7 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
       const previous = seatsRef.current[color]
       if (!controller || !previous) throw new Error('故障席位缺少可恢复的控制器状态。')
       await controller.cancelPendingTurn('国际象棋故障席位正在重建。')
-      const profile = activeProfile(arena, budgetRef.current)
+      const profile = activeProfile(arena || human, budgetRef.current)
       const resources = previous.profile
         ? { threads: previous.profile.threads, hash: previous.profile.hashMb }
         : deviceResources(profile, detectEngineSupport().mobile, detectEngineSupport().supported)
@@ -218,7 +240,7 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
       setSeats((current) => ({ ...current, [color]: { ...created.runtime, error: runtimeError.message } }))
       await controller.replaceAIPlayer({
         id: color,
-        name: arena && previous.arenaEngineId ? arenaEngineLabel(previous.arenaEngineId) : CHESS_PERSONALITIES[previous.personality].label,
+        name: (arena || human) && previous.arenaEngineId ? arenaEngineLabel(previous.arenaEngineId) : CHESS_PERSONALITIES[previous.personality].label,
         kind: 'ai',
         engine: created.engine,
       })
@@ -241,7 +263,7 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
     } finally {
       recoveringSeatsRef.current.delete(color)
     }
-  }, [arena, makeSeat])
+  }, [arena, human, makeSeat])
   recoverSeatRef.current = recoverSeat
 
   const saveArchive = useCallback((next: ChessGameState) => {
@@ -250,17 +272,18 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
       const players: MatchArchivePlayer[] = controller?.getPlayers().map((player) => {
         const color = String(player.id) as ChessColor
         const seat = seatsRef.current[color]
-        return { seat: color, kind: player.kind, name: player.name, ...(arena && seat?.profile && seat.arenaEngineId ? { engine: arenaRuntimeSnapshot(seat.arenaEngineId, seat.profile, activeProfile(true, budgetRef.current).movetimeMs) } : {}) }
+        return { seat: color, kind: player.kind, name: player.name, ...((arena || human) && seat?.profile && seat.arenaEngineId ? { engine: arenaRuntimeSnapshot(seat.arenaEngineId, seat.profile, activeProfile(true, budgetRef.current).movetimeMs) } : {}) }
       }) ?? [
-        { seat: 'w', kind: 'ai' as const, name: CHESS_PERSONALITIES[chessPersonalityForColor(next.seed, 'w')].label },
-        { seat: 'b', kind: 'ai' as const, name: CHESS_PERSONALITIES[chessPersonalityForColor(next.seed, 'b')].label },
+        { seat: 'w', kind: human && humanColorRef.current === 'w' ? 'human' as const : 'ai' as const, name: human && humanColorRef.current === 'w' ? '真人 · 白方' : CHESS_PERSONALITIES[chessPersonalityForColor(next.seed, 'w')].label },
+        { seat: 'b', kind: human && humanColorRef.current === 'b' ? 'human' as const : 'ai' as const, name: human && humanColorRef.current === 'b' ? '真人 · 黑方' : CHESS_PERSONALITIES[chessPersonalityForColor(next.seed, 'b')].label },
       ]
-      if (arena) setArchivePlayers(players)
-      localStorage.setItem(arena ? 'ai-board-games:latest:chess-arena:v1' : 'ai-board-games:latest:chess:v1', JSON.stringify(createChessArchive({ state: next, players })))
+      if (arena || human) setArchivePlayers(players)
+      const storageKey = arena ? 'ai-board-games:latest:chess-arena:v1' : human ? 'ai-board-games:latest:chess-human:v1' : 'ai-board-games:latest:chess:v1'
+      localStorage.setItem(storageKey, JSON.stringify(createChessArchive({ state: next, players })))
     } catch {
       // Storage is an optional convenience; it never blocks a running match.
     }
-  }, [arena])
+  }, [arena, human])
 
   const playLoop = useCallback(async (single: boolean) => {
     if (loopInFlightRef.current) return
@@ -278,6 +301,12 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
         if (controller) await disposeController()
         controller = await createController(stateRef.current)
       }
+      if (human && isCurrentPlayer(controller.getSnapshot(), humanColorRef.current)) {
+        runningRef.current = false
+        setRunState('paused')
+        setNotice('轮到你行棋；点击棋盘上的棋子和目标格完成一步。')
+        return
+      }
       runningRef.current = !single
       if (!single) setRunState('running')
       const abort = new AbortController()
@@ -287,6 +316,12 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
         if (stateRef.current.result || controller.getSnapshot().status.phase === 'finished') {
           runningRef.current = false
           setRunState('finished')
+          break
+        }
+        if (human && isCurrentPlayer(controller.getSnapshot(), humanColorRef.current)) {
+          runningRef.current = false
+          setRunState('paused')
+          setNotice('轮到你行棋；点击棋盘上的棋子和目标格完成一步。')
           break
         }
         setRunState('thinking')
@@ -301,6 +336,12 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
         setAnalyses((current) => ({ ...current, [movingColor]: turn.decision.analysis }))
         saveArchive(turn.snapshot.state)
         if (turn.snapshot.status.phase === 'finished') break
+        if (human && isCurrentPlayer(turn.snapshot, humanColorRef.current)) {
+          runningRef.current = false
+          setRunState('paused')
+          setNotice('轮到你行棋；点击棋盘上的棋子和目标格完成一步。')
+          break
+        }
         if (single) { setRunState('paused'); break }
         setRunState('running')
       } while (runningRef.current)
@@ -322,7 +363,7 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
       abortRef.current = null
       loopInFlightRef.current = false
     }
-  }, [createController, disposeController, runState, saveArchive, updateSnapshot])
+  }, [createController, disposeController, human, runState, saveArchive, updateSnapshot])
 
   const start = useCallback(() => {
     if (stateRef.current.result || loopInFlightRef.current) return
@@ -332,6 +373,39 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
     if (stateRef.current.result || loopInFlightRef.current) return
     void playLoop(true)
   }, [playLoop])
+  const playHumanMove = useCallback(async (action: import('./types').ChessMoveAction) => {
+    if (!human || stateRef.current.result || loopInFlightRef.current) return
+    const generation = generationRef.current
+    let controller = controllerRef.current
+    try {
+      if (!controller || runState === 'error') {
+        if (controller) await disposeController()
+        controller = await createController(stateRef.current)
+      }
+      const snapshot = controller.getSnapshot()
+      if (snapshot.status.phase !== 'playing' || snapshot.status.currentPlayer !== humanColorRef.current) return
+      const previousHistoryLength = stateRef.current.history.length
+      const next = controller.play(action)
+      if (generation !== generationRef.current) return
+      updateSnapshot(controller)
+      if (next.state.history.length > previousHistoryLength) {
+        playChessMoveSound(next.state.lastMove?.check ? 'check' : next.state.lastMove?.captured ? 'capture' : 'move')
+      }
+      saveArchive(next.state)
+      if (next.status.phase === 'finished') {
+        setRunState('finished')
+        return
+      }
+      setNotice('你的着法已记录，AI 正在思考。')
+      void playLoop(false)
+    } catch (caught) {
+      if (generation !== generationRef.current) return
+      const message = caught instanceof Error ? caught.message : String(caught)
+      setError(message)
+      setRunState('paused')
+      setNotice(`这一步没有执行：${message}`)
+    }
+  }, [createController, disposeController, human, playLoop, runState, saveArchive, updateSnapshot])
   const pause = useCallback(async () => {
     runningRef.current = false
     abortRef.current?.abort()
@@ -356,7 +430,8 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
   }, [disposeController])
   const restore = useCallback(async () => {
     try {
-      const raw = localStorage.getItem(arena ? 'ai-board-games:latest:chess-arena:v1' : 'ai-board-games:latest:chess:v1')
+      const storageKey = arena ? 'ai-board-games:latest:chess-arena:v1' : human ? 'ai-board-games:latest:chess-human:v1' : 'ai-board-games:latest:chess:v1'
+      const raw = localStorage.getItem(storageKey)
       if (!raw) throw new Error('没有可恢复的国际象棋棋局。')
       const restored = restoreChessArchive(JSON.parse(raw))
       generationRef.current += 1
@@ -366,34 +441,51 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
       setAnalyses({})
       setLiveInfo({})
       setError(null)
-      if (arena) {
+      if (arena || human) {
         const parsed = JSON.parse(raw) as { players?: readonly MatchArchivePlayer[] }
         setArchivePlayers(parsed.players ?? [])
-        setArenaEngines((current) => ({
+        if (arena) setArenaEngines((current) => ({
           w: archivedArenaEngine(parsed.players, 'w') ?? current.w,
           b: archivedArenaEngine(parsed.players, 'b') ?? current.b,
         }))
+        if (human) {
+          const humanSeat = parsed.players?.find((player) => player.kind === 'human')?.seat
+          if (humanSeat === 'w' || humanSeat === 'b') setHumanColor(humanSeat)
+          const ai = parsed.players?.find((player) => player.kind === 'ai')
+          const id = archivedArenaEngine(ai ? [ai] : undefined, ai?.seat as ChessColor)
+          if (id) setHumanEngine(id)
+        }
       }
       setRunState(restored.result ? 'finished' : 'paused')
       setNotice(`已恢复 ${restored.history.length} 个半回合；逐手验证通过，点击继续观战。`)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     }
-  }, [arena, disposeController])
+  }, [arena, disposeController, human])
   const changeBudget = useCallback((id: ChessSearchBudgetId) => {
     if (runState === 'thinking' || runState === 'running') return
     setBudgetId(id)
     if (controllerRef.current) {
       void disposeController().then(() => setRunState('ready'))
     }
-    setNotice(`已选择${activeProfile(arena, id).label}；下一次建立引擎会话时生效。`)
-  }, [arena, disposeController, runState])
+    setNotice(`已选择${activeProfile(arena || human, id).label}；下一次建立引擎会话时生效。`)
+  }, [arena, disposeController, human, runState])
 
   const changeArenaEngine = useCallback((color: ChessColor, engineId: ChessArenaEngineId) => {
     if (!arena || runState === 'thinking' || runState === 'running' || controllerRef.current) return
     setArenaEngines((current) => ({ ...current, [color]: engineId }))
     setNotice(`已为${color === 'w' ? '白' : '黑'}方选择 ${arenaEngineLabel(engineId)}；开赛后配置锁定。`)
   }, [arena, runState])
+  const changeHumanColor = useCallback((color: ChessColor) => {
+    if (!human || runState === 'thinking' || runState === 'running' || controllerRef.current || stateRef.current.history.length > 0) return
+    setHumanColor(color)
+    setNotice(`已选择${color === 'w' ? '白' : '黑'}方；开赛后执子方锁定。`)
+  }, [human, runState])
+  const changeHumanEngine = useCallback((engineId: ChessArenaEngineId) => {
+    if (!human || runState === 'thinking' || runState === 'running' || controllerRef.current || stateRef.current.history.length > 0) return
+    setHumanEngine(engineId)
+    setNotice(`已选择 ${arenaEngineLabel(engineId)} 作为对手；开赛后引擎锁定。`)
+  }, [human, runState])
 
   useEffect(() => () => { void disposeController() }, [disposeController])
 
@@ -401,19 +493,22 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
     window.__AI_CHESS_BROWSER_VALIDATION__ = {
       status: error ? 'failed' : state.history.length >= 20 ? 'passed' : 'running',
       halfMoves: state.history.length,
-      model: activeProfile(arena, budgetId).mode === 'professional' ? 'PV1 neutral engine arena' : 'nn-3475407dc199.nnue',
+      model: activeProfile(arena || human, budgetId).mode === 'professional' ? 'PV1 neutral engine arena' : 'nn-3475407dc199.nnue',
       paused: runState === 'paused',
       error,
     }
-  }, [arena, budgetId, error, runState, state.history.length])
+  }, [arena, budgetId, error, human, runState, state.history.length])
 
   return {
     state,
     seed,
     budgetId,
-    profile: activeProfile(arena, budgetId),
+    profile: activeProfile(arena || human, budgetId),
     arena,
+    human,
     arenaEngines,
+    humanColor,
+    humanEngine,
     archivePlayers,
     runState,
     analyses,
@@ -428,7 +523,22 @@ export function useChessMatch(options: ChessMatchOptions = {}) {
     restore,
     changeBudget,
     changeArenaEngine,
+    changeHumanColor,
+    changeHumanEngine,
+    playHumanMove,
   }
+}
+
+function profileForPlayer(
+  players: readonly import('../core').GamePlayer<ChessGameState, ChessAction, ChessColor, import('./types').ChessMoveRecord, ChessTurnAnalysis>[],
+  color: ChessColor,
+): EngineProfile | null {
+  const player = players.find((candidate) => candidate.id === color)
+  return player?.kind === 'ai' ? (player.engine as ChessAIEngineAdapter).engineProfile : null
+}
+
+function isCurrentPlayer(snapshot: { status: import('../core').GameStatus<ChessColor> }, color: ChessColor): boolean {
+  return snapshot.status.phase === 'playing' && snapshot.status.currentPlayer === color
 }
 
 function deviceResources(profile: ChessSearchProfile, mobile: boolean, multithreadSupported: boolean): SeatResources {

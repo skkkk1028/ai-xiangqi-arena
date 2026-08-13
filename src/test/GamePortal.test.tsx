@@ -50,7 +50,7 @@ describe('AI 棋类大厅', () => {
     expect(screen.getByRole('link', { name: /多引擎对战竞技场/ })).toHaveAttribute('href', '#/games/chess/arena')
   })
 
-  it('国际象棋两个子路由可以直接刷新访问', async () => {
+  it('国际象棋三个子路由可以直接刷新访问', async () => {
     window.history.replaceState(null, '', '#/games/chess/theatre')
     const view = render(<GamePortal />)
     expect(await screen.findByRole('heading', { name: '双人格观战剧场' })).toBeInTheDocument()
@@ -61,6 +61,12 @@ describe('AI 棋类大厅', () => {
     expect(await screen.findByRole('heading', { name: '多引擎对战竞技场' })).toBeInTheDocument()
     expect(screen.getByLabelText('白方 AI 引擎')).toHaveValue('stockfish-18')
     expect(screen.getByLabelText('黑方 AI 引擎')).toHaveValue('obsidian-16')
+    view.unmount()
+    window.history.replaceState(null, '', '#/games/chess/human')
+    render(<GamePortal />)
+    expect(await screen.findByRole('heading', { name: '人机对战' })).toBeInTheDocument()
+    expect(screen.getByLabelText('真人执子方')).toHaveValue('w')
+    expect(screen.getByLabelText('AI 对手')).toHaveValue('stockfish-18')
   })
 
   it('hash 变化时在大厅与棋类模块之间切换', async () => {

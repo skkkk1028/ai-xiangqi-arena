@@ -11,8 +11,24 @@ export function formatWhiteScore(info: SearchInfo | undefined, color: ChessColor
 }
 
 export function evaluationCpForWhite(info: SearchInfo | undefined, color: ChessColor): number {
-  if (info?.score?.kind !== 'cp') return 0
-  return info.score.value * (color === 'w' ? 1 : -1)
+  if (!info?.score) return 0
+  const value = info.score.kind === 'mate' ? Math.sign(info.score.value || 1) * 100_000 : info.score.value
+  return value * (color === 'w' ? 1 : -1)
+}
+
+export function materialAdvantageCpForWhite(fen: string): number {
+  const values: Record<string, number> = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 }
+  return new Chess(fen).board().flat().reduce((score, piece) => {
+    if (!piece) return score
+    const value = values[piece.type] ?? 0
+    return score + (piece.color === 'w' ? value : -value)
+  }, 0)
+}
+
+export function formatAdvantageScore(cp: number): string {
+  if (Math.abs(cp) >= 100_000) return cp > 0 ? '+M' : '−M'
+  if (cp === 0) return '0.00'
+  return `${cp > 0 ? '+' : '−'}${(Math.abs(cp) / 100).toFixed(2)}`
 }
 
 export function wdlForWhite(wdl: Wdl | null | undefined, color: ChessColor): Wdl | null {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { GAME_ROUTES } from '../routes'
 import { ChessArenaPage } from './ChessArenaPage'
 import { ChessGamePage } from './ChessGamePage'
+import { ChessHumanPage } from './ChessHumanPage'
 import './chess.css'
 
 export function ChessModulePage() {
@@ -15,6 +16,7 @@ export function ChessModulePage() {
 
   if (route === GAME_ROUTES.chessTheatre) return <ChessGamePage />
   if (route === GAME_ROUTES.chessArena) return <ChessArenaPage />
+  if (route === GAME_ROUTES.chessHuman) return <ChessHumanPage />
   return <ChessModePage />
 }
 
@@ -26,7 +28,7 @@ function ChessModePage() {
         <div>
           <span className="chess-kicker">CHESS · STANDARD</span>
           <h1>国际象棋演算厅</h1>
-          <p>选择人格化观战，或让不同的独立 UCI 引擎在相同资源条件下交锋。</p>
+          <p>选择双人格观战、独立引擎交锋，或者亲自执一方挑战现有三种 AI 引擎。</p>
         </div>
       </header>
       <section className="chess-mode-grid" aria-label="国际象棋模式">
@@ -43,6 +45,13 @@ function ChessModePage() {
           <h2>多引擎对战竞技场</h2>
           <p>白黑双方独立选择 Stockfish 18、Fairy-Stockfish 或 Obsidian 16，同资源、PV1 公平对战。</p>
           <strong>配置引擎对战 →</strong>
+        </a>
+        <a className="chess-mode-card chess-mode-card--human" href={GAME_ROUTES.chessHuman}>
+          <span className="chess-mode-card__icon" aria-hidden="true">♙</span>
+          <small>HUMAN VS ENGINE</small>
+          <h2>人机对战</h2>
+          <p>选择白方或黑方，使用 Stockfish 18、Fairy‑Stockfish 或 Obsidian 16 作为对手，并自定义思考强度。</p>
+          <strong>开始人机对战 →</strong>
         </a>
       </section>
       <p className="chess-mode-footnote">Obsidian 16 当前为同级候选；只有项目内配对实测通过 ±50 Elo 等效门槛后才会标记为已认证。</p>

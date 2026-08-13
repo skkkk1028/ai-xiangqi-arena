@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js'
-import { useMemo, type CSSProperties } from 'react'
-import type { ChessGameState, ChessSquare } from './types'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import type { ChessGameState, ChessColor, ChessMoveAction, ChessSquare } from './types'
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'] as const
 const PIECES: Record<string, string> = {
@@ -8,11 +8,39 @@ const PIECES: Record<string, string> = {
   bk: '♚', bq: '♛', br: '♜', bb: '♝', bn: '♞', bp: '♟',
 }
 
-export function ChessBoard({ state }: { state: ChessGameState }) {
+export function ChessBoard({ state, interactive = false, humanColor, disabled = false, onMove }: {
+  state: ChessGameState
+  interactive?: boolean
+  humanColor?: ChessColor
+  disabled?: boolean
+  onMove?: (action: ChessMoveAction) => void
+}) {
   const board = useMemo(() => boardFromFen(state.fen), [state.fen])
   const motion = useMemo(() => moveAnimation(state), [state])
+  const [selected, setSelected] = useState<ChessSquare | null>(null)
+  const legalMoves = useMemo(() => {
+    if (!interactive || disabled || !humanColor || state.result || state.turn !== humanColor) return []
+    return new Chess(state.fen).moves({ verbose: true }).map(moveToAction)
+  }, [disabled, humanColor, interactive, state.fen, state.result, state.turn])
+  useEffect(() => setSelected(null), [humanColor, state.fen])
   const last = state.lastMove
   const checkSquare = last?.check ? kingSquare(board, state.turn) : null
+  const handleSquareClick = (square: ChessSquare) => {
+    if (!interactive || disabled || !humanColor || state.result || state.turn !== humanColor) return
+    const piece = pieceAt(board, square)
+    if (selected) {
+      const action = legalMoves.find((candidate) => candidate.from === selected && candidate.to === square && (!candidate.promotion || candidate.promotion === 'q'))
+        ?? legalMoves.find((candidate) => candidate.from === selected && candidate.to === square)
+      if (action) {
+        setSelected(null)
+        onMove?.(action)
+        return
+      }
+      setSelected(piece?.color === humanColor ? square : null)
+      return
+    }
+    if (piece?.color === humanColor) setSelected(square)
+  }
   return (
     <div className="chess-board-shell">
       <div className="chess-board" role="grid" aria-label="国际象棋棋盘">
@@ -25,12 +53,16 @@ export function ChessBoard({ state }: { state: ChessGameState }) {
           const recent = last && (last.from === square || last.to === square)
           const promotion = last?.promotion && last.to === square
           const check = checkSquare === square
+          const isSelected = selected === square
+          const isLegalTarget = legalMoves.some((move) => move.from === selected && move.to === square)
           return (
             <div
               key={square}
-              className={`chess-square chess-square--${isLight ? 'light' : 'dark'}${recent ? ' chess-square--recent' : ''}${check ? ' chess-square--check' : ''}${promotion ? ' chess-square--promotion' : ''}`}
+              className={`chess-square chess-square--${isLight ? 'light' : 'dark'}${recent ? ' chess-square--recent' : ''}${check ? ' chess-square--check' : ''}${promotion ? ' chess-square--promotion' : ''}${isSelected ? ' chess-square--selected' : ''}${isLegalTarget ? ' chess-square--legal-target' : ''}${interactive ? ' chess-square--interactive' : ''}`}
               role="gridcell"
-              aria-label={`${square}${piece ? ` ${piece.color === 'w' ? '白' : '黑'}方${piece.type}` : ''}`}
+              aria-label={`${square}${piece ? ` ${piece.color === 'w' ? '白' : '黑'}方${piece.type}` : ''}${isLegalTarget ? ' 可落子' : ''}`}
+              aria-selected={isSelected}
+              onClick={() => handleSquareClick(square)}
             >
               {row === 7 && <small className="chess-file-label">{FILES[col]}</small>}
               {col === 0 && <small className="chess-rank-label">{8 - row}</small>}
@@ -124,4 +156,17 @@ function moveAnimation(state: ChessGameState): MoveAnimation | null {
 
 function squarePosition(square: ChessSquare): BoardPosition {
   return { row: 8 - Number(square[1]), col: FILES.indexOf(square[0] as typeof FILES[number]) }
+}
+
+function pieceAt(board: (BoardPiece | null)[][], square: ChessSquare): BoardPiece | null {
+  const position = squarePosition(square)
+  return board[position.row]?.[position.col] ?? null
+}
+
+function moveToAction(move: { from: string; to: string; promotion?: string }): ChessMoveAction {
+  return {
+    from: move.from as ChessSquare,
+    to: move.to as ChessSquare,
+    ...(move.promotion ? { promotion: move.promotion as ChessMoveAction['promotion'] } : {}),
+  }
 }
