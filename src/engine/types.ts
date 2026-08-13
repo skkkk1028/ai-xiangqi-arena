@@ -22,6 +22,7 @@ export interface AIEngineConfig {
   protocol: EngineProtocol
   loadMethod: 'emscripten-module'
   wasmPath: string
+  wasmParts?: readonly string[]
   nnuePath: string
   nnueParts?: readonly string[]
   skillLevel: number | null

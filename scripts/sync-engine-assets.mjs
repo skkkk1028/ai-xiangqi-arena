@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto'
-import { copyFile, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 const root = process.cwd()
 const packageRoot = resolve(root, 'node_modules', 'fairy-stockfish-nnue.wasm')
+const stockfish18Root = resolve(root, 'node_modules', 'stockfish')
 const output = resolve(root, 'public', 'engine')
 const files = ['stockfish.js', 'stockfish.wasm', 'stockfish.worker.js']
 const networks = [
@@ -37,11 +38,48 @@ const tfjsWasmOutput = resolve(root, 'public', 'tfjs')
 
 await mkdir(output, { recursive: true })
 await Promise.all(files.map((file) => copyFile(resolve(packageRoot, file), resolve(output, file))))
+await syncStockfish18()
 
 await Promise.all(networks.map(ensureNetwork))
 await syncChessNetworkParts(chessNetwork)
 await Promise.all(pikafishNetworks.map(syncPikafishParts))
 await syncTfjsWasm()
+
+async function syncStockfish18() {
+  const files = [
+    'stockfish-18.js',
+    'stockfish-18-single.js',
+    'stockfish-18-lite-single.js',
+    'stockfish-18-lite-single.wasm',
+  ]
+  const expected = new Map([
+    ['stockfish-18.js', '10a0f96d5e2a1bc8646bf4a1a69353ede52499e7d94f6376f7b810404b010ced'],
+    ['stockfish-18.wasm', '8bef136a3d7a428b5cbc624459a2091fd3e750c22a48dad9ad3b292ac80373cb'],
+    ['stockfish-18-single.js', 'ce07b916870473a837b598b9b558c125e24568624e47dabc3381474558ee201d'],
+    ['stockfish-18-single.wasm', 'f611ac05ddb248fe975a4f180ac9fec7f7fb650f8f17f5fe4230fcc0fe6419c7'],
+    ['stockfish-18-lite-single.js', '5243fd9b276cab7dfe3ad1d43ab9ead73568fac76468c614242977a210c4a391'],
+    ['stockfish-18-lite-single.wasm', 'a8fbc05ec6920b56d7485826dcb02c5ffd2826bcbf751cf973046f237a9096f1'],
+  ])
+  for (const file of files) {
+    const source = resolve(stockfish18Root, 'bin', file)
+    const bytes = await readFile(source)
+    const actual = sha256(bytes)
+    if (actual !== expected.get(file)) throw new Error(`Stockfish 18 asset checksum mismatch for ${file}: ${actual}`)
+    await copyFile(source, resolve(output, file))
+  }
+  for (const wasm of ['stockfish-18.wasm', 'stockfish-18-single.wasm']) {
+    const bytes = await readFile(resolve(stockfish18Root, 'bin', wasm))
+    const actual = sha256(bytes)
+    if (actual !== expected.get(wasm)) throw new Error(`Stockfish 18 asset checksum mismatch for ${wasm}: ${actual}`)
+    const partSize = 20 * 1024 * 1024
+    const partCount = Math.ceil(bytes.byteLength / partSize)
+    for (let index = 0; index < partCount; index += 1) {
+      await writeFile(resolve(output, `${wasm}.part-${String(index + 1).padStart(2, '0')}`), bytes.subarray(index * partSize, (index + 1) * partSize))
+    }
+    await rm(resolve(output, wasm), { force: true })
+  }
+  await copyFile(resolve(stockfish18Root, 'Copying.txt'), resolve(output, 'STOCKFISH-18-GPL-3.0.txt'))
+}
 
 async function syncTfjsWasm() {
   await mkdir(tfjsWasmOutput, { recursive: true })

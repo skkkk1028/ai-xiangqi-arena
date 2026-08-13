@@ -95,16 +95,20 @@ console.log(JSON.stringify({
   parts: partSizes,
   browser,
   note: browser.status === 'passed'
-    ? '已验证真实 Fairy-Stockfish WASM 的 UCI、chess variant、NNUE 指纹、20 个半回合和暂停无迟到落子。'
+    ? browserArgs.professional
+      ? `已验证固定 Stockfish 18 专业模式在生产 Chromium 页面完成 ${browser.halfMoves} 个半回合，并通过暂停无迟到落子门禁。`
+      : `已验证真实 Fairy-Stockfish WASM 的 UCI、chess variant、NNUE 指纹、${browser.halfMoves} 个半回合和暂停无迟到落子。`
     : '已验证真实 Fairy-Stockfish WASM 的 UCI、chess variant、NNUE 指纹和 bestmove；传入 --cdp-url 后可执行 Chromium/COOP/COEP 连续 20 半回合门禁。',
 }, null, 2))
 
 function parseBrowserArgs(args) {
-  const result = { cdpUrl: process.env.CHESS_VERIFY_CDP_URL ?? null, pageUrl: process.env.CHESS_VERIFY_PAGE_URL ?? 'http://127.0.0.1:4173/#/games/chess', timeoutMs: 10 * 60 * 1_000 }
+  const result = { cdpUrl: process.env.CHESS_VERIFY_CDP_URL ?? null, pageUrl: process.env.CHESS_VERIFY_PAGE_URL ?? 'http://127.0.0.1:4173/#/games/chess', timeoutMs: 10 * 60 * 1_000, halfMoves: 20, professional: false }
   for (let index = 0; index < args.length; index += 1) {
     if (args[index] === '--cdp-url') result.cdpUrl = args[++index]
     else if (args[index] === '--page-url') result.pageUrl = args[++index]
     else if (args[index] === '--timeout-ms') result.timeoutMs = Number(args[++index])
+    else if (args[index] === '--half-moves') result.halfMoves = Number(args[++index])
+    else if (args[index] === '--professional') result.professional = true
   }
   return result
 }
@@ -136,6 +140,10 @@ async function verifyChromium(options) {
   await send('Runtime.enable')
   await send('Page.navigate', { url: options.pageUrl })
   await new Promise((resolvePromise) => setTimeout(resolvePromise, 800))
+  if (options.professional) {
+    const selected = await send('Runtime.evaluate', { expression: `(() => { const button = [...document.querySelectorAll('button')].find((entry) => entry.textContent.includes('专业 · 10 秒')); button?.click(); return Boolean(button); })()`, returnByValue: true })
+    if (!selected.result?.value) throw new Error('Chromium 国际象棋验证找不到专业模式按钮。')
+  }
   await send('Runtime.evaluate', { expression: `(() => { const button = [...document.querySelectorAll('button')].find((entry) => entry.textContent.includes('开始观战')); button?.click(); return Boolean(button); })()` })
   const started = Date.now()
   let snapshot = null
@@ -147,20 +155,31 @@ async function verifyChromium(options) {
     if (!pauseChecked && snapshot?.halfMoves >= 1) {
       const pauseResult = await send('Runtime.evaluate', { expression: `(() => { const button = [...document.querySelectorAll('button')].find((entry) => entry.textContent.includes('暂停')); button?.click(); return Boolean(button); })()`, returnByValue: true })
       if (!pauseResult.result?.value) throw new Error('Chromium 国际象棋验证找不到暂停按钮。')
-      pausedHalfMoves = snapshot.halfMoves
+      let pausedSnapshot = null
+      const pauseDeadline = Date.now() + 10_000
+      while (Date.now() < pauseDeadline) {
+        const afterPause = await send('Runtime.evaluate', { expression: 'window.__AI_CHESS_BROWSER_VALIDATION__', returnByValue: true })
+        pausedSnapshot = afterPause.result?.value
+        if (pausedSnapshot?.paused === true) break
+        await new Promise((resolvePromise) => setTimeout(resolvePromise, 100))
+      }
+      if (pausedSnapshot?.paused !== true) throw new Error(`国际象棋页面未进入暂停状态：${JSON.stringify(pausedSnapshot)}`)
+      pausedHalfMoves = pausedSnapshot.halfMoves
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000))
-      const afterPause = await send('Runtime.evaluate', { expression: 'window.__AI_CHESS_BROWSER_VALIDATION__', returnByValue: true })
-      const pausedSnapshot = afterPause.result?.value
-      if (pausedSnapshot?.halfMoves !== pausedHalfMoves || pausedSnapshot?.paused !== true) {
-        throw new Error(`暂停后仍有迟到落子：${JSON.stringify({ before: pausedHalfMoves, after: pausedSnapshot })}`)
+      const stablePause = await send('Runtime.evaluate', { expression: 'window.__AI_CHESS_BROWSER_VALIDATION__', returnByValue: true })
+      if (stablePause.result?.value?.halfMoves !== pausedHalfMoves || stablePause.result?.value?.paused !== true) {
+        throw new Error(`暂停稳定后仍有迟到落子：${JSON.stringify({ before: pausedHalfMoves, after: stablePause.result?.value })}`)
       }
       await send('Runtime.evaluate', { expression: `(() => { const button = [...document.querySelectorAll('button')].find((entry) => entry.textContent.includes('继续')); button?.click(); return Boolean(button); })()` })
       pauseChecked = true
     }
-    if (snapshot?.status === 'passed' || snapshot?.status === 'failed') break
+    if (snapshot?.halfMoves >= options.halfMoves || snapshot?.status === 'failed') break
     await new Promise((resolvePromise) => setTimeout(resolvePromise, 1_000))
   }
   socket.close()
-  if (!snapshot || snapshot.status !== 'passed' || !pauseChecked) throw new Error(`Chromium 国际象棋验证未完成：${JSON.stringify(snapshot)}`)
-  return { status: 'passed', halfMoves: snapshot.halfMoves, paused: snapshot.paused, pauseChecked, error: snapshot.error }
+  if (!snapshot || snapshot.halfMoves < options.halfMoves || snapshot.status === 'failed' || !pauseChecked) throw new Error(`Chromium 国际象棋验证未完成：${JSON.stringify(snapshot)}`)
+  if (options.professional && snapshot.model !== 'Stockfish 18 embedded NNUE') {
+    throw new Error(`专业模式没有报告 Stockfish 18 模型：${JSON.stringify(snapshot)}`)
+  }
+  return { status: 'passed', halfMoves: snapshot.halfMoves, model: snapshot.model, paused: snapshot.paused, pauseChecked, error: snapshot.error }
 }

@@ -29,17 +29,17 @@ export function ChessGamePage() {
       <header className="chess-header">
         <a className="chess-back" href={GAME_ROUTES.lobby}>← <span>棋类大厅</span></a>
         <div className="chess-brand"><span>♞</span><div><strong>PROJECT10 · CHESS</strong><small>STANDARD AI THEATRE</small></div></div>
-        <div className={`chess-runtime chess-runtime--${match.runState}`}><i /> <span>{runtimeLabel(match.runState)}</span><b>FAIRY‑STOCKFISH · 双人格</b></div>
+        <div className={`chess-runtime chess-runtime--${match.runState}`}><i /> <span>{runtimeLabel(match.runState)}</span><b>{match.profile.mode === 'professional' ? 'STOCKFISH 18 · PV1 专业模式' : 'FAIRY‑STOCKFISH · 双人格'}</b></div>
       </header>
 
       <section className="chess-arena" aria-labelledby="chess-page-title">
         <div className="chess-stage">
-          <div className="chess-heading"><div><p>FIDE 标准规则 · UCI / NNUE · 优先变招</p><h1 id="chess-page-title">双人格观战剧场</h1></div><div className="chess-phase"><span>{status}</span><strong>{String(match.state.history.length).padStart(2, '0')} PLY</strong></div></div>
+          <div className="chess-heading"><div><p>FIDE 标准规则 · UCI / NNUE · 可审计运行时</p><h1 id="chess-page-title">{match.profile.mode === 'professional' ? 'Stockfish 18 专业对弈' : '双人格观战剧场'}</h1></div><div className="chess-phase"><span>{status}</span><strong>{String(match.state.history.length).padStart(2, '0')} PLY</strong></div></div>
           <ChessBoard state={match.state} />
           <div className="chess-seats">
-            <Seat color="w" active={match.state.turn === 'w' && busy} name={CHESS_PERSONALITIES[match.seats.w?.personality ?? personalityFor(match.state, 'w')].label} analysis={match.analyses.w} profile={match.seats.w?.profile?.version} />
+            <Seat color="w" active={match.state.turn === 'w' && busy} name={match.profile.mode === 'professional' ? 'Stockfish 18 · PV1' : CHESS_PERSONALITIES[match.seats.w?.personality ?? personalityFor(match.state, 'w')].label} analysis={match.analyses.w} profile={match.seats.w?.profile?.version} />
             <div className="chess-versus">VS</div>
-            <Seat color="b" active={match.state.turn === 'b' && busy} name={CHESS_PERSONALITIES[match.seats.b?.personality ?? personalityFor(match.state, 'b')].label} analysis={match.analyses.b} profile={match.seats.b?.profile?.version} />
+            <Seat color="b" active={match.state.turn === 'b' && busy} name={match.profile.mode === 'professional' ? 'Stockfish 18 · PV1' : CHESS_PERSONALITIES[match.seats.b?.personality ?? personalityFor(match.state, 'b')].label} analysis={match.analyses.b} profile={match.seats.b?.profile?.version} />
           </div>
         </div>
 
@@ -83,7 +83,8 @@ function HistoryPanel({ state }: { state: ChessGameState }) {
 }
 
 function EnginePanel({ match }: { match: ReturnType<typeof useChessMatch> }) {
-  return <div className="chess-panel-content"><p className="chess-engine-note">模型：<code>nn-3475407dc199.nnue</code><br />SHA‑256：<code>3475407dc199…6689ec87</code><br />请求预算：<code>{match.profile.movetimeMs} ms · MultiPV {match.profile.multiPv}</code></p><EngineSeat color="w" match={match} /><EngineSeat color="b" match={match} />{match.error && <p className="chess-error">{match.error}</p>}</div>
+  const professional = match.profile.mode === 'professional'
+  return <div className="chess-panel-content"><p className="chess-engine-note">引擎：<code>{professional ? 'Stockfish 18 · cb3d4ee' : 'Fairy-Stockfish · 5589ea54'}</code><br />模型：<code>{professional ? 'Stockfish 18 embedded NNUE' : 'nn-3475407dc199.nnue'}</code><br />资源指纹：<code>{professional ? '8bef136a3d7a…80373cb' : '3475407dc199…6689ec87'}</code><br />请求预算：<code>{match.profile.movetimeMs} ms · MultiPV {match.profile.multiPv}</code><br />选招策略：<code>{professional ? '始终 PV1；不使用人格重排' : '安全门槛内个性化；优先非重复'}</code></p><EngineSeat color="w" match={match} /><EngineSeat color="b" match={match} />{match.error && <p className="chess-error">{match.error}</p>}</div>
 }
 
 function EngineSeat({ color, match }: { color: ChessColor; match: ReturnType<typeof useChessMatch> }) {
@@ -96,7 +97,7 @@ function EngineSeat({ color, match }: { color: ChessColor; match: ReturnType<typ
       : seat?.profile
         ? `${seat.profile.threads} threads · ${seat.profile.hashMb} MB · 正常`
         : color === 'w' ? '进入观战后按需加载' : '独立 UCI Worker'
-  return <div className="chess-engine-seat"><span>{CHESS_PERSONALITIES[seat?.personality ?? fallback].label} · {color === 'w' ? '白' : '黑'}</span><strong>{seat?.profile?.version ?? '未加载'}</strong><small>{detail}</small></div>
+  return <div className="chess-engine-seat"><span>{match.profile.mode === 'professional' ? '专业 PV1' : CHESS_PERSONALITIES[seat?.personality ?? fallback].label} · {color === 'w' ? '白' : '黑'}</span><strong>{seat?.profile?.version ?? '未加载'}</strong><small>{detail}</small></div>
 }
 
 function Seat({ color, active, name, analysis, profile }: { color: ChessColor; active: boolean; name: string; analysis?: ChessTurnAnalysis; profile?: string }) { return <div className={`chess-seat chess-seat--${color}${active ? ' is-active' : ''}`}><span className="chess-seat__mark">{color === 'w' ? '♔' : '♚'}</span><div><small>{color === 'w' ? 'WHITE' : 'BLACK'}</small><strong>{name}</strong><span>{analysis?.uci ?? profile ?? 'READY'}</span></div></div> }

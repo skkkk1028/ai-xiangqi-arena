@@ -20,6 +20,13 @@
     "verify:sayuri": "node scripts/verify-native-sayuri.mjs",
     "verify:engine": "node scripts/verify-engine.cjs",
     "verify:chess-engine": "node scripts/verify-chess-engine.mjs",
+    "setup:stockfish18": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-stockfish18.ps1",
+    "verify:stockfish18": "node scripts/verify-native-stockfish.mjs",
+    "test:stockfish-service": "node --test services/stockfish-bridge/test/*.test.mjs",
+    "setup:chess-benchmark": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-chess-benchmark.ps1",
+    "benchmark:chess": "node scripts/benchmark-chess-strength.mjs",
+    "benchmark:chess:full": "node scripts/benchmark-chess-strength.mjs --reference full",
+    "benchmark:chess:smoke": "node scripts/benchmark-chess-strength.mjs --smoke --pairs 2 --nodes 1000",
     "benchmark:100": "vitest run --config vitest.benchmark.config.ts",
     "benchmark:personality": "vitest run --config vitest.personality-benchmark.config.ts",
     "benchmark:personality-selfplay": "node scripts/sync-engine-assets.mjs && vitest run --config vitest.selfplay-benchmark.config.ts",
@@ -38,7 +45,8 @@
     "fairy-stockfish-nnue.wasm": "1.1.11",
     "pako": "2.1.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "stockfish": "18.0.8"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

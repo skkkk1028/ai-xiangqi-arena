@@ -75,7 +75,8 @@ export interface ChessGameState {
   openingName: string
 }
 
-export type ChessSearchBudgetId = 'fast' | 'standard' | 'deep'
+export type ChessSearchBudgetId = 'fast' | 'standard' | 'deep' | 'professional' | 'professional-deep'
+export type ChessPlayMode = 'personality' | 'professional'
 
 export interface ChessSearchProfile {
   id: ChessSearchBudgetId
@@ -83,7 +84,8 @@ export interface ChessSearchProfile {
   movetimeMs: number
   threads: number
   hashMb: number
-  multiPv: 4
+  multiPv: 1 | 4
+  mode: ChessPlayMode
 }
 
 export type ChessPersonalityId = 'attack' | 'solid'

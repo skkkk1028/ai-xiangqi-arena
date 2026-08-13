@@ -15,7 +15,12 @@ describe('EngineRegistry', () => {
       'pikafish-2026-nnue',
       'pikafish-2025-nnue',
     ])
-    expect(engineRegistry.listEngines('chess').map((engine) => engine.id)).toEqual(['fairy-stockfish-chess-nnue'])
+    expect(engineRegistry.listEngines('chess').map((engine) => engine.id)).toEqual([
+      'fairy-stockfish-chess-nnue',
+      'stockfish-18-full',
+      'stockfish-18-full-single',
+      'stockfish-18-native-bridge',
+    ])
     expect(engineRegistry.getEngine('xiangqi', 'fairy-stockfish-chess-nnue')).toBeUndefined()
   })
 

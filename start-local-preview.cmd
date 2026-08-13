@@ -8,16 +8,19 @@ set "PREVIEW_PORT=4173"
 set "BRIDGE_PORT=8788"
 set "LEELA_BRIDGE_PORT=8789"
 set "SAYURI_BRIDGE_PORT=8790"
+set "STOCKFISH_BRIDGE_PORT=8791"
 set "VERIFY_ONLY=0"
 set "NO_PAUSE=0"
 set "BRIDGE_STARTED=0"
 set "PREVIEW_STARTED=0"
 set "LEELA_BRIDGE_STARTED=0"
 set "SAYURI_BRIDGE_STARTED=0"
+set "STOCKFISH_BRIDGE_STARTED=0"
 set "BRIDGE_PID="
 set "PREVIEW_PID="
 set "LEELA_BRIDGE_PID="
 set "SAYURI_BRIDGE_PID="
+set "STOCKFISH_BRIDGE_PID="
 
 :parse_args
 if "%~1"=="" goto args_done
@@ -186,6 +189,45 @@ if errorlevel 1 goto :wait_sayuri_bridge
 
 :sayuri_bridge_done
 
+if not exist "%~dp0services\stockfish-bridge\.env" (
+  echo Optional Stockfish 18 native runtime is not installed. Professional mode will use the full browser engine.
+  echo To enable the native bridge, run: npm run setup:stockfish18
+  goto :stockfish_bridge_done
+)
+
+"%NODE_EXE%" "%~dp0scripts\verify-native-stockfish.mjs" --live-only >nul 2>nul
+if not errorlevel 1 (
+  echo A Stockfish 18 bridge is already running on port %STOCKFISH_BRIDGE_PORT%; its engine remains lazy until selected.
+  goto :stockfish_bridge_done
+)
+
+set "STOCKFISH_LISTEN_PID="
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr /R /C:":%STOCKFISH_BRIDGE_PORT% .*LISTENING"') do set "STOCKFISH_LISTEN_PID=%%P"
+if defined STOCKFISH_LISTEN_PID (
+  echo Port %STOCKFISH_BRIDGE_PORT% is occupied by PID %STOCKFISH_LISTEN_PID%, but it is not the configured Stockfish 18 bridge.
+  goto :fail
+)
+
+echo Starting the optional Stockfish 18 bridge without loading its engine...
+for /f "delims=" %%P in ('call "%NODE_EXE%" "%~dp0scripts\start-detached-process.mjs" --cwd "%ROOT_DIR%" --stdout "%TEMP%\project10-stockfish-bridge.out.log" --stderr "%TEMP%\project10-stockfish-bridge.err.log" "%NODE_EXE%" "--env-file=%~dp0services\stockfish-bridge\.env" "%~dp0services\stockfish-bridge\src\server.mjs"') do set "STOCKFISH_BRIDGE_PID=%%P"
+if not defined STOCKFISH_BRIDGE_PID (
+  echo Failed to start the optional Stockfish 18 bridge.
+  goto :fail
+)
+set "STOCKFISH_BRIDGE_STARTED=1"
+set "STOCKFISH_LIVE_WAIT=0"
+:wait_stockfish_bridge
+set /a STOCKFISH_LIVE_WAIT+=1
+if %STOCKFISH_LIVE_WAIT% GTR 30 (
+  echo Stockfish 18 bridge did not become live. See %TEMP%\project10-stockfish-bridge.err.log
+  goto :fail
+)
+powershell -NoProfile -Command "Start-Sleep -Seconds 1"
+"%NODE_EXE%" "%~dp0scripts\verify-native-stockfish.mjs" --live-only >nul 2>nul
+if errorlevel 1 goto :wait_stockfish_bridge
+
+:stockfish_bridge_done
+
 echo Starting Vite preview in a hidden background process...
 for /f "delims=" %%P in ('call "%NODE_EXE%" "%~dp0scripts\start-detached-process.mjs" --cwd "%ROOT_DIR%" --stdout "%TEMP%\project10-vite-preview.out.log" --stderr "%TEMP%\project10-vite-preview.err.log" "%NODE_EXE%" "%~dp0node_modules\vite\bin\vite.js" preview --outDir .vite-output --host 127.0.0.1 --port %PREVIEW_PORT% --strictPort') do set "PREVIEW_PID=%%P"
 if not defined PREVIEW_PID (
@@ -217,6 +259,14 @@ if "%VERIFY_ONLY%"=="1" (
     "%NODE_EXE%" "%~dp0scripts\verify-native-sayuri.mjs"
     if errorlevel 1 goto :fail
   )
+  echo Verifying the pinned Stockfish 18 browser engine...
+  "%NODE_EXE%" "%~dp0scripts\verify-stockfish18.mjs"
+  if errorlevel 1 goto :fail
+  if exist "%~dp0services\stockfish-bridge\.env" (
+    echo Running a real Stockfish 18 native search...
+    "%NODE_EXE%" "%~dp0scripts\verify-native-stockfish.mjs"
+    if errorlevel 1 goto :fail
+  )
   echo Local preview verification passed.
   call :cleanup
   endlocal
@@ -228,13 +278,15 @@ echo AI Xiangqi is available at http://127.0.0.1:%PREVIEW_PORT%/
 echo Native KataGo bridge is available at http://127.0.0.1:%BRIDGE_PORT%/
 echo Native Leela Zero bridge is available at http://127.0.0.1:%LEELA_BRIDGE_PORT%/
 if exist "%~dp0services\sayuri-bridge\.env" echo Sayuri bridge is available at http://127.0.0.1:%SAYURI_BRIDGE_PORT%/ and loads lazily.
-echo Process IDs: preview=%PREVIEW_PID% katago=%BRIDGE_PID% leela-zero=%LEELA_BRIDGE_PID% sayuri=%SAYURI_BRIDGE_PID%
+if exist "%~dp0services\stockfish-bridge\.env" echo Stockfish 18 bridge is available at http://127.0.0.1:%STOCKFISH_BRIDGE_PORT%/ and loads lazily.
+echo Process IDs: preview=%PREVIEW_PID% katago=%BRIDGE_PID% leela-zero=%LEELA_BRIDGE_PID% sayuri=%SAYURI_BRIDGE_PID% stockfish=%STOCKFISH_BRIDGE_PID%
 if "%NO_PAUSE%"=="0" pause
 endlocal
 exit /b 0
 
 :build
 set "VITE_KATAGO_BRIDGE=1"
+set "VITE_CHESS_NATIVE_BRIDGE=1"
 "%NODE_EXE%" "%~dp0scripts\sync-engine-assets.mjs"
 if errorlevel 1 exit /b 1
 "%NODE_EXE%" "%~dp0node_modules\typescript\bin\tsc" -b
@@ -247,6 +299,7 @@ if "%PREVIEW_STARTED%"=="1" if defined PREVIEW_PID call :stop_pid "%PREVIEW_PID%
 if "%BRIDGE_STARTED%"=="1" if defined BRIDGE_PID call :stop_pid "%BRIDGE_PID%"
 if "%LEELA_BRIDGE_STARTED%"=="1" if defined LEELA_BRIDGE_PID call :stop_pid "%LEELA_BRIDGE_PID%"
 if "%SAYURI_BRIDGE_STARTED%"=="1" if defined SAYURI_BRIDGE_PID call :stop_pid "%SAYURI_BRIDGE_PID%"
+if "%STOCKFISH_BRIDGE_STARTED%"=="1" if defined STOCKFISH_BRIDGE_PID call :stop_pid "%STOCKFISH_BRIDGE_PID%"
 exit /b 0
 
 :stop_pid

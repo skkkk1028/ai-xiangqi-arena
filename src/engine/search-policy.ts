@@ -2,7 +2,7 @@ import { getLegalCaptures, getLegalMoves, isInCheck } from '../game/rules'
 import type { BoardState, Color } from '../game/types'
 import { classifyPersonalityPhase } from './personality'
 
-export type MultiPvCount = 2 | 3 | 4
+export type MultiPvCount = 1 | 2 | 3 | 4
 export type MultiPvReason =
   | 'resource-constrained'
   | 'low-time'

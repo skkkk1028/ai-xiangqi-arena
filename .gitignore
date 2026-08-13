@@ -6,6 +6,11 @@ coverage/
 services/katago-bridge/runtime/
 services/leela-zero-bridge/runtime/
 services/sayuri-bridge/runtime/
+services/stockfish-bridge/.env
+services/stockfish-bridge/runtime/
+benchmark-assets/chess/
+reports/chess-strength/
+.tmp-edge-stockfish18/
 leelaz_opencl_tuning
 *.log
 reports/**/*.json
@@ -21,3 +26,7 @@ public/engine/pikafish-2025.nnue.part-*
 public/tfjs/
 public/engine/xiangqi-c07e94a5c7cb.nnue
 public/engine/chess-nn-3475407dc199.nnue.part-*
+public/engine/stockfish-18*.js
+public/engine/stockfish-18*.wasm
+public/engine/stockfish-18*.wasm.part-*
+public/engine/STOCKFISH-18-GPL-3.0.txt

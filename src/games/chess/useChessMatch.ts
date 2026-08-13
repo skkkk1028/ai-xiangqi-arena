@@ -4,7 +4,7 @@ import { detectEngineSupport } from '../../engine/support'
 import type { EngineProgress } from '../../engine/types'
 import { GameController } from '../core/GameController'
 import { createChessArchive, restoreChessArchive } from './archive'
-import { CHESS_FAIRY_STOCKFISH_ENGINE_ID } from '../../engine/config'
+import { CHESS_FAIRY_STOCKFISH_ENGINE_ID, CHESS_STOCKFISH_18_ENGINE_ID, CHESS_STOCKFISH_18_NATIVE_ENGINE_ID, CHESS_STOCKFISH_18_SINGLE_ENGINE_ID } from '../../engine/config'
 import { ChessAIEngineAdapter, CHESS_PERSONALITIES, CHESS_SEARCH_PROFILES, chessPersonalityForColor } from './ai-engine'
 import { ChessGameEngine, createChessState } from './rules'
 import { alternateChessSeed, createChessSeed } from './openings'
@@ -98,7 +98,8 @@ export function useChessMatch() {
     profile: ChessSearchProfile,
     resources: SeatResources,
   ) => {
-    const adapter = engineRegistry.createEngine('chess', CHESS_FAIRY_STOCKFISH_ENGINE_ID, {
+    const engineId = chessEngineId(profile, resources)
+    const adapter = engineRegistry.createEngine('chess', engineId, {
       assetBase: new URL('./', window.location.origin).href,
       onProgress: (progress) => setSeats((current) => ({
         ...current,
@@ -124,10 +125,13 @@ export function useChessMatch() {
   const createController = useCallback(async (initial: ChessGameState) => {
     const profile = CHESS_SEARCH_PROFILES[budgetRef.current]
     const support = detectEngineSupport()
-    if (!support.supported) {
+    if (profile.mode === 'personality' && !support.supported) {
       throw new Error(support.reason ?? '当前浏览器不支持国际象棋 Worker 所需的 WebAssembly 隔离环境。')
     }
-    const resources = deviceResources(support.mobile)
+    if (profile.mode === 'professional' && typeof WebAssembly !== 'object') {
+      throw new Error('当前浏览器不支持专业模式所需的 WebAssembly。')
+    }
+    const resources = deviceResources(profile, support.mobile, support.supported)
     const whitePersonality = chessPersonalityForColor(initial.seed, 'w')
     const blackPersonality = chessPersonalityForColor(initial.seed, 'b')
     const seatMap: Record<ChessColor, SeatRuntime> = {} as Record<ChessColor, SeatRuntime>
@@ -150,7 +154,10 @@ export function useChessMatch() {
     }))
     setState(snapshot.state)
     setRunState('ready')
-    setNotice(`已建立双 Worker 会话；${profile.label}，${resources.threads} 线程 / ${resources.hash} MB Hash。`)
+    const runtime = profile.mode === 'professional'
+      ? resources.threads > 1 ? 'Stockfish 18 完整多线程' : 'Stockfish 18 完整单线程'
+      : 'Fairy-Stockfish 个性模式'
+    setNotice(`已建立双 Worker 会话；${profile.label} · ${runtime} · ${resources.threads} 线程 / ${resources.hash} MB Hash。`)
     return controller
   }, [makeSeat])
 
@@ -181,7 +188,7 @@ export function useChessMatch() {
       const profile = CHESS_SEARCH_PROFILES[budgetRef.current]
       const resources = previous.profile
         ? { threads: previous.profile.threads, hash: previous.profile.hashMb }
-        : deviceResources(detectEngineSupport().mobile)
+        : deviceResources(profile, detectEngineSupport().mobile, detectEngineSupport().supported)
       const created = makeSeat(color, previous.personality, profile, resources)
       replacement = created
       setSeats((current) => ({ ...current, [color]: { ...created.runtime, error: runtimeError.message } }))
@@ -350,11 +357,11 @@ export function useChessMatch() {
     window.__AI_CHESS_BROWSER_VALIDATION__ = {
       status: error ? 'failed' : state.history.length >= 20 ? 'passed' : 'running',
       halfMoves: state.history.length,
-      model: 'nn-3475407dc199.nnue',
+      model: CHESS_SEARCH_PROFILES[budgetId].mode === 'professional' ? 'Stockfish 18 embedded NNUE' : 'nn-3475407dc199.nnue',
       paused: runState === 'paused',
       error,
     }
-  }, [error, runState, state.history.length])
+  }, [budgetId, error, runState, state.history.length])
 
   return {
     state,
@@ -376,11 +383,24 @@ export function useChessMatch() {
   }
 }
 
-function deviceResources(mobile: boolean): SeatResources {
+function deviceResources(profile: ChessSearchProfile, mobile: boolean, multithreadSupported: boolean): SeatResources {
   const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
+  if (profile.mode === 'professional') {
+    const cores = navigator.hardwareConcurrency || 2
+    if (!multithreadSupported || mobile || memory === undefined || memory < 8 || cores < 4) {
+      return { threads: 1, hash: 64 }
+    }
+    return { threads: Math.min(4, Math.max(2, cores - 2)), hash: profile.id === 'professional-deep' ? 256 : 128 }
+  }
   return mobile || memory === undefined || memory < 4
     ? { threads: 1, hash: 32 }
     : { threads: 2, hash: 64 }
+}
+
+function chessEngineId(profile: ChessSearchProfile, resources: SeatResources): string {
+  if (profile.mode === 'personality') return CHESS_FAIRY_STOCKFISH_ENGINE_ID
+  if (import.meta.env.VITE_CHESS_NATIVE_BRIDGE === '1') return CHESS_STOCKFISH_18_NATIVE_ENGINE_ID
+  return resources.threads > 1 ? CHESS_STOCKFISH_18_ENGINE_ID : CHESS_STOCKFISH_18_SINGLE_ENGINE_ID
 }
 
 function isFinishedControllerError(value: unknown): boolean {

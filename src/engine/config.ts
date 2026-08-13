@@ -2,6 +2,9 @@ import type { AIEngineConfig } from './types'
 
 export const FAIRY_STOCKFISH_ENGINE_ID = 'fairy-stockfish-nnue'
 export const CHESS_FAIRY_STOCKFISH_ENGINE_ID = 'fairy-stockfish-chess-nnue'
+export const CHESS_STOCKFISH_18_ENGINE_ID = 'stockfish-18-full'
+export const CHESS_STOCKFISH_18_SINGLE_ENGINE_ID = 'stockfish-18-full-single'
+export const CHESS_STOCKFISH_18_NATIVE_ENGINE_ID = 'stockfish-18-native-bridge'
 export const PIKAFISH_ENGINE_ID = 'pikafish-2026-nnue'
 export const PIKAFISH_2025_ENGINE_ID = 'pikafish-2025-nnue'
 
@@ -195,3 +198,64 @@ export function configureChessFairyStockfish(
     hash,
   }
 }
+
+const STOCKFISH_18_BASE = {
+  gameId: 'chess' as const,
+  name: 'Stockfish 18',
+  engineType: 'stockfish-18',
+  protocol: 'UCI' as const,
+  loadMethod: 'emscripten-module' as const,
+  nnuePath: 'embedded-stockfish-18-nnue',
+  skillLevel: null,
+  styleDescription: 'Stockfish 18 官方核心，MultiPV 1，始终选择主变化第一着。',
+  options: Object.freeze({
+    Ponder: false,
+    MultiPV: 1,
+    Skill_Level: 20,
+    UCI_LimitStrength: false,
+    UCI_ShowWDL: true,
+  }),
+  threads: 4,
+  hash: 128,
+  timeControl: Object.freeze({ searchGraceMs: 10_000, stopGraceMs: 5_000, newGameReadyTimeoutMs: 30_000 }),
+  workerPath: 'stockfish18.worker.js',
+  adapterPath: '',
+  version: 'stockfish.js@18.0.8 / Stockfish 18',
+  commit: 'cb3d4ee',
+} as const
+
+export const CHESS_STOCKFISH_18_CONFIG: Readonly<AIEngineConfig> = Object.freeze({
+  ...STOCKFISH_18_BASE,
+  id: CHESS_STOCKFISH_18_ENGINE_ID,
+  loaderPath: 'stockfish-18.js',
+  wasmPath: 'stockfish-18.wasm',
+  wasmParts: Object.freeze(Array.from({ length: 6 }, (_, index) => `stockfish-18.wasm.part-${String(index + 1).padStart(2, '0')}`)),
+  nnueSha256: 'embedded-in-8bef136a3d7a428b5cbc624459a2091fd3e750c22a48dad9ad3b292ac80373cb',
+  wasmSha256: '8bef136a3d7a428b5cbc624459a2091fd3e750c22a48dad9ad3b292ac80373cb',
+})
+
+export const CHESS_STOCKFISH_18_SINGLE_CONFIG: Readonly<AIEngineConfig> = Object.freeze({
+  ...STOCKFISH_18_BASE,
+  id: CHESS_STOCKFISH_18_SINGLE_ENGINE_ID,
+  name: 'Stockfish 18 Single',
+  threads: 1,
+  hash: 64,
+  loaderPath: 'stockfish-18-single.js',
+  wasmPath: 'stockfish-18-single.wasm',
+  wasmParts: Object.freeze(Array.from({ length: 6 }, (_, index) => `stockfish-18-single.wasm.part-${String(index + 1).padStart(2, '0')}`)),
+  nnueSha256: 'embedded-in-f611ac05ddb248fe975a4f180ac9fec7f7fb650f8f17f5fe4230fcc0fe6419c7',
+  wasmSha256: 'f611ac05ddb248fe975a4f180ac9fec7f7fb650f8f17f5fe4230fcc0fe6419c7',
+})
+
+export const CHESS_STOCKFISH_18_NATIVE_CONFIG: Readonly<AIEngineConfig> = Object.freeze({
+  ...STOCKFISH_18_BASE,
+  id: CHESS_STOCKFISH_18_NATIVE_ENGINE_ID,
+  name: 'Stockfish 18 Native',
+  engineType: 'stockfish-18-native',
+  workerPath: '',
+  adapterPath: '',
+  loaderPath: '',
+  wasmPath: '',
+  nnueSha256: 'embedded-in-official-stockfish-18-native-binary',
+  wasmSha256: 'verified-at-native-bridge-startup',
+})

@@ -18,9 +18,11 @@ export function chessPersonalityForColor(seed: number, color: ChessColor): Chess
 }
 
 export const CHESS_SEARCH_PROFILES: Record<ChessSearchProfile['id'], ChessSearchProfile> = {
-  fast: { id: 'fast', label: '快速 1 秒', movetimeMs: 1_000, threads: 1, hashMb: 32, multiPv: 4 },
-  standard: { id: 'standard', label: '标准 3 秒', movetimeMs: 3_000, threads: 2, hashMb: 64, multiPv: 4 },
-  deep: { id: 'deep', label: '深思 8 秒', movetimeMs: 8_000, threads: 2, hashMb: 64, multiPv: 4 },
+  fast: { id: 'fast', label: '个性 · 1 秒', movetimeMs: 1_000, threads: 1, hashMb: 32, multiPv: 4, mode: 'personality' },
+  standard: { id: 'standard', label: '个性 · 3 秒', movetimeMs: 3_000, threads: 2, hashMb: 64, multiPv: 4, mode: 'personality' },
+  deep: { id: 'deep', label: '个性 · 8 秒', movetimeMs: 8_000, threads: 2, hashMb: 64, multiPv: 4, mode: 'personality' },
+  professional: { id: 'professional', label: '专业 · 10 秒', movetimeMs: 10_000, threads: 4, hashMb: 128, multiPv: 1, mode: 'professional' },
+  'professional-deep': { id: 'professional-deep', label: '专业深思 · 30 秒', movetimeMs: 30_000, threads: 4, hashMb: 256, multiPv: 1, mode: 'professional' },
 }
 
 const EMPTY_INFO: SearchInfo = { depth: 0, nodes: 0, nps: 0, elapsedMs: 0, score: null, wdl: null, pv: [] }
@@ -47,7 +49,9 @@ export class ChessAIEngineAdapter implements AIEngine<ChessGameState, ChessActio
 
   constructor(private readonly adapter: EngineAdapter, private readonly options: ChessAIEngineOptions) {
     this.id = adapter.config.id
-    this.name = `${CHESS_PERSONALITIES[options.personality].label} · ${adapter.config.name}`
+    this.name = options.profile.mode === 'professional'
+      ? `专业模式 · ${adapter.config.name}`
+      : `${CHESS_PERSONALITIES[options.personality].label} · ${adapter.config.name}`
   }
 
   get engineProfile(): EngineProfile | null { return this.profile }
@@ -61,12 +65,12 @@ export class ChessAIEngineAdapter implements AIEngine<ChessGameState, ChessActio
   async think(request: ChessThinkRequest): Promise<AIThinkResult<ChessAction, ChessTurnAnalysis>> {
     if (request.signal?.aborted) throw new DOMException('国际象棋搜索已取消。', 'AbortError')
     if (canClaimFiftyMove(request.state)) {
-      return drawClaimDecision(request, 'fifty-move')
+      return drawClaimDecision(request, 'fifty-move', this.options.profile.multiPv)
     }
     const legalMoves = request.legalActions.filter(isChessMoveAction)
     const opening = CHESS_OPENINGS.find((candidate) => candidate.id === request.state.openingId)
     const openingUci = opening?.moves[request.record.length]
-    if (openingUci) {
+    if (openingUci && this.options.profile.mode === 'personality') {
       const openingAction = findLegalAction(legalMoves, openingUci)
       if (openingAction) {
         await wait(360, request.signal)
@@ -80,7 +84,7 @@ export class ChessAIEngineAdapter implements AIEngine<ChessGameState, ChessActio
             uci: openingUci,
             source: 'opening',
             budgetMs: 0,
-            multiPv: 4,
+            multiPv: this.options.profile.multiPv,
           },
         }
       }
@@ -90,13 +94,15 @@ export class ChessAIEngineAdapter implements AIEngine<ChessGameState, ChessActio
     request.signal?.addEventListener('abort', abortSearch, { once: true })
     try {
       const search: EngineSearchOptions = {
-        multiPv: 4,
+        multiPv: this.options.profile.multiPv,
         onInfo: (info) => this.options.onInfo?.(request.player, request.state.fen, request.record.length, info),
       }
       const response = await this.adapter.search(request.record.map((record) => record.uci), this.options.profile.movetimeMs, search)
       if (request.signal?.aborted) throw new DOMException('国际象棋搜索已取消。', 'AbortError')
       if (!response.bestmove) throw new ChessIllegalEngineMoveError(null)
-      const decision = selectChessPersonalityMove({
+      const decision = this.options.profile.mode === 'professional'
+        ? selectChessProfessionalMove({ state: request.state, legalActions: legalMoves, response })
+        : selectChessPersonalityMove({
         state: request.state,
         legalActions: legalMoves,
         response,
@@ -115,7 +121,7 @@ export class ChessAIEngineAdapter implements AIEngine<ChessGameState, ChessActio
           source: 'engine',
           response,
           budgetMs: this.options.profile.movetimeMs,
-          multiPv: 4,
+          multiPv: this.options.profile.multiPv,
           selectedCandidate: decision.selectedCandidate,
           selectionReason: decision.reason,
           ...(isChessMoveAction(action) ? {} : { claimReason: action.reason }),
@@ -128,6 +134,15 @@ export class ChessAIEngineAdapter implements AIEngine<ChessGameState, ChessActio
 
   stop(reason?: string): void { this.adapter.stop(reason) }
   dispose(): void { this.profile = null; this.adapter.dispose() }
+}
+
+/** Professional mode never substitutes a style move for Stockfish PV1. */
+export function selectChessProfessionalMove(input: Pick<ChessSelectionInput, 'state' | 'legalActions' | 'response'>): ChessSelectionResult {
+  const bestmove = input.response.bestmove
+  if (!bestmove) throw new ChessIllegalEngineMoveError(null)
+  const action = findLegalAction(input.legalActions.filter(isChessMoveAction), bestmove)
+  if (!action) throw new ChessIllegalEngineMoveError(bestmove)
+  return moveOrClaim(input.state, action, input.response.info, 'professional-pv1')
 }
 
 function wait(ms: number, signal?: AbortSignal): Promise<void> {
@@ -235,7 +250,7 @@ function directMove(action: ChessMoveAction, info: SearchInfo, reason: string): 
   return { action, uci: actionToUci(action), info, reason }
 }
 
-function drawClaimDecision(request: ChessThinkRequest, reason: ChessClaimReason): AIThinkResult<ChessAction, ChessTurnAnalysis> {
+function drawClaimDecision(request: ChessThinkRequest, reason: ChessClaimReason, multiPv: 1 | 4): AIThinkResult<ChessAction, ChessTurnAnalysis> {
   return {
     action: { kind: 'claim-draw', reason },
     analysis: {
@@ -246,7 +261,7 @@ function drawClaimDecision(request: ChessThinkRequest, reason: ChessClaimReason)
       uci: null,
       source: 'engine',
       budgetMs: 0,
-      multiPv: 4,
+      multiPv,
       selectionReason: `${reason}-current-position-claim`,
       claimReason: reason,
     },

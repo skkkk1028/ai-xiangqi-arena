@@ -1,5 +1,6 @@
 allowBuilds:
   core-js: false
   esbuild: true
+  stockfish: false
 onlyBuiltDependencies:
   - esbuild

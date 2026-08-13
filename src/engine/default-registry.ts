@@ -4,10 +4,14 @@ import {
   FAIRY_STOCKFISH_CONFIG,
   FAIRY_STOCKFISH_ENGINE_ID,
   CHESS_FAIRY_STOCKFISH_CONFIG,
+  CHESS_STOCKFISH_18_CONFIG,
+  CHESS_STOCKFISH_18_SINGLE_CONFIG,
+  CHESS_STOCKFISH_18_NATIVE_CONFIG,
   PIKAFISH_2025_CONFIG,
   PIKAFISH_CONFIG,
 } from './config'
 import { EngineRegistry } from './registry'
+import { ChessNativeStockfishAdapter } from '../games/chess/native-adapter'
 
 export const engineRegistry = new EngineRegistry()
 
@@ -16,6 +20,15 @@ engineRegistry.registerEngine(FAIRY_STOCKFISH_CONFIG, (config, context) =>
 )
 engineRegistry.registerEngine(CHESS_FAIRY_STOCKFISH_CONFIG, (config, context) =>
   new FairyStockfishAdapter(config, context),
+)
+engineRegistry.registerEngine(CHESS_STOCKFISH_18_CONFIG, (config, context) =>
+  new FairyStockfishAdapter(config, context),
+)
+engineRegistry.registerEngine(CHESS_STOCKFISH_18_SINGLE_CONFIG, (config, context) =>
+  new FairyStockfishAdapter(config, context),
+)
+engineRegistry.registerEngine(CHESS_STOCKFISH_18_NATIVE_CONFIG, (config, context) =>
+  new ChessNativeStockfishAdapter(config, context),
 )
 engineRegistry.registerEngine(PIKAFISH_CONFIG, (config, context) =>
   new PikafishAdapter(config, context),

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { EngineAdapter } from '../engine/adapter'
 import type { AIEngineConfig } from '../engine/types'
 import type { EngineProfile, EngineSearchResponse } from '../game/types'
-import { ChessAIEngineAdapter, CHESS_SEARCH_PROFILES, selectChessPersonalityMove } from '../games/chess/ai-engine'
+import { ChessAIEngineAdapter, CHESS_SEARCH_PROFILES, selectChessPersonalityMove, selectChessProfessionalMove } from '../games/chess/ai-engine'
 import { ChessGameEngine, createChessState, replayChessState } from '../games/chess/rules'
 import { UciParser } from '../engine/parsers/uci-parser'
 
@@ -34,6 +34,17 @@ describe('国际象棋 AI 双人格策略', () => {
     const decision = await ai.think({ state, player: 'w', legalActions: game.getLegalActions(state), record: state.history })
     expect(decision.analysis?.uci).toBe('e2e4')
     expect(adapter.search).not.toHaveBeenCalled()
+  })
+
+  it('专业模式从第一手开始搜索 PV1，不使用观赏开局前缀', async () => {
+    const adapter = mockAdapter()
+    const ai = new ChessAIEngineAdapter(adapter, { personality: 'attack', profile: CHESS_SEARCH_PROFILES.professional })
+    const game = new ChessGameEngine()
+    const state = { ...createChessState(0), openingId: 'italian', openingName: '意大利开局' }
+    await ai.initialize()
+    const decision = await ai.think({ state, player: 'w', legalActions: game.getLegalActions(state), record: state.history })
+    expect(decision.analysis?.selectionReason).toBe('professional-pv1')
+    expect(adapter.search).toHaveBeenCalledWith([], 10_000, expect.objectContaining({ multiPv: 1 }))
   })
 
   it('缺少同深度稳定快照时强制采用第一选择', () => {
@@ -78,6 +89,20 @@ describe('国际象棋 AI 双人格策略', () => {
     })
     expect(decision.action).toEqual({ kind: 'claim-draw', reason: 'threefold-repetition', intendedMove: { from: 'f6', to: 'g8' } })
     expect(decision.reason).toBe('threefold-repetition-claim')
+  })
+
+  it('专业模式始终采用 PV1，不执行人格候选重排', () => {
+    const state = createChessState(9)
+    const engine = new ChessGameEngine()
+    const principal = stableCandidate(1, 'e2e4', 20)
+    const styled = stableCandidate(2, 'g1f3', 19)
+    const decision = selectChessProfessionalMove({
+      state,
+      legalActions: engine.getLegalActions(state),
+      response: { bestmove: 'e2e4', info: principal, candidates: [principal, styled] },
+    })
+    expect(decision.uci).toBe('e2e4')
+    expect(decision.reason).toBe('professional-pv1')
   })
 })
 

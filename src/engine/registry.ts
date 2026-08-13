@@ -52,6 +52,7 @@ export class EngineRegistry {
       options: { ...registration.config.options },
       timeControl: { ...registration.config.timeControl },
       nnueParts: registration.config.nnueParts ? [...registration.config.nnueParts] : undefined,
+      wasmParts: registration.config.wasmParts ? [...registration.config.wasmParts] : undefined,
       ...(overrides ?? {}),
     }
     return registration.factory(config, context)

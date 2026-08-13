@@ -32,6 +32,18 @@
 - 许可证：BSD-2-Clause
 - 用途：标准国际象棋合法着、将军/将死、易位、吃过路兵、升变、PGN 与终局规则裁判。
 
+## Stockfish 18 / Stockfish.js
+
+- 浏览器包：`stockfish@18.0.8`，Nathan Rugg / Chess.com。
+- 上游引擎：Stockfish 18，提交 `cb3d4ee`。
+- 许可证：GNU General Public License v3.0。
+- 源码：[nmrugg/stockfish.js](https://github.com/nmrugg/stockfish.js) 与 [Stockfish sf_18](https://github.com/official-stockfish/Stockfish/tree/sf_18)。
+- 浏览器发行物未经修改；`scripts/sync-engine-assets.mjs` 和 `scripts/verify-stockfish18.mjs` 校验固定 SHA-256。
+- 生产构建在 `public/engine/STOCKFISH-18-GPL-3.0.txt` 分发完整 GPLv3 文本。
+
+可选原生桥接使用官方 `sf_18` AVX2 发行物。安装脚本执行 UCI 版本验证，将本机二进制
+SHA-256 写入 Git 忽略的 `services/stockfish-bridge/.env`，桥接每次启动前重新校验。
+
 ## Pikafish
 
 - 项目：[official-pikafish/Pikafish](https://github.com/official-pikafish/Pikafish)

@@ -271,3 +271,11 @@ Sites 项目的编辑权限。
 | 2026-07-29 | 用 Fairy-Stockfish NNUE + UCCI 替换生产对局 AI，加入真实搜索信息、资源校验、跨源隔离与公开部署配置 | Codex |
 | 2026-07-29 | 提亮首页；增强旧自研搜索并延长思考时间 | Codex |
 | 2026-07-29 | 项目创建并完成首版实现 | Codex |
+
+## 国际象棋专业模式与棋力测试
+
+- 个性/观赏模式继续使用 Fairy-Stockfish NNUE、MultiPV 4，并在安全阈值内进行风格选招。
+- 专业模式使用固定 Stockfish 18（`stockfish.js@18.0.8`，上游 `cb3d4ee`）、MultiPV 1，并始终采用 PV1；标准档每步 10 秒，深思档每步 30 秒。
+- `npm run setup:stockfish18` 安装并校验官方 AVX2 原生运行时。本地预览优先使用原生桥接；未安装或桥接不可用时回退到完整浏览器 WASM，不使用 Lite 冒充专业模式。
+- `npm run setup:chess-benchmark` 下载官方 `UHO_Lichess_4852_v1` 开局库；`npm run benchmark:chess -- --pairs 1000 --nodes 100000` 运行换色配对赛。
+- 报告写入 `reports/chess-strength/`，包含 PGN、CSV、JSON、相对 Elo 95% 区间、LOS 和 pentanomial 计数。少于 2,000 盘只标为样本不足，UCI_Elo 2500 不换算成人类 FIDE 等级。
