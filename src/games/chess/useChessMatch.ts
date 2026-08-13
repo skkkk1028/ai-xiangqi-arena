@@ -4,14 +4,16 @@ import { detectEngineSupport } from '../../engine/support'
 import type { EngineProgress } from '../../engine/types'
 import { GameController } from '../core/GameController'
 import { createChessArchive, restoreChessArchive } from './archive'
-import { CHESS_FAIRY_STOCKFISH_ENGINE_ID, CHESS_STOCKFISH_18_ENGINE_ID, CHESS_STOCKFISH_18_NATIVE_ENGINE_ID, CHESS_STOCKFISH_18_SINGLE_ENGINE_ID } from '../../engine/config'
+import { CHESS_FAIRY_STOCKFISH_ENGINE_ID, CHESS_OBSIDIAN_16_ENGINE_ID, CHESS_STOCKFISH_18_ARENA_ENGINE_ID, CHESS_STOCKFISH_18_ENGINE_ID, CHESS_STOCKFISH_18_NATIVE_ENGINE_ID, CHESS_STOCKFISH_18_SINGLE_ENGINE_ID } from '../../engine/config'
 import { ChessAIEngineAdapter, CHESS_PERSONALITIES, CHESS_SEARCH_PROFILES, chessPersonalityForColor } from './ai-engine'
 import { ChessGameEngine, createChessState } from './rules'
 import { alternateChessSeed, createChessSeed } from './openings'
-import type { ChessAction, ChessColor, ChessGameState, ChessLiveAnalysis, ChessPersonalityId, ChessSearchBudgetId, ChessSearchProfile, ChessTurnAnalysis } from './types'
+import type { ChessAction, ChessArenaBudgetId, ChessArenaEngineId, ChessColor, ChessGameState, ChessLiveAnalysis, ChessPersonalityId, ChessSearchBudgetId, ChessSearchProfile, ChessTurnAnalysis } from './types'
 import type { EngineProfile } from '../../game/types'
 import type { EngineAdapter } from '../../engine/adapter'
+import type { MatchArchivePlayer } from '../core'
 import { playChessMoveSound } from './audio'
+import { ChessArenaNativeAdapter } from './arena-native-adapter'
 
 declare global {
   interface Window {
@@ -34,6 +36,7 @@ interface SeatRuntime {
   profile: EngineProfile | null
   progress: EngineProgress | null
   error: string | null
+  arenaEngineId?: ChessArenaEngineId
 }
 
 interface SeatResources {
@@ -48,15 +51,28 @@ class SeededChessEngine extends ChessGameEngine {
 
 type ChessController = GameController<ChessGameState, ChessAction, ChessColor, import('./types').ChessMoveRecord, ChessTurnAnalysis>
 
-export function useChessMatch() {
+export const CHESS_ARENA_PROFILES: Record<ChessArenaBudgetId, ChessSearchProfile> = {
+  fast: { id: 'fast', label: '快速 · 3 秒', movetimeMs: 3_000, threads: 1, hashMb: 64, multiPv: 1, mode: 'professional' },
+  standard: { id: 'standard', label: '标准 · 10 秒', movetimeMs: 10_000, threads: 2, hashMb: 128, multiPv: 1, mode: 'professional' },
+  deep: { id: 'deep', label: '深思 · 30 秒', movetimeMs: 30_000, threads: 4, hashMb: 256, multiPv: 1, mode: 'professional' },
+}
+
+export interface ChessMatchOptions { mode?: 'theatre' | 'arena' }
+
+export function useChessMatch(options: ChessMatchOptions = {}) {
+  const arena = options.mode === 'arena'
   const [seed, setSeed] = useState(() => createChessSeed())
   const [budgetId, setBudgetId] = useState<ChessSearchBudgetId>('standard')
+  const [arenaEngines, setArenaEngines] = useState<Record<ChessColor, ChessArenaEngineId>>({ w: 'stockfish-18', b: 'obsidian-16' })
+  const [archivePlayers, setArchivePlayers] = useState<readonly MatchArchivePlayer[]>([])
   const [state, setState] = useState(() => createChessState(seed))
   const [runState, setRunState] = useState<ChessAIRunState>('ready')
   const [analyses, setAnalyses] = useState<Partial<Record<ChessColor, ChessTurnAnalysis>>>({})
   const [liveInfo, setLiveInfo] = useState<Partial<Record<ChessColor, ChessLiveAnalysis>>>({})
   const [seats, setSeats] = useState<Record<ChessColor, SeatRuntime | null>>({ w: null, b: null })
-  const [notice, setNotice] = useState('新局已就绪，不会自动开赛；点击“开始观战”后才会加载国际象棋 NNUE。')
+  const [notice, setNotice] = useState(arena
+    ? '竞技场已就绪；选择双方引擎与统一资源后点击“开始对战”。Obsidian 需要本地预览桥接。'
+    : '新局已就绪，不会自动开赛；点击“开始观战”后才会加载国际象棋 NNUE。')
   const [error, setError] = useState<string | null>(null)
   const controllerRef = useRef<ChessController | null>(null)
   const abortRef = useRef<AbortController | null>(null)
@@ -65,11 +81,13 @@ export function useChessMatch() {
   const loopInFlightRef = useRef(false)
   const stateRef = useRef(state)
   const budgetRef = useRef(budgetId)
+  const arenaEnginesRef = useRef(arenaEngines)
   const seatsRef = useRef(seats)
   const recoveringSeatsRef = useRef(new Set<ChessColor>())
   const recoverSeatRef = useRef<(color: ChessColor, runtimeError: Error) => Promise<void>>(async () => undefined)
   stateRef.current = state
   budgetRef.current = budgetId
+  arenaEnginesRef.current = arenaEngines
   seatsRef.current = seats
 
   const updateSnapshot = useCallback((controller: ChessController) => {
@@ -98,7 +116,8 @@ export function useChessMatch() {
     profile: ChessSearchProfile,
     resources: SeatResources,
   ) => {
-    const engineId = chessEngineId(profile, resources)
+    const arenaEngineId = arena ? arenaEnginesRef.current[color] : undefined
+    const engineId = arenaEngineId ? chessArenaEngineConfigId(arenaEngineId) : chessEngineId(profile, resources)
     const adapter = engineRegistry.createEngine('chess', engineId, {
       assetBase: new URL('./', window.location.origin).href,
       onProgress: (progress) => setSeats((current) => ({
@@ -110,7 +129,7 @@ export function useChessMatch() {
         void recoverSeatRef.current(color, runtimeError)
       },
     }, resources)
-    const runtime: SeatRuntime = { color, personality, adapter, profile: null, progress: null, error: null }
+    const runtime: SeatRuntime = { color, personality, adapter, profile: null, progress: null, error: null, arenaEngineId }
     const engine = new ChessAIEngineAdapter(adapter, {
       personality,
       profile,
@@ -120,10 +139,10 @@ export function useChessMatch() {
       })),
     })
     return { runtime, engine }
-  }, [])
+  }, [arena])
 
   const createController = useCallback(async (initial: ChessGameState) => {
-    const profile = CHESS_SEARCH_PROFILES[budgetRef.current]
+    const profile = activeProfile(arena, budgetRef.current)
     const support = detectEngineSupport()
     if (profile.mode === 'personality' && !support.supported) {
       throw new Error(support.reason ?? '当前浏览器不支持国际象棋 Worker 所需的 WebAssembly 隔离环境。')
@@ -141,8 +160,8 @@ export function useChessMatch() {
     seatMap.b = black.runtime
     setSeats(seatMap)
     const controller = new GameController(new SeededChessEngine(initial), [
-      { id: 'w', name: CHESS_PERSONALITIES[whitePersonality].label, kind: 'ai', engine: white.engine },
-      { id: 'b', name: CHESS_PERSONALITIES[blackPersonality].label, kind: 'ai', engine: black.engine },
+      { id: 'w', name: arena ? arenaEngineLabel(arenaEnginesRef.current.w) : CHESS_PERSONALITIES[whitePersonality].label, kind: 'ai', engine: white.engine },
+      { id: 'b', name: arena ? arenaEngineLabel(arenaEnginesRef.current.b) : CHESS_PERSONALITIES[blackPersonality].label, kind: 'ai', engine: black.engine },
     ])
     controllerRef.current = controller
     setRunState('loading')
@@ -154,12 +173,14 @@ export function useChessMatch() {
     }))
     setState(snapshot.state)
     setRunState('ready')
-    const runtime = profile.mode === 'professional'
+    const runtime = arena
+      ? `${arenaEngineLabel(arenaEnginesRef.current.w)} VS ${arenaEngineLabel(arenaEnginesRef.current.b)}`
+      : profile.mode === 'professional'
       ? resources.threads > 1 ? 'Stockfish 18 完整多线程' : 'Stockfish 18 完整单线程'
       : 'Fairy-Stockfish 个性模式'
     setNotice(`已建立双 Worker 会话；${profile.label} · ${runtime} · ${resources.threads} 线程 / ${resources.hash} MB Hash。`)
     return controller
-  }, [makeSeat])
+  }, [arena, makeSeat])
 
   const recoverSeat = useCallback(async (color: ChessColor, runtimeError: Error) => {
     if (stateRef.current.result) {
@@ -185,16 +206,19 @@ export function useChessMatch() {
       const previous = seatsRef.current[color]
       if (!controller || !previous) throw new Error('故障席位缺少可恢复的控制器状态。')
       await controller.cancelPendingTurn('国际象棋故障席位正在重建。')
-      const profile = CHESS_SEARCH_PROFILES[budgetRef.current]
+      const profile = activeProfile(arena, budgetRef.current)
       const resources = previous.profile
         ? { threads: previous.profile.threads, hash: previous.profile.hashMb }
         : deviceResources(profile, detectEngineSupport().mobile, detectEngineSupport().supported)
+      if (arena && previous.adapter instanceof ChessArenaNativeAdapter) {
+        await previous.adapter.releaseSession()
+      }
       const created = makeSeat(color, previous.personality, profile, resources)
       replacement = created
       setSeats((current) => ({ ...current, [color]: { ...created.runtime, error: runtimeError.message } }))
       await controller.replaceAIPlayer({
         id: color,
-        name: CHESS_PERSONALITIES[previous.personality].label,
+        name: arena && previous.arenaEngineId ? arenaEngineLabel(previous.arenaEngineId) : CHESS_PERSONALITIES[previous.personality].label,
         kind: 'ai',
         engine: created.engine,
       })
@@ -217,21 +241,26 @@ export function useChessMatch() {
     } finally {
       recoveringSeatsRef.current.delete(color)
     }
-  }, [makeSeat])
+  }, [arena, makeSeat])
   recoverSeatRef.current = recoverSeat
 
   const saveArchive = useCallback((next: ChessGameState) => {
     try {
       const controller = controllerRef.current
-      const players = controller?.getPlayers().map((player) => ({ seat: String(player.id), kind: player.kind, name: player.name })) ?? [
+      const players: MatchArchivePlayer[] = controller?.getPlayers().map((player) => {
+        const color = String(player.id) as ChessColor
+        const seat = seatsRef.current[color]
+        return { seat: color, kind: player.kind, name: player.name, ...(arena && seat?.profile && seat.arenaEngineId ? { engine: arenaRuntimeSnapshot(seat.arenaEngineId, seat.profile, activeProfile(true, budgetRef.current).movetimeMs) } : {}) }
+      }) ?? [
         { seat: 'w', kind: 'ai' as const, name: CHESS_PERSONALITIES[chessPersonalityForColor(next.seed, 'w')].label },
         { seat: 'b', kind: 'ai' as const, name: CHESS_PERSONALITIES[chessPersonalityForColor(next.seed, 'b')].label },
       ]
-      localStorage.setItem('ai-board-games:latest:chess:v1', JSON.stringify(createChessArchive({ state: next, players })))
+      if (arena) setArchivePlayers(players)
+      localStorage.setItem(arena ? 'ai-board-games:latest:chess-arena:v1' : 'ai-board-games:latest:chess:v1', JSON.stringify(createChessArchive({ state: next, players })))
     } catch {
       // Storage is an optional convenience; it never blocks a running match.
     }
-  }, [])
+  }, [arena])
 
   const playLoop = useCallback(async (single: boolean) => {
     if (loopInFlightRef.current) return
@@ -321,12 +350,13 @@ export function useChessMatch() {
     setAnalyses({})
     setLiveInfo({})
     setError(null)
+    setArchivePlayers([])
     setRunState('ready')
     setNotice(`新局已就绪：${next.openingName}；不会自动开赛。`)
   }, [disposeController])
   const restore = useCallback(async () => {
     try {
-      const raw = localStorage.getItem('ai-board-games:latest:chess:v1')
+      const raw = localStorage.getItem(arena ? 'ai-board-games:latest:chess-arena:v1' : 'ai-board-games:latest:chess:v1')
       if (!raw) throw new Error('没有可恢复的国际象棋棋局。')
       const restored = restoreChessArchive(JSON.parse(raw))
       generationRef.current += 1
@@ -336,20 +366,34 @@ export function useChessMatch() {
       setAnalyses({})
       setLiveInfo({})
       setError(null)
+      if (arena) {
+        const parsed = JSON.parse(raw) as { players?: readonly MatchArchivePlayer[] }
+        setArchivePlayers(parsed.players ?? [])
+        setArenaEngines((current) => ({
+          w: archivedArenaEngine(parsed.players, 'w') ?? current.w,
+          b: archivedArenaEngine(parsed.players, 'b') ?? current.b,
+        }))
+      }
       setRunState(restored.result ? 'finished' : 'paused')
       setNotice(`已恢复 ${restored.history.length} 个半回合；逐手验证通过，点击继续观战。`)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     }
-  }, [disposeController])
+  }, [arena, disposeController])
   const changeBudget = useCallback((id: ChessSearchBudgetId) => {
     if (runState === 'thinking' || runState === 'running') return
     setBudgetId(id)
     if (controllerRef.current) {
       void disposeController().then(() => setRunState('ready'))
     }
-    setNotice(`已选择${CHESS_SEARCH_PROFILES[id].label}；下一次建立 Worker 会话时生效。`)
-  }, [disposeController, runState])
+    setNotice(`已选择${activeProfile(arena, id).label}；下一次建立引擎会话时生效。`)
+  }, [arena, disposeController, runState])
+
+  const changeArenaEngine = useCallback((color: ChessColor, engineId: ChessArenaEngineId) => {
+    if (!arena || runState === 'thinking' || runState === 'running' || controllerRef.current) return
+    setArenaEngines((current) => ({ ...current, [color]: engineId }))
+    setNotice(`已为${color === 'w' ? '白' : '黑'}方选择 ${arenaEngineLabel(engineId)}；开赛后配置锁定。`)
+  }, [arena, runState])
 
   useEffect(() => () => { void disposeController() }, [disposeController])
 
@@ -357,17 +401,20 @@ export function useChessMatch() {
     window.__AI_CHESS_BROWSER_VALIDATION__ = {
       status: error ? 'failed' : state.history.length >= 20 ? 'passed' : 'running',
       halfMoves: state.history.length,
-      model: CHESS_SEARCH_PROFILES[budgetId].mode === 'professional' ? 'Stockfish 18 embedded NNUE' : 'nn-3475407dc199.nnue',
+      model: activeProfile(arena, budgetId).mode === 'professional' ? 'PV1 neutral engine arena' : 'nn-3475407dc199.nnue',
       paused: runState === 'paused',
       error,
     }
-  }, [budgetId, error, runState, state.history.length])
+  }, [arena, budgetId, error, runState, state.history.length])
 
   return {
     state,
     seed,
     budgetId,
-    profile: CHESS_SEARCH_PROFILES[budgetId],
+    profile: activeProfile(arena, budgetId),
+    arena,
+    arenaEngines,
+    archivePlayers,
     runState,
     analyses,
     liveInfo,
@@ -380,6 +427,7 @@ export function useChessMatch() {
     newGame,
     restore,
     changeBudget,
+    changeArenaEngine,
   }
 }
 
@@ -387,6 +435,7 @@ function deviceResources(profile: ChessSearchProfile, mobile: boolean, multithre
   const memory = (navigator as Navigator & { deviceMemory?: number }).deviceMemory
   if (profile.mode === 'professional') {
     const cores = navigator.hardwareConcurrency || 2
+    if (profile.id === 'fast') return { threads: 1, hash: 64 }
     if (!multithreadSupported || mobile || memory === undefined || memory < 8 || cores < 4) {
       return { threads: 1, hash: 64 }
     }
@@ -403,6 +452,40 @@ function chessEngineId(profile: ChessSearchProfile, resources: SeatResources): s
   return resources.threads > 1 ? CHESS_STOCKFISH_18_ENGINE_ID : CHESS_STOCKFISH_18_SINGLE_ENGINE_ID
 }
 
+function activeProfile(arena: boolean, budgetId: ChessSearchBudgetId): ChessSearchProfile {
+  return arena ? CHESS_ARENA_PROFILES[budgetId as ChessArenaBudgetId] ?? CHESS_ARENA_PROFILES.standard : CHESS_SEARCH_PROFILES[budgetId]
+}
+
+function chessArenaEngineConfigId(id: ChessArenaEngineId): string {
+  if (id === 'fairy-stockfish-chess') return CHESS_FAIRY_STOCKFISH_ENGINE_ID
+  if (id === 'obsidian-16') return CHESS_OBSIDIAN_16_ENGINE_ID
+  return CHESS_STOCKFISH_18_ARENA_ENGINE_ID
+}
+
+export function arenaEngineLabel(id: ChessArenaEngineId): string {
+  if (id === 'fairy-stockfish-chess') return 'Fairy-Stockfish Chess NNUE'
+  if (id === 'obsidian-16') return 'Obsidian 16.0'
+  return 'Stockfish 18'
+}
+
 function isFinishedControllerError(value: unknown): boolean {
   return value instanceof Error && value.message === '棋局已经结束。'
+}
+
+function arenaRuntimeSnapshot(engineId: ChessArenaEngineId, profile: EngineProfile, movetimeMs: number): import('../core').EngineRuntimeSnapshot {
+  return {
+    descriptor: {
+      id: engineId, gameId: 'chess', name: arenaEngineLabel(engineId), version: profile.version,
+      model: profile.network ?? 'embedded NNUE', modelSha256: profile.networkSha256,
+      protocol: 'UCI', runtime: engineId === 'fairy-stockfish-chess' ? 'browser-worker' : profile.name.includes('Native') ? 'native-bridge' : 'browser-wasm',
+      capabilities: { winRate: Boolean(profile.network), scoreLead: true, multiCandidate: false, streaming: true, cancellation: true, budgetUnits: ['milliseconds'] },
+    },
+    phase: 'ready', backendLabel: profile.name, threads: profile.threads, hashMb: profile.hashMb,
+    budget: { unit: 'milliseconds', requested: movetimeMs },
+  }
+}
+
+function archivedArenaEngine(players: readonly MatchArchivePlayer[] | undefined, color: ChessColor): ChessArenaEngineId | null {
+  const id = players?.find((player) => player.seat === color)?.engine?.descriptor.id
+  return id === 'fairy-stockfish-chess' || id === 'stockfish-18' || id === 'obsidian-16' ? id : null
 }

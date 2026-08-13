@@ -1,5 +1,14 @@
 # 第三方许可说明
 
+## Obsidian 16.0
+
+- 项目：https://github.com/gab8192/Obsidian
+- 固定发布：v16.0，源码提交 `2838ce5`
+- 许可证：GNU General Public License v3.0
+- 可选本地竞技场安装脚本下载官方 AVX2 发布文件，并将 SHA-256 写入本地服务配置。
+- 官方 `Obsidian160-avx2.exe` 固定 SHA-256：`00f9f5566e815275e29fec85f1e4d1dff0b8301ceb23f6bb79de68dcdce98743`。
+- 对应源码和完整许可证可从上述官方项目及固定发布取得；仓库同时保留 `OBSIDIAN_GPL-3.0.txt` 分发说明。
+
 ## Fairy-Stockfish
 
 - 项目：[Fairy-Stockfish](https://github.com/fairy-stockfish/Fairy-Stockfish)

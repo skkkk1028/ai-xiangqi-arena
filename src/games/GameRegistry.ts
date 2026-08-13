@@ -17,6 +17,8 @@ export interface GameLobbyDefinition {
 export interface RegisteredGame {
   id: string
   route: string
+  /** Additional routes owned by the same lazily loaded game module. */
+  childRoutes?: readonly string[]
   /** Lazily loads the complete game module. Lobby metadata stays lightweight. */
   loadPage: () => Promise<{ default: ComponentType }>
   lobby: GameLobbyDefinition
@@ -40,7 +42,18 @@ export class GameRegistry {
     if ([...this.games.values()].some((registered) => registered.route === game.route)) {
       throw new Error(`棋类路由已注册：${game.route}`)
     }
-    this.games.set(game.id, Object.freeze({ ...game, lobby: Object.freeze({ ...game.lobby }) }))
+    const routes = [game.route, ...(game.childRoutes ?? [])]
+    if (new Set(routes).size !== routes.length || routes.some((route) => !route.startsWith(`${game.route}/` ) && route !== game.route)) {
+      throw new Error(`棋类 ${game.id} 的子路由必须位于 ${game.route}/ 下且不能重复。`)
+    }
+    const occupied = new Set([...this.games.values()].flatMap((registered) => [registered.route, ...(registered.childRoutes ?? [])]))
+    const duplicate = routes.find((route) => occupied.has(route))
+    if (duplicate) throw new Error(`棋类路由已注册：${duplicate}`)
+    this.games.set(game.id, Object.freeze({
+      ...game,
+      childRoutes: game.childRoutes ? Object.freeze([...game.childRoutes]) : undefined,
+      lobby: Object.freeze({ ...game.lobby }),
+    }))
   }
 
   getGame(id: string): RegisteredGame | undefined {
@@ -48,7 +61,7 @@ export class GameRegistry {
   }
 
   getGameByRoute(route: string): RegisteredGame | undefined {
-    return [...this.games.values()].find((game) => game.route === route)
+    return [...this.games.values()].find((game) => game.route === route || game.childRoutes?.includes(route))
   }
 
   listGames(): readonly RegisteredGame[] {

@@ -20,6 +20,8 @@ describe('EngineRegistry', () => {
       'stockfish-18-full',
       'stockfish-18-full-single',
       'stockfish-18-native-bridge',
+      'stockfish-18-arena-bridge',
+      'obsidian-16-native-bridge',
     ])
     expect(engineRegistry.getEngine('xiangqi', 'fairy-stockfish-chess-nnue')).toBeUndefined()
   })

@@ -27,7 +27,7 @@ export function ChessGamePage() {
       <div className="chess-page__ambient chess-page__ambient--one" aria-hidden="true" />
       <div className="chess-page__ambient chess-page__ambient--two" aria-hidden="true" />
       <header className="chess-header">
-        <a className="chess-back" href={GAME_ROUTES.lobby}>← <span>棋类大厅</span></a>
+        <a className="chess-back" href={GAME_ROUTES.chess}>← <span>国际象棋模式</span></a>
         <div className="chess-brand"><span>♞</span><div><strong>PROJECT10 · CHESS</strong><small>STANDARD AI THEATRE</small></div></div>
         <div className={`chess-runtime chess-runtime--${match.runState}`}><i /> <span>{runtimeLabel(match.runState)}</span><b>{match.profile.mode === 'professional' ? 'STOCKFISH 18 · PV1 专业模式' : 'FAIRY‑STOCKFISH · 双人格'}</b></div>
       </header>

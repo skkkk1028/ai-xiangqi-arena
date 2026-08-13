@@ -78,6 +78,28 @@ export interface ChessGameState {
 export type ChessSearchBudgetId = 'fast' | 'standard' | 'deep' | 'professional' | 'professional-deep'
 export type ChessPlayMode = 'personality' | 'professional'
 
+export type ChessArenaEngineId = 'fairy-stockfish-chess' | 'stockfish-18' | 'obsidian-16'
+export type ChessArenaBudgetId = 'fast' | 'standard' | 'deep'
+export type ChessEngineAvailabilityState = 'available' | 'fallback' | 'local-required' | 'unsupported'
+
+export interface ChessEngineAvailability {
+  state: ChessEngineAvailabilityState
+  reason: string
+}
+
+export interface ChessArenaSeatConfig {
+  engineId: ChessArenaEngineId
+  runtime: 'browser-worker' | 'browser-wasm' | 'native-bridge'
+  fingerprint: string | null
+}
+
+export interface ChessArenaConfig {
+  white: ChessArenaSeatConfig
+  black: ChessArenaSeatConfig
+  budget: ChessArenaBudgetId
+  seed: number
+}
+
 export interface ChessSearchProfile {
   id: ChessSearchBudgetId
   label: string

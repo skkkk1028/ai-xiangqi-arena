@@ -1,0 +1,7 @@
+{
+  "name": "project10-chess-arena-bridge",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test test/*.test.mjs" },
+  "dependencies": { "chess.js": "1.4.0" }
+}

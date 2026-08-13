@@ -7,7 +7,20 @@
 
 ## 当前能力
 
-### 第三棋种：国际象棋 AI 双人格观战
+### 第三棋种：国际象棋双入口与多引擎竞技场
+
+国际象棋现在包含三个可直接刷新的地址：`#/games/chess` 是模式选择页，
+`#/games/chess/theatre` 是原双人格观战剧场，`#/games/chess/arena` 是
+Stockfish 18、Fairy-Stockfish Chess NNUE 与 Obsidian 16.0 的多引擎竞技场。
+
+Obsidian 16.0 是可选本地原生引擎。先运行 `npm run setup:stockfish18`，再运行
+`npm run setup:obsidian16`；`start-local-preview.cmd` 会在 8792 端口延迟启动双会话桥接，
+`start-local-preview.cmd --verify` 会执行双方真实 UCI 搜索。正式棋力测试命令是
+`npm run benchmark:chess:arena`：默认 1,000 个换色开局对、`60+0.6`、1 线程、64 MB Hash；
+只有至少 2,000 盘且 95% 相对 Elo 区间完整位于 `[-50,+50]`，同时零非法着法和零超时，
+才会通过“棋力相当”认证。`benchmark:chess:arena:smoke` 只验证测试链路，不构成棋力结论。
+
+### 双人格观战剧场
 
 大厅现在并列提供中国象棋、围棋和国际象棋三个模块。国际象棋路由为
 `#/games/chess`，首版固定为 AI 对 AI 观战：白方“曜刃 · 进攻型”和黑方“玄垒 · 稳健型”使用相同

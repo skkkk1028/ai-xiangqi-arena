@@ -41,13 +41,26 @@ describe('AI 棋类大厅', () => {
     expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('KataGo 引擎待命')
   })
 
-  it('国际象棋入口按需加载，默认只显示已就绪状态', async () => {
+  it('国际象棋入口按需加载独立模式首页', async () => {
     window.history.replaceState(null, '', '#/games/chess')
     render(<GamePortal />)
 
+    expect(await screen.findByRole('heading', { name: '国际象棋演算厅' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /双人格观战剧场/ })).toHaveAttribute('href', '#/games/chess/theatre')
+    expect(screen.getByRole('link', { name: /多引擎对战竞技场/ })).toHaveAttribute('href', '#/games/chess/arena')
+  })
+
+  it('国际象棋两个子路由可以直接刷新访问', async () => {
+    window.history.replaceState(null, '', '#/games/chess/theatre')
+    const view = render(<GamePortal />)
     expect(await screen.findByRole('heading', { name: '双人格观战剧场' })).toBeInTheDocument()
-    expect(screen.getByText(/不会自动开赛/)).toBeInTheDocument()
     expect(screen.getByRole('grid', { name: '国际象棋棋盘' })).toBeInTheDocument()
+    view.unmount()
+    window.history.replaceState(null, '', '#/games/chess/arena')
+    render(<GamePortal />)
+    expect(await screen.findByRole('heading', { name: '多引擎对战竞技场' })).toBeInTheDocument()
+    expect(screen.getByLabelText('白方 AI 引擎')).toHaveValue('stockfish-18')
+    expect(screen.getByLabelText('黑方 AI 引擎')).toHaveValue('obsidian-16')
   })
 
   it('hash 变化时在大厅与棋类模块之间切换', async () => {

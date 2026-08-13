@@ -1,0 +1,9 @@
+Obsidian 16.0 is licensed under the GNU General Public License version 3.
+
+Upstream source: https://github.com/gab8192/Obsidian
+Pinned release: https://github.com/gab8192/Obsidian/releases/tag/v16.0
+Pinned source commit: 2838ce5
+Pinned official AVX2 binary SHA-256: 00f9f5566e815275e29fec85f1e4d1dff0b8301ceb23f6bb79de68dcdce98743
+
+The complete corresponding source is available from the upstream repository and release above.
+The official GPL-3.0 license text is distributed in that source repository as LICENSE.

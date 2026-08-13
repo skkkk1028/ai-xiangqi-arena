@@ -8,6 +8,7 @@ export default defineConfig(({ mode }) => {
   const leelaZeroOrigin = env.LEELA_ZERO_DEV_ORIGIN || 'http://127.0.0.1:8789'
   const sayuriOrigin = env.SAYURI_DEV_ORIGIN || 'http://127.0.0.1:8790'
   const stockfishOrigin = env.STOCKFISH_DEV_ORIGIN || 'http://127.0.0.1:8791'
+  const chessArenaOrigin = env.CHESS_ARENA_DEV_ORIGIN || 'http://127.0.0.1:8792'
   const apiProxy = {
     '/api/go/model/strong.bin.gz': {
       target: 'https://media.katagotraining.org',
@@ -31,6 +32,10 @@ export default defineConfig(({ mode }) => {
     },
     '/api/chess/stockfish': {
       target: stockfishOrigin,
+      changeOrigin: true,
+    },
+    '/api/chess/arena': {
+      target: chessArenaOrigin,
       changeOrigin: true,
     },
   }

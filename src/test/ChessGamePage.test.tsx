@@ -26,6 +26,10 @@ describe('国际象棋终局界面', () => {
       newGame: vi.fn(),
       restore: vi.fn(),
       changeBudget: vi.fn(),
+      arena: false,
+      arenaEngines: { w: 'stockfish-18', b: 'obsidian-16' },
+      archivePlayers: [],
+      changeArenaEngine: vi.fn(),
     }
   })
 

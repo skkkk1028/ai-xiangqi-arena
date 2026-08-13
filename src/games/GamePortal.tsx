@@ -5,15 +5,15 @@ import './registry'
 import './games.css'
 
 export function GamePortal() {
-  const [gameId, setGameId] = useState(() => getGameByRoute(window.location.hash)?.id ?? null)
+  const [route, setRoute] = useState(() => window.location.hash)
 
   useEffect(() => {
-    const handleRouteChange = () => setGameId(getGameByRoute(window.location.hash)?.id ?? null)
+    const handleRouteChange = () => setRoute(window.location.hash)
     window.addEventListener('hashchange', handleRouteChange)
     return () => window.removeEventListener('hashchange', handleRouteChange)
   }, [])
 
-  const game = gameId ? getGameByRoute(window.location.hash) : undefined
+  const game = getGameByRoute(route)
   if (game) {
     return <LazyGamePage game={game} />
   }

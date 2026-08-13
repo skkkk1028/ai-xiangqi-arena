@@ -5,6 +5,8 @@ export const CHESS_FAIRY_STOCKFISH_ENGINE_ID = 'fairy-stockfish-chess-nnue'
 export const CHESS_STOCKFISH_18_ENGINE_ID = 'stockfish-18-full'
 export const CHESS_STOCKFISH_18_SINGLE_ENGINE_ID = 'stockfish-18-full-single'
 export const CHESS_STOCKFISH_18_NATIVE_ENGINE_ID = 'stockfish-18-native-bridge'
+export const CHESS_STOCKFISH_18_ARENA_ENGINE_ID = 'stockfish-18-arena-bridge'
+export const CHESS_OBSIDIAN_16_ENGINE_ID = 'obsidian-16-native-bridge'
 export const PIKAFISH_ENGINE_ID = 'pikafish-2026-nnue'
 export const PIKAFISH_2025_ENGINE_ID = 'pikafish-2025-nnue'
 
@@ -258,4 +260,28 @@ export const CHESS_STOCKFISH_18_NATIVE_CONFIG: Readonly<AIEngineConfig> = Object
   wasmPath: '',
   nnueSha256: 'embedded-in-official-stockfish-18-native-binary',
   wasmSha256: 'verified-at-native-bridge-startup',
+})
+
+export const CHESS_STOCKFISH_18_ARENA_CONFIG: Readonly<AIEngineConfig> = Object.freeze({
+  ...STOCKFISH_18_BASE,
+  id: CHESS_STOCKFISH_18_ARENA_ENGINE_ID,
+  name: 'Stockfish 18 · Arena',
+  engineType: 'stockfish-18-arena-native',
+  workerPath: '', adapterPath: '', loaderPath: '', wasmPath: '',
+  nnueSha256: 'embedded-in-official-stockfish-18-native-binary',
+  wasmSha256: 'verified-by-arena-bridge-session',
+})
+
+export const CHESS_OBSIDIAN_16_CONFIG: Readonly<AIEngineConfig> = Object.freeze({
+  ...STOCKFISH_18_BASE,
+  id: CHESS_OBSIDIAN_16_ENGINE_ID,
+  name: 'Obsidian 16.0',
+  engineType: 'obsidian-16-native',
+  workerPath: '', adapterPath: '', loaderPath: '', wasmPath: '',
+  version: 'Obsidian 16.0',
+  commit: '2838ce5',
+  nnuePath: 'net89perm.bin (embedded by official release)',
+  nnueSha256: 'embedded-in-official-obsidian-16-binary',
+  wasmSha256: 'verified-by-arena-bridge-session',
+  styleDescription: '独立 GPL-3.0 C++ UCI/NNUE 引擎；项目内 ±50 Elo 认证尚待正式配对赛。',
 })

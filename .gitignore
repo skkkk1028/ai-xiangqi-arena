@@ -8,8 +8,11 @@ services/leela-zero-bridge/runtime/
 services/sayuri-bridge/runtime/
 services/stockfish-bridge/.env
 services/stockfish-bridge/runtime/
+services/chess-arena-bridge/.env
+services/chess-arena-bridge/runtime/
 benchmark-assets/chess/
 reports/chess-strength/
+reports/chess-arena-strength/
 .tmp-edge-stockfish18/
 leelaz_opencl_tuning
 *.log

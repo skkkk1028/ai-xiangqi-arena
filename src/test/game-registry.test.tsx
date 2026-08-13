@@ -48,6 +48,13 @@ describe('GameRegistry', () => {
     expect(registry.listGames().map((registered) => registered.id)).toEqual(['chess', 'shogi'])
   })
 
+  it('允许棋类注册自身命名空间内的子路由', () => {
+    const registry = new GameRegistry()
+    registry.registerGame({ ...game('chess', '#/games/chess'), childRoutes: ['#/games/chess/theatre', '#/games/chess/arena'] })
+    expect(registry.getGameByRoute('#/games/chess/arena')?.id).toBe('chess')
+    expect(() => registry.registerGame({ ...game('bad', '#/games/bad'), childRoutes: ['#/games/chess/foreign'] })).toThrow('子路由必须位于')
+  })
+
   it('拒绝重复 ID、重复路由和无效游戏路由', () => {
     const registry = new GameRegistry()
     registry.registerGame(game('chess', '#/games/chess'))

@@ -65,6 +65,30 @@ export function createChessArchive({
   }
 }
 
+export function exportChessArenaPgn(state: ChessGameState, players: readonly MatchArchivePlayer[]): string {
+  const chess = new Chess(state.initialFen)
+  for (const record of state.history) chess.move({ from: record.from, to: record.to, ...(record.promotion ? { promotion: record.promotion } : {}) })
+  const white = players.find((player) => player.seat === 'w')
+  const black = players.find((player) => player.seat === 'b')
+  chess.setHeader('Event', 'Project10 多引擎竞技场')
+  chess.setHeader('White', white?.name ?? 'White Engine')
+  chess.setHeader('Black', black?.name ?? 'Black Engine')
+  chess.setHeader('WhiteEngine', archiveEngineTag(white))
+  chess.setHeader('BlackEngine', archiveEngineTag(black))
+  chess.setHeader('Opening', state.openingName)
+  if (state.initialFen !== CHESS_INITIAL_FEN) { chess.setHeader('SetUp', '1'); chess.setHeader('FEN', state.initialFen) }
+  if (state.result?.reason === 'checkmate') chess.setHeader('Result', state.result.winner === 'w' ? '1-0' : '0-1')
+  else if (state.result?.reason === 'technical-stop') { chess.setHeader('Result', '*'); chess.setHeader('Termination', `technical stop after ${state.history.length} plies`) }
+  else if (state.result) { chess.setHeader('Result', '1/2-1/2'); chess.setHeader('Termination', terminationLabel(state.result)) }
+  else chess.setHeader('Result', '*')
+  return chess.pgn({ newline: '\n' })
+}
+
+function archiveEngineTag(player: MatchArchivePlayer | undefined): string {
+  const descriptor = player?.engine?.descriptor
+  return descriptor ? `${descriptor.name} ${descriptor.version} ${descriptor.modelSha256 ?? ''}`.trim() : 'unloaded'
+}
+
 export function restoreChessArchive(value: unknown): ChessGameState {
   const parsed = parseMatchArchive(value)
   if (parsed.game !== 'chess') throw new Error('棋局档案不属于国际象棋。')
