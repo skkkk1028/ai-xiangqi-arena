@@ -7,7 +7,7 @@ export interface MatchArchivePlayer {
   engine?: EngineRuntimeSnapshot
 }
 
-export interface MatchArchiveV1<TGame extends 'xiangqi' | 'go' = 'xiangqi' | 'go'> {
+export interface MatchArchiveV1<TGame extends 'xiangqi' | 'go' | 'chess' = 'xiangqi' | 'go' | 'chess'> {
   version: 1
   game: TGame
   ruleset: string
@@ -26,7 +26,7 @@ export function parseMatchArchive(value: string | unknown): MatchArchiveV1 {
   if (!input || typeof input !== 'object') throw new Error('棋局档案必须是 JSON 对象。')
   const archive = input as Partial<MatchArchiveV1>
   if (archive.version !== 1) throw new Error('不支持的棋局档案版本。')
-  if (archive.game !== 'xiangqi' && archive.game !== 'go') throw new Error('棋局档案包含未知棋类。')
+  if (archive.game !== 'xiangqi' && archive.game !== 'go' && archive.game !== 'chess') throw new Error('棋局档案包含未知棋类。')
   if (typeof archive.ruleset !== 'string' || archive.ruleset.trim().length === 0) {
     throw new Error('棋局档案缺少规则集。')
   }

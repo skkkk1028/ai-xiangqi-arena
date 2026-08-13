@@ -152,6 +152,7 @@ async function validate(): Promise<void> {
     if (!support.supported) throw new Error(`Engine support unavailable: ${support.reason ?? 'unknown reason'}`)
 
     client = engineRegistry.createEngine(
+      'xiangqi',
       engineId,
       {
         assetBase: new URL('./', window.location.href).href,
@@ -169,6 +170,7 @@ async function validate(): Promise<void> {
     if (opponentEngineId) {
       if (opponentEngineId === engineId) throw new Error('Pair validation requires distinct engine ids')
       opponentClient = engineRegistry.createEngine(
+        'xiangqi',
         opponentEngineId,
         {
           assetBase: new URL('./', window.location.href).href,

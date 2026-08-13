@@ -115,8 +115,8 @@ function initialState(
   engineIds: Record<Color, string> = { red: DEFAULT_ENGINE_ID, black: DEFAULT_ENGINE_ID },
   game = xiangqiGame.initializeGame(),
 ): MatchState {
-  const red = engineRegistry.getEngine(engineIds.red)
-  const black = engineRegistry.getEngine(engineIds.black)
+  const red = engineRegistry.getEngine('xiangqi', engineIds.red)
+  const black = engineRegistry.getEngine('xiangqi', engineIds.black)
   if (!red || !black) throw new Error('对局包含未注册的 AI 引擎。')
   return {
     board: game.board,
@@ -218,6 +218,7 @@ export function useAiMatch() {
       }
       let client!: EngineAdapter
       client = engineRegistry.createEngine(
+        'xiangqi',
         engineId,
         {
           assetBase: document.baseURI,
@@ -269,7 +270,7 @@ export function useAiMatch() {
   const initializeBattleEngines = useCallback(
     async (redId: string, blackId: string) => {
       if (redId === blackId) throw new Error('AI 引擎对战必须选择不同引擎或不同核心配置。')
-      if (!engineRegistry.getEngine(redId) || !engineRegistry.getEngine(blackId)) {
+      if (!engineRegistry.getEngine('xiangqi', redId) || !engineRegistry.getEngine('xiangqi', blackId)) {
         throw new Error('选择了未注册的 AI 引擎。')
       }
       requestRef.current += 1
@@ -633,7 +634,7 @@ export function useAiMatch() {
     state,
     engineState: engineStates.red,
     engineStates,
-    engineConfigs: engineRegistry.listEngines(),
+    engineConfigs: engineRegistry.listEngines('xiangqi'),
     soundEnabled,
     setSoundEnabled,
     start,

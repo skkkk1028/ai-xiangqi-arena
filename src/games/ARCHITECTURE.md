@@ -10,6 +10,7 @@
 - `useAiMatch` 和 `useHumanVsEngine` 已经通过 `GameController` 执行合法着判断、落子、终局判断和 AI 回合。
 - 两个 React Hook 继续负责用户界面状态、交互、棋钟、页面生命周期与 Worker 故障恢复。
 - `src/games/go` 已具备十九路棋盘、落子、气、提子、自杀禁入、简单劫提示、位置超级劫、棋谱、双虚着后的计分阶段，以及中国规则面积计分（人工确认死子、7.5 贴目）；尚未接入可交互页面、自动死活识别或 AI。
+- `src/games/chess` 提供标准国际象棋的 `chess.js@1.4.0` 不可变重放裁判、12 条固定六半回合开局、UCI 双 Worker AI 适配、曜刃/玄垒双人格和 PGN/JSON 档案；页面路由为 `#/games/chess`，首版只做 AI 观战。
 
 ## 生产调用方向
 
@@ -23,6 +24,10 @@ React 页面
            -> EngineAdapter
               -> UCCI / UCI Worker
                  -> WASM + NNUE
+        -> ChessGameEngine
+           -> chess.js + UCI/SAN/PGN replay
+        -> ChessAIEngineAdapter (MultiPV 4)
+           -> Fairy-Stockfish chess NNUE Workers
 ```
 
 通用层不知道“红黑方”“棋盘坐标”“UCCI”“NNUE”或“围棋十九路”。这些信息只属于具体棋类及其 AI 适配层。
@@ -54,3 +59,5 @@ React 页面
 `src/game` 当前不能删除：`XiangqiGameEngine` 仍以适配方式复用这些稳定规则函数。未来如需移动目录，应只做物理迁移并保持 API 与测试不变。
 
 围棋开发时应实现自己的状态、动作、规则引擎和 AI 适配器，不引用象棋目录。
+
+国际象棋同样不引用中国象棋规则或 UCCI 记谱：它使用独立的 `ChessGameEngine`、标准 UCI 解析器和 `standard-chess-auto-claim-v1` 档案规则集。平台 `EngineRegistry` 通过 `gameId` 过滤配置，避免棋种之间误选引擎。

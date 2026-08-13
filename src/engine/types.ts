@@ -15,6 +15,8 @@ export interface EngineTimeControl {
 /** Serializable configuration shared by the UI adapter and its Worker runtime. */
 export interface AIEngineConfig {
   id: string
+  /** The board-game namespace owns this configuration. */
+  gameId: import('../games/core/engine-runtime').EngineGameId
   name: string
   engineType: string
   protocol: EngineProtocol
@@ -37,12 +39,14 @@ export interface AIEngineConfig {
   commit: string
   nnueSha256: string
   wasmSha256: string
+  /** Standard UCI variant name when the adapter must switch Fairy-Stockfish variants. */
+  variant?: string
 }
 
 export function xiangqiEngineDescriptor(config: Readonly<AIEngineConfig>): EngineDescriptor {
   return {
     id: config.id,
-    gameId: 'xiangqi',
+    gameId: config.gameId,
     name: config.name,
     version: config.version,
     model: config.nnuePath,

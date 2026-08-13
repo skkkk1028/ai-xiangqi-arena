@@ -65,14 +65,14 @@ export function GameLobby() {
           <p className="lobby-eyebrow"><span /> AI 棋类大厅 · BOARD GAME ARENA</p>
           <h1 id="lobby-title">
             一方棋盘
-            <em>两种智慧</em>
+            <em>三种智慧</em>
           </h1>
           <p className="lobby-lead">
-            从楚河汉界到十九路纵横，让经典棋局与浏览器 AI 在同一个大厅相遇。
-            选择你的棋盘，下一手由你决定。
+            从楚河汉界到十九路纵横，再到六十四格的王后攻防，让经典棋局与浏览器 AI 在同一个大厅相遇。
+            选择你的棋盘，下一手由规则与 AI 共同演绎。
           </p>
           <div className="lobby-stats" aria-label="大厅能力">
-            <span><strong>03</strong>专业引擎配置</span>
+            <span><strong>04</strong>专业引擎配置</span>
             <span><strong>WASM</strong>本地运行</span>
             <span><strong>{String(games.length).padStart(2, '0')}</strong>独立棋类模块</span>
           </div>

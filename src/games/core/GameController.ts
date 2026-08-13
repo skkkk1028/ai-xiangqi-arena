@@ -99,6 +99,25 @@ export class GameController<
     return [...this.players.values()]
   }
 
+  /** Replaces one failed AI seat without resetting the game state or the other seat. */
+  async replaceAIPlayer(
+    replacement: AIPlayer<TState, TAction, TPlayer, TRecord, TAnalysis>,
+  ): Promise<void> {
+    this.requireState()
+    const current = this.players.get(replacement.id)
+    if (!current || current.kind !== 'ai') {
+      throw new Error(`不能替换非 AI 席位：${String(replacement.id)}`)
+    }
+    if (current.engine === replacement.engine) return
+
+    await replacement.engine.initialize({ gameId: this.game.id, player: replacement.id })
+    await replacement.engine.newGame?.()
+    await current.engine.stop?.('故障席位正在重建。')
+    await current.engine.dispose()
+    this.players.set(replacement.id, replacement)
+    this.revision += 1
+  }
+
   getLegalActions(): readonly TAction[] {
     const state = this.requireState()
     return this.game.getStatus(state).phase === 'playing' ? this.game.getLegalActions(state) : []

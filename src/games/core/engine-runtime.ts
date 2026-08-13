@@ -1,4 +1,4 @@
-export type EngineGameId = 'xiangqi' | 'go'
+export type EngineGameId = 'xiangqi' | 'go' | 'chess'
 export type EngineRuntimeKind = 'browser-worker' | 'browser-webgpu' | 'browser-wasm' | 'native-bridge'
 export type SearchBudgetUnit = 'milliseconds' | 'depth' | 'visits' | 'playouts'
 export type AnalysisPolicy = 'off' | 'live' | 'postgame'

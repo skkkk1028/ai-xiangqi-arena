@@ -28,9 +28,10 @@ function game(id: string, route: string): RegisteredGame {
 
 describe('GameRegistry', () => {
   it('已注册象棋和围棋，并保留原有入口路由', () => {
-    expect(listGames().map((registered) => registered.id)).toEqual(['xiangqi', 'go'])
+    expect(listGames().map((registered) => registered.id)).toEqual(['xiangqi', 'go', 'chess'])
     expect(getGame('xiangqi')?.route).toBe('#/games/xiangqi')
     expect(getGame('go')?.route).toBe('#/games/go')
+    expect(getGame('chess')?.route).toBe('#/games/chess')
     expect(getGame('go')?.lobby.availability).toBe('ready')
   })
 

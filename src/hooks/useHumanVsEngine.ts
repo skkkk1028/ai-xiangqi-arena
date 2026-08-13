@@ -148,7 +148,7 @@ export function useHumanVsEngine() {
     difficulty: DifficultyLevel,
     recovering = false,
   ) => {
-    const config = engineRegistry.getEngine(engineId)
+    const config = engineRegistry.getEngine('xiangqi', engineId)
     if (!config) throw new Error('选择了未注册的 AI 引擎。')
     const support = detectEngineSupport()
     if (!support.supported) {
@@ -172,6 +172,7 @@ export function useHumanVsEngine() {
     })
     let client!: EngineAdapter
     client = engineRegistry.createEngine(
+      'xiangqi',
       engineId,
       {
         assetBase: document.baseURI,
@@ -265,7 +266,7 @@ export function useHumanVsEngine() {
     requestRef.current += 1
     clientRef.current?.dispose()
     clientRef.current = null
-    const engine = engineRegistry.getEngine(engineId)
+    const engine = engineRegistry.getEngine('xiangqi', engineId)
     if (!engine) throw new Error('选择了未注册的 AI 引擎。')
     const humanColor = resolveHumanColor(choice)
     const config: HumanGameConfig = {
@@ -524,7 +525,7 @@ export function useHumanVsEngine() {
 
   const newGame = useCallback(() => {
     const current = stateRef.current
-    const engine = current ? engineRegistry.getEngine(current.config.engineId) : undefined
+    const engine = current ? engineRegistry.getEngine('xiangqi', current.config.engineId) : undefined
     if (!current || !engine) return
     const requestId = ++requestRef.current
     const controller = createController(current.config)
@@ -550,7 +551,7 @@ export function useHumanVsEngine() {
     view,
     state,
     engineState,
-    engines: engineRegistry.listEngines(),
+    engines: engineRegistry.listEngines('xiangqi'),
     legalMoves,
     openConfiguration,
     close,

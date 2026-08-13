@@ -15,12 +15,13 @@ describe('AI 棋类大厅', () => {
     cleanup()
   })
 
-  it('首页提供中国象棋与围棋两个独立入口', () => {
+  it('首页提供三种独立棋类入口', () => {
     render(<GamePortal />)
 
-    expect(screen.getByRole('heading', { name: /一方棋盘\s*两种智慧/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /一方棋盘\s*三种智慧/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /中国象棋/ })).toHaveAttribute('href', '#/games/xiangqi')
     expect(screen.getByRole('link', { name: /围棋/ })).toHaveAttribute('href', '#/games/go')
+    expect(screen.getByRole('link', { name: /国际象棋/ })).toHaveAttribute('href', '#/games/chess')
   })
 
   it('中国象棋路由只挂载原有应用并提供大厅返回入口', async () => {
@@ -38,6 +39,15 @@ describe('AI 棋类大厅', () => {
     expect(await screen.findByRole('heading', { name: '静室手谈' })).toBeInTheDocument()
     expect(screen.getByRole('grid', { name: '十九路围棋棋盘' })).toBeInTheDocument()
     expect(screen.getByLabelText('KataGo AI 信息面板')).toHaveTextContent('KataGo 引擎待命')
+  })
+
+  it('国际象棋入口按需加载，默认只显示已就绪状态', async () => {
+    window.history.replaceState(null, '', '#/games/chess')
+    render(<GamePortal />)
+
+    expect(await screen.findByRole('heading', { name: '双人格观战剧场' })).toBeInTheDocument()
+    expect(screen.getByText(/不会自动开赛/)).toBeInTheDocument()
+    expect(screen.getByRole('grid', { name: '国际象棋棋盘' })).toBeInTheDocument()
   })
 
   it('hash 变化时在大厅与棋类模块之间切换', async () => {

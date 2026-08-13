@@ -216,7 +216,7 @@
 
 .lobby-games {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: clamp(1rem, 1.8vw, 1.7rem);
 }
 
@@ -876,6 +876,7 @@
   .lobby-stats { margin-top: 1.2rem; }
 
   .game-entry { min-height: 620px; }
+  .lobby-games { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .lobby-footer { position: relative; bottom: auto; padding: 0 0 1.5rem; }
 
   .go-placeholder {
@@ -1287,6 +1288,50 @@
     radial-gradient(circle at 30% 24%, #fff 0%, #f4f1e9 22%, transparent 37%),
     radial-gradient(circle at 45% 40%, #f2efe6 0%, #d6d0c3 66%, #918878 100%);
   box-shadow: 0 6px 9px rgba(48, 29, 13, 0.43), inset -2px -3px 5px rgba(116, 104, 87, 0.28);
+}
+
+.game-entry--chess::before {
+  background: linear-gradient(90deg, #b47c36, transparent);
+}
+
+.game-entry__visual--chess {
+  background:
+    radial-gradient(circle at 75% 20%, rgba(255, 205, 111, 0.2), transparent 36%),
+    linear-gradient(145deg, #211b16, #0e1114);
+}
+
+.lobby-chess-board {
+  position: absolute;
+  top: 30px;
+  left: 50%;
+  width: 250px;
+  height: 250px;
+  display: grid;
+  place-items: center;
+  border: 6px solid #6d4d2b;
+  background: conic-gradient(#d4b078 25%, #704c2e 0 50%, #d4b078 0 75%, #704c2e 0) 0 0 / 25% 25%;
+  box-shadow: 0 20px 38px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(255,255,255,.14);
+  transform: translateX(-50%) rotate(5deg) skewY(-2deg);
+}
+
+.lobby-chess-piece {
+  position: absolute;
+  font-family: Georgia, serif;
+  font-size: 5rem;
+  line-height: 1;
+  text-shadow: 0 10px 8px rgba(0,0,0,.44);
+}
+.lobby-chess-piece--king { top: 25px; left: 28px; color: #f3e9d0; }
+.lobby-chess-piece--queen { top: 82px; right: 22px; color: #1d1a17; }
+.lobby-chess-piece--rook { bottom: 24px; left: 82px; color: #f0dec1; }
+.lobby-chess-piece--pawn { bottom: 18px; right: 35px; color: #29231f; font-size: 4rem; }
+.chess-coordinate {
+  position: absolute;
+  right: 16px;
+  bottom: 15px;
+  color: rgba(230, 187, 106, .65);
+  font: 600 .62rem/1.2 ui-monospace, SFMono-Regular, Consolas, monospace;
+  letter-spacing: .16em;
 }
 
 .go-board__point--scoring { cursor: pointer; }

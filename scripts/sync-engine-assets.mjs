@@ -13,6 +13,12 @@ const networks = [
     sha256: 'c07e94a5c7cbeae443ed79a8fa412875d833a7f8e04333815e39729c59d52e11',
   },
 ]
+const chessNetwork = {
+  sourceName: 'nn-3475407dc199.nnue',
+  outputName: 'chess-nn-3475407dc199.nnue',
+  url: 'https://tests.stockfishchess.org/api/nn/nn-3475407dc199.nnue',
+  sha256: '3475407dc19973ea44467678634cce023d620e419770c111cc8937fe6689ec87',
+}
 const pikafishNetworks = [
   {
     sourceName: 'pikafish.nnue',
@@ -33,6 +39,7 @@ await mkdir(output, { recursive: true })
 await Promise.all(files.map((file) => copyFile(resolve(packageRoot, file), resolve(output, file))))
 
 await Promise.all(networks.map(ensureNetwork))
+await syncChessNetworkParts(chessNetwork)
 await Promise.all(pikafishNetworks.map(syncPikafishParts))
 await syncTfjsWasm()
 
@@ -62,6 +69,35 @@ async function syncPikafishParts(network) {
       const start = index * pikafishPartSize
       return writeFile(resolve(output, name), bytes.subarray(start, start + pikafishPartSize))
     }),
+  )
+}
+
+async function syncChessNetworkParts(network) {
+  const partCount = 3
+  const partPaths = Array.from({ length: partCount }, (_, index) =>
+    resolve(output, `${network.outputName}.part-${String(index + 1).padStart(2, '0')}`),
+  )
+  let bytes = null
+  try {
+    const parts = await Promise.all(partPaths.map((path) => readFile(path)))
+    bytes = Buffer.concat(parts)
+  } catch {
+    bytes = null
+  }
+  if (!bytes || sha256(bytes) !== network.sha256) {
+    const response = await fetch(network.url)
+    if (!response.ok) throw new Error(`Failed to download ${network.sourceName}: HTTP ${response.status}`)
+    bytes = Buffer.from(await response.arrayBuffer())
+    const actualHash = sha256(bytes)
+    if (actualHash !== network.sha256) {
+      throw new Error(`${network.sourceName} checksum mismatch: ${actualHash}`)
+    }
+  }
+  const partSize = 20 * 1024 * 1024
+  await Promise.all(
+    partPaths.map((path, index) =>
+      writeFile(path, bytes.subarray(index * partSize, (index + 1) * partSize)),
+    ),
   )
 }
 

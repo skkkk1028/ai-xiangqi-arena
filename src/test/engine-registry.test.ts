@@ -10,11 +10,13 @@ import { engineRegistry } from '../engine/default-registry'
 
 describe('EngineRegistry', () => {
   it('默认注册表提供 Fairy-Stockfish 与两个固定 Pikafish 核心', () => {
-    expect(engineRegistry.listEngines().map((engine) => engine.id)).toEqual([
+    expect(engineRegistry.listEngines('xiangqi').map((engine) => engine.id)).toEqual([
       'fairy-stockfish-nnue',
       'pikafish-2026-nnue',
       'pikafish-2025-nnue',
     ])
+    expect(engineRegistry.listEngines('chess').map((engine) => engine.id)).toEqual(['fairy-stockfish-chess-nnue'])
+    expect(engineRegistry.getEngine('xiangqi', 'fairy-stockfish-chess-nnue')).toBeUndefined()
   })
 
   it('两个 Pikafish 固定核心使用相同满强度资源和时间控制', () => {
@@ -46,12 +48,13 @@ describe('EngineRegistry', () => {
 
     registry.registerEngine(FAIRY_STOCKFISH_CONFIG, factory)
     const adapter = registry.createEngine(
+      'xiangqi',
       FAIRY_STOCKFISH_CONFIG.id,
       { assetBase: 'http://localhost/', onProgress: vi.fn() },
       { threads: 2, hash: 128 },
     )
 
-    expect(registry.getEngine(FAIRY_STOCKFISH_CONFIG.id)).toBe(FAIRY_STOCKFISH_CONFIG)
+    expect(registry.getEngine('xiangqi', FAIRY_STOCKFISH_CONFIG.id)).toBe(FAIRY_STOCKFISH_CONFIG)
     expect(adapter.config).toMatchObject({
       id: 'fairy-stockfish-nnue',
       protocol: 'UCCI',
@@ -67,7 +70,7 @@ describe('EngineRegistry', () => {
     registry.registerEngine(FAIRY_STOCKFISH_CONFIG, factory)
     expect(() => registry.registerEngine(FAIRY_STOCKFISH_CONFIG, factory)).toThrow('引擎已注册')
     expect(() =>
-      registry.createEngine('missing', { assetBase: '/', onProgress: vi.fn() }),
+      registry.createEngine('xiangqi', 'missing', { assetBase: '/', onProgress: vi.fn() }),
     ).toThrow('未注册的引擎')
   })
 })

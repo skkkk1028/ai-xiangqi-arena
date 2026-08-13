@@ -178,7 +178,7 @@ describe('通用棋类平台契约', () => {
     }
     const search = vi.fn(async () => response)
     const adapter: EngineAdapter = {
-      config: { id: 'mock-ucci', name: 'Mock UCCI' } as AIEngineConfig,
+      config: { id: 'mock-ucci', gameId: 'xiangqi', name: 'Mock UCCI' } as AIEngineConfig,
       init: vi.fn(async () => profile),
       sendCommand: vi.fn(),
       setPosition: vi.fn(),

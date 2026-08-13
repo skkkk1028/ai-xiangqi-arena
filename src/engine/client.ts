@@ -7,6 +7,7 @@ import type {
 } from '../game/types'
 import { configureFairyStockfish } from './config'
 import { UcciParser } from './parsers/ucci-parser'
+import { UciParser } from './parsers/uci-parser'
 import type { EngineAdapter } from './adapter'
 import type {
   AIEngineConfig,
@@ -60,10 +61,11 @@ export class WorkerEngineAdapter implements EngineAdapter {
   private fatalHandler: ((error: Error) => void) | null = null
   private nextSearchId = 0
   private ready = false
-  private readonly parser = new UcciParser()
+  private readonly parser: UcciParser | UciParser
 
   constructor(config: Readonly<AIEngineConfig>, context: EngineAdapterContext) {
     this.config = config
+    this.parser = config.protocol === 'UCI' ? new UciParser() : new UcciParser()
     this.assetBase = context.assetBase
     this.onProgress = context.onProgress
     this.onRuntimeFatal = context.onRuntimeFatal

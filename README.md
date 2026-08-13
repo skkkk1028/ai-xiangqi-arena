@@ -7,6 +7,18 @@
 
 ## 当前能力
 
+### 第三棋种：国际象棋 AI 双人格观战
+
+大厅现在并列提供中国象棋、围棋和国际象棋三个模块。国际象棋路由为
+`#/games/chess`，首版固定为 AI 对 AI 观战：白方“曜刃 · 进攻型”和黑方“玄垒 · 稳健型”使用相同
+Fairy‑Stockfish 核心、相同 `MultiPV 4` 和 1/3/8 秒搜索档位；它们不是两个不同引擎，也不代表双方
+Elo 相等。页面进入后才按需加载约 47.7 MB 的标准国际象棋 NNUE（首次下载会拆成三个小于 20 MiB
+的分片），Worker 合并并校验 SHA‑256 后才允许开局。
+
+规则裁判固定为 `chess.js@1.4.0`（BSD‑2‑Clause），棋谱保存初始 FEN、完整 UCI 序列和每步 FEN，
+恢复时逐手重放并拒绝非法或篡改档案。三次重复和五十回合在无“申请和棋”交互的 AI 观战中采用自动
+申请规则；400 半回合是技术停止上限。首版不包含真人走棋、联网匹配、残局表库或云分析。
+
 - 完整基础走棋、将军、将死、困毙与将帅照面规则
 - `fairy-stockfish-nnue.wasm@1.1.11`，固定中国象棋 NNUE 网络
 - 官方 Pikafish `Pikafish-2026-01-02`，固定发行版源码、匹配 NNUE 与可重建浏览器桥接补丁
@@ -130,6 +142,7 @@ Direct Upload 项目不能切换为 Git 自动部署；若未来需要“推送 
 pnpm typecheck
 pnpm test
 pnpm verify:engine
+pnpm verify:chess-engine
 pnpm benchmark:personality
 pnpm benchmark:personality-selfplay
 pnpm build
@@ -198,6 +211,14 @@ Pikafish 的短冒烟验证可使用 `engine` 与 `smoke` 参数：
 
 ```powershell
 node scripts/run-browser-validation.mjs --page-url 'http://127.0.0.1:4173/browser-validation.html?engine=pikafish-2026-nnue&smoke=1&probe-ms=1000&long-searches=1&long-game-searches=1' --timeout-ms 60000 --output benchmark/pikafish-browser-smoke.json
+```
+
+国际象棋引擎预检会校验三片 NNUE 的完整 SHA‑256，并在真实 Fairy‑Stockfish WASM 中执行
+`UCI_Variant chess`、NNUE 启用确认和合法 `bestmove`。如果已有带远程调试端口的 Chromium，
+可额外执行页面连续 20 半回合门禁：
+
+```powershell
+pnpm verify:chess-engine -- --cdp-url http://127.0.0.1:9222 --page-url http://127.0.0.1:4173/#/games/chess
 ```
 
 The checked-in result is a 48-search, approximately 13-minute desktop

@@ -272,7 +272,7 @@ export interface HumanMatchControllerAIOptions extends ManagedAILifecycle {
 
 export function resolveHumanThinkPlan(context: HumanMatchTurnContext) {
   const profile = difficultyProfile(context.difficulty)
-  const engineConfig = engineRegistry.getEngine(context.engineId)
+  const engineConfig = engineRegistry.getEngine('xiangqi', context.engineId)
   if (!engineConfig) throw new Error('选择了未注册的 AI 引擎。')
   const support = detectEngineSupport()
   const mapped = mapDifficultyToEngine(profile, engineConfig, {

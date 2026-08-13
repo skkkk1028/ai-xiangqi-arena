@@ -17,6 +17,21 @@
 中国象棋网络 `xiangqi-c07e94a5c7cb.nnue` 为 11,261,932 字节，SHA-256 为
 `c07e94a5c7cbeae443ed79a8fa412875d833a7f8e04333815e39729c59d52e11`。
 
+### 标准国际象棋 NNUE
+
+- 固定网络：`nn-3475407dc199.nnue`，47,721,371 字节（约 45.5 MiB）。
+- 来源：[Stockfish NNUE 测试网络](https://tests.stockfishchess.org/api/nn/nn-3475407dc199.nnue)。
+- SHA-256：`3475407dc19973ea44467678634cce023d620e419770c111cc8937fe6689ec87`。
+- 该网络用于标准国际象棋 Fairy‑Stockfish UCI 会话，不与中国象棋 NNUE 混用。
+- `scripts/sync-engine-assets.mjs` 将其切成三个不超过 20 MiB 的内容寻址分片；Worker 合并后再次校验完整哈希。
+- 网络由 Stockfish 测试网络页面标注为可再分发；引擎代码仍受 GPLv3 约束。本项目不宣称双人格具有相等 Elo。
+
+## chess.js
+
+- 版本：`chess.js@1.4.0`
+- 许可证：BSD-2-Clause
+- 用途：标准国际象棋合法着、将军/将死、易位、吃过路兵、升变、PGN 与终局规则裁判。
+
 ## Pikafish
 
 - 项目：[official-pikafish/Pikafish](https://github.com/official-pikafish/Pikafish)

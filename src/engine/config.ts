@@ -1,6 +1,7 @@
 import type { AIEngineConfig } from './types'
 
 export const FAIRY_STOCKFISH_ENGINE_ID = 'fairy-stockfish-nnue'
+export const CHESS_FAIRY_STOCKFISH_ENGINE_ID = 'fairy-stockfish-chess-nnue'
 export const PIKAFISH_ENGINE_ID = 'pikafish-2026-nnue'
 export const PIKAFISH_2025_ENGINE_ID = 'pikafish-2025-nnue'
 
@@ -10,6 +11,7 @@ export const PIKAFISH_2025_ENGINE_ID = 'pikafish-2025-nnue'
  */
 export const FAIRY_STOCKFISH_CONFIG: Readonly<AIEngineConfig> = Object.freeze({
   id: FAIRY_STOCKFISH_ENGINE_ID,
+  gameId: 'xiangqi',
   name: 'Fairy-Stockfish NNUE',
   engineType: 'fairy-stockfish',
   protocol: 'UCCI',
@@ -45,6 +47,7 @@ export const FAIRY_STOCKFISH_CONFIG: Readonly<AIEngineConfig> = Object.freeze({
 
 export const PIKAFISH_CONFIG: Readonly<AIEngineConfig> = Object.freeze({
   id: PIKAFISH_ENGINE_ID,
+  gameId: 'xiangqi',
   name: 'Pikafish 2026 NNUE',
   engineType: 'pikafish',
   protocol: 'UCI',
@@ -83,6 +86,7 @@ export const PIKAFISH_CONFIG: Readonly<AIEngineConfig> = Object.freeze({
 /** Fixed official core at full strength; no Skill or search downgrade. */
 export const PIKAFISH_2025_CONFIG: Readonly<AIEngineConfig> = Object.freeze({
   id: PIKAFISH_2025_ENGINE_ID,
+  gameId: 'xiangqi',
   name: 'Pikafish 2025 NNUE',
   engineType: 'pikafish',
   protocol: 'UCI',
@@ -126,6 +130,67 @@ export function configureFairyStockfish(
     ...FAIRY_STOCKFISH_CONFIG,
     options: { ...FAIRY_STOCKFISH_CONFIG.options },
     timeControl: { ...FAIRY_STOCKFISH_CONFIG.timeControl },
+    threads,
+    hash,
+  }
+}
+
+/**
+ * Full-strength standard-chess Fairy-Stockfish session.  The network is kept
+ * separate from the Xiangqi network even though both sessions use the same
+ * WASM binary and engine core.
+ */
+export const CHESS_FAIRY_STOCKFISH_CONFIG: Readonly<AIEngineConfig> = Object.freeze({
+  id: CHESS_FAIRY_STOCKFISH_ENGINE_ID,
+  gameId: 'chess',
+  name: 'Fairy-Stockfish Chess NNUE',
+  engineType: 'fairy-stockfish',
+  protocol: 'UCI',
+  loadMethod: 'emscripten-module',
+  wasmPath: 'stockfish.wasm',
+  nnuePath: 'chess-nn-3475407dc199.nnue',
+  nnueParts: Object.freeze([
+    'chess-nn-3475407dc199.nnue.part-01',
+    'chess-nn-3475407dc199.nnue.part-02',
+    'chess-nn-3475407dc199.nnue.part-03',
+  ]),
+  variant: 'chess',
+  skillLevel: null,
+  styleDescription: '标准国际象棋、固定 NNUE、MultiPV 4 的完整强度 UCI 会话',
+  options: Object.freeze({
+    Ponder: false,
+    MultiPV: 4,
+    Skill_Level: 20,
+    UCI_LimitStrength: false,
+    UCI_ShowWDL: true,
+    Use_NNUE: true,
+    usemillisec: true,
+  }),
+  threads: 2,
+  hash: 64,
+  timeControl: Object.freeze({
+    searchGraceMs: 5_000,
+    stopGraceMs: 3_000,
+    newGameReadyTimeoutMs: 30_000,
+  }),
+  workerPath: 'ucci.worker.js',
+  adapterPath: 'fairy-stockfish.adapter.js',
+  loaderPath: 'stockfish.js',
+  version: 'fairy-stockfish-nnue.wasm@1.1.11',
+  commit: '5589ea54',
+  nnueSha256: '3475407dc19973ea44467678634cce023d620e419770c111cc8937fe6689ec87',
+  wasmSha256: '91f78f226169ae0e08be3854e0b4de8f5461844d38f08eaae8e3f8ee0833831d',
+})
+
+export function configureChessFairyStockfish(
+  threads: number,
+  hash: number,
+): AIEngineConfig {
+  return {
+    ...CHESS_FAIRY_STOCKFISH_CONFIG,
+    options: { ...CHESS_FAIRY_STOCKFISH_CONFIG.options },
+    timeControl: { ...CHESS_FAIRY_STOCKFISH_CONFIG.timeControl },
+    nnueParts: [...(CHESS_FAIRY_STOCKFISH_CONFIG.nnueParts ?? [])],
     threads,
     hash,
   }

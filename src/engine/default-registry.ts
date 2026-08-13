@@ -3,6 +3,7 @@ import { PikafishAdapter } from './pikafish-adapter'
 import {
   FAIRY_STOCKFISH_CONFIG,
   FAIRY_STOCKFISH_ENGINE_ID,
+  CHESS_FAIRY_STOCKFISH_CONFIG,
   PIKAFISH_2025_CONFIG,
   PIKAFISH_CONFIG,
 } from './config'
@@ -11,6 +12,9 @@ import { EngineRegistry } from './registry'
 export const engineRegistry = new EngineRegistry()
 
 engineRegistry.registerEngine(FAIRY_STOCKFISH_CONFIG, (config, context) =>
+  new FairyStockfishAdapter(config, context),
+)
+engineRegistry.registerEngine(CHESS_FAIRY_STOCKFISH_CONFIG, (config, context) =>
   new FairyStockfishAdapter(config, context),
 )
 engineRegistry.registerEngine(PIKAFISH_CONFIG, (config, context) =>

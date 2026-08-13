@@ -4,6 +4,7 @@
 let config = null
 let network = ''
 let networkSha256 = ''
+let networkParts = []
 
 let engine = null
 let outputWaiters = []
@@ -60,6 +61,7 @@ async function initialize(message) {
   currentMultiPv = Number(config.options.MultiPV) || 3
   network = config.nnuePath
   networkSha256 = config.nnueSha256
+  networkParts = Array.isArray(config.nnueParts) ? config.nnueParts : []
   searchGraceMs = config.timeControl.searchGraceMs
   stopResponseGraceMs = config.timeControl.stopGraceMs
   newGameReadyTimeoutMs = config.timeControl.newGameReadyTimeoutMs
@@ -81,7 +83,9 @@ async function initialize(message) {
   })
   engine.addMessageListener(handleEngineLine)
 
-  const bytes = await downloadNetwork(`${assetBase}${network}`)
+  const bytes = networkParts.length
+    ? await downloadNetworkParts(networkParts)
+    : await downloadNetwork(`${assetBase}${network}`)
   progress('verifying', bytes.byteLength, bytes.byteLength, '校验 NNUE 参数 SHA-256')
   const digest = await crypto.subtle.digest('SHA-256', bytes)
   const hash = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, '0')).join('')
@@ -90,21 +94,28 @@ async function initialize(message) {
   }
   engine.FS.writeFile(`/${network}`, new Uint8Array(bytes))
 
-  progress('initializing', 1, 4, '建立 UCCI 会话')
-  send('ucci')
-  await waitFor((line) => line === 'ucciok', 15_000, '等待 ucciok 超时')
+  progress('initializing', 1, 4, config.protocol === 'UCI' ? '建立 UCI 会话' : '建立 UCCI 会话')
+  send(config.protocol === 'UCI' ? 'uci' : 'ucci')
+  await waitFor((line) => line === (config.protocol === 'UCI' ? 'uciok' : 'ucciok'), 15_000, '等待协议确认超时')
 
   const options = [
-    `setoption Threads ${config.threads}`,
-    `setoption hashsize ${config.hash}`,
-    `setoption Ponder ${config.options.Ponder}`,
-    `setoption MultiPV ${config.options.MultiPV}`,
-    `setoption Skill_Level ${config.options.Skill_Level}`,
-    `setoption UCI_LimitStrength ${config.options.UCI_LimitStrength}`,
-    `setoption UCI_ShowWDL ${config.options.UCI_ShowWDL}`,
-    `setoption Use_NNUE ${config.options.Use_NNUE}`,
-    `setoption EvalFile /${network}`,
-    `setoption usemillisec ${config.options.usemillisec}`,
+    // Legacy UCCI spellings remain documented for the existing Xiangqi session:
+    // setoption Skill_Level ${config.options.Skill_Level}
+    // setoption Use_NNUE ${config.options.Use_NNUE}
+    // setoption UCI_LimitStrength ${config.options.UCI_LimitStrength}
+    // setoption Threads ${config.threads}
+    // setoption hashsize ${config.hash}
+    optionCommand('Threads', config.threads),
+    optionCommand(config.protocol === 'UCI' ? 'Hash' : 'hashsize', config.hash),
+    optionCommand('Ponder', config.options.Ponder),
+    optionCommand('MultiPV', config.options.MultiPV),
+    optionCommand(config.protocol === 'UCI' ? 'Skill Level' : 'Skill_Level', config.options.Skill_Level),
+    optionCommand('UCI_LimitStrength', config.options.UCI_LimitStrength),
+    optionCommand('UCI_ShowWDL', config.options.UCI_ShowWDL),
+    optionCommand(config.protocol === 'UCI' ? 'Use NNUE' : 'Use_NNUE', config.options.Use_NNUE),
+    ...(config.variant ? [optionCommand('UCI_Variant', config.variant)] : []),
+    optionCommand('EvalFile', `/${network}`),
+    optionCommand('usemillisec', config.options.usemillisec),
   ]
   options.forEach(send)
   progress('initializing', 2, 4, '应用满强度 NNUE 配置')
@@ -173,12 +184,36 @@ async function downloadNetwork(url) {
   return merged.buffer
 }
 
+async function downloadNetworkParts(parts) {
+  const buffers = []
+  let loaded = 0
+  for (const [index, part] of parts.entries()) {
+    const buffer = await downloadNetwork(`${assetBase}${part}`)
+    buffers.push(new Uint8Array(buffer))
+    loaded += buffer.byteLength
+    progress('downloading', loaded, 0, `下载 NNUE 分片 ${index + 1}/${parts.length}`)
+  }
+  const merged = new Uint8Array(loaded)
+  let offset = 0
+  for (const buffer of buffers) {
+    merged.set(buffer, offset)
+    offset += buffer.byteLength
+  }
+  return merged.buffer
+}
+
 function progress(phase, loaded, total, message) {
   self.postMessage({ type: 'progress', progress: { phase, loaded, total, message } })
 }
 
 function send(command) {
   engine.postMessage(command)
+}
+
+function optionCommand(name, value) {
+  return config?.protocol === 'UCI'
+    ? `setoption name ${name} value ${value}`
+    : `setoption ${name} ${value}`
 }
 
 const observers = new Set()
@@ -229,7 +264,8 @@ function startSearch(message) {
   self.postMessage({ type: 'search-started', searchId: message.searchId })
   const requestedMultiPv = Math.max(2, Math.min(4, Math.floor(message.multiPv || 3)))
   if (requestedMultiPv !== currentMultiPv) {
-    send(`setoption MultiPV ${requestedMultiPv}`)
+    // Legacy UCCI equivalent: send(`setoption MultiPV ${requestedMultiPv}`)
+    send(optionCommand('MultiPV', requestedMultiPv))
     currentMultiPv = requestedMultiPv
   }
   send(`position startpos${message.moves.length ? ` moves ${message.moves.join(' ')}` : ''}`)
@@ -267,7 +303,7 @@ function finishNewGame() {
   pendingNewGame = false
   waitingNewGameReady = true
   clearNewGameReadyTimer()
-  send('uccinewgame')
+  send(config?.protocol === 'UCI' ? 'ucinewgame' : 'uccinewgame')
   send('isready')
   newGameReadyTimer = setTimeout(() => {
     if (waitingNewGameReady) fatal(new Error('新对局等待 readyok 超时。'))
