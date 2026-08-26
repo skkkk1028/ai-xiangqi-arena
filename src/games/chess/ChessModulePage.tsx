@@ -3,6 +3,7 @@ import { GAME_ROUTES } from '../routes'
 import { ChessArenaPage } from './ChessArenaPage'
 import { ChessGamePage } from './ChessGamePage'
 import { ChessHumanPage } from './ChessHumanPage'
+import { ChessLocalPage } from './ChessLocalPage'
 import './chess.css'
 
 export function ChessModulePage() {
@@ -17,6 +18,7 @@ export function ChessModulePage() {
   if (route === GAME_ROUTES.chessTheatre) return <ChessGamePage />
   if (route === GAME_ROUTES.chessArena) return <ChessArenaPage />
   if (route === GAME_ROUTES.chessHuman) return <ChessHumanPage />
+  if (route === GAME_ROUTES.chessLocal) return <ChessLocalPage />
   return <ChessModePage />
 }
 
@@ -28,7 +30,7 @@ function ChessModePage() {
         <div>
           <span className="chess-kicker">CHESS · STANDARD</span>
           <h1>国际象棋演算厅</h1>
-          <p>选择双人格观战、独立引擎交锋，或者亲自执一方挑战现有三种 AI 引擎。</p>
+          <p>选择双人格观战、独立引擎交锋、人机挑战，或者与身边的对手同屏对弈。</p>
         </div>
       </header>
       <section className="chess-mode-grid" aria-label="国际象棋模式">
@@ -52,6 +54,13 @@ function ChessModePage() {
           <h2>人机对战</h2>
           <p>选择白方或黑方，使用 Stockfish 18、Fairy‑Stockfish 或 Obsidian 16 作为对手，并自定义思考强度。</p>
           <strong>开始人机对战 →</strong>
+        </a>
+        <a className="chess-mode-card chess-mode-card--local" href={GAME_ROUTES.chessLocal}>
+          <span className="chess-mode-card__icon" aria-hidden="true">♜</span>
+          <small>LOCAL HUMAN MATCH</small>
+          <h2>双人对战</h2>
+          <p>两位玩家在同一设备轮流执子，使用双方总时与单步上限组成的三档公平计时。</p>
+          <strong>开始双人对战 →</strong>
         </a>
       </section>
       <p className="chess-mode-footnote">Obsidian 16 当前为同级候选；只有项目内配对实测通过 ±50 Elo 等效门槛后才会标记为已认证。</p>

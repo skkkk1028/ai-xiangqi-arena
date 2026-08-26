@@ -76,6 +76,8 @@ export interface EngineSearchOptions {
   multiPv: MultiPvCount
   /** Optional human-mode limit. Existing AI modes deliberately leave this unset. */
   maxDepth?: number
+  /** Optional deterministic calibration limit. When present, the Worker issues `go nodes`. */
+  maxNodes?: number
   onInfo?: (info: SearchInfo) => void
 }
 

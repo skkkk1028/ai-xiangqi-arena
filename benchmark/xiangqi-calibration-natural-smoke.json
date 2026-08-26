@@ -1,0 +1,100 @@
+{
+  "status": "passed",
+  "validation": {
+    "state": "passed",
+    "status": "passed",
+    "stage": "completed",
+    "startedAt": "2026-08-18T02:53:55.428Z",
+    "configuration": {
+      "engineId": "pikafish-2026-nnue",
+      "opponentEngineId": "fairy-stockfish-nnue",
+      "pairCount": 1,
+      "nodes": 30000,
+      "maxPlies": 240,
+      "threads": 1,
+      "hashMb": 64,
+      "profile": {
+        "id": "pikafish-2026-nnue",
+        "engineType": "pikafish",
+        "protocol": "UCI",
+        "name": "Pikafish 2026 NNUE",
+        "version": "Pikafish-2026-01-02",
+        "commit": "ce0679e00ee196f7ba17f6ec18941b9a5036f8cf",
+        "network": "pikafish.nnue",
+        "networkSha256": "c4026370d7516d9b0f668447f9ca1931241538bdc689cde6fec6a991ac4d5f77",
+        "threads": 1,
+        "hashMb": 64
+      },
+      "opponentProfile": {
+        "id": "fairy-stockfish-nnue",
+        "engineType": "fairy-stockfish",
+        "protocol": "UCCI",
+        "name": "Fairy-Stockfish NNUE · UCCI",
+        "version": "fairy-stockfish-nnue.wasm@1.1.11",
+        "commit": "5589ea54",
+        "network": "xiangqi-c07e94a5c7cb.nnue",
+        "networkSha256": "c07e94a5c7cbeae443ed79a8fa412875d833a7f8e04333815e39729c59d52e11",
+        "threads": 1,
+        "hashMb": 64
+      }
+    },
+    "games": [
+      {
+        "pairIndex": 0,
+        "gameIndex": 0,
+        "openingSeed": 504138147,
+        "redEngineId": "pikafish-2026-nnue",
+        "blackEngineId": "fairy-stockfish-nnue",
+        "swapped": false,
+        "outcome": "red-win",
+        "plies": 89
+      },
+      {
+        "pairIndex": 0,
+        "gameIndex": 1,
+        "openingSeed": 504138147,
+        "redEngineId": "fairy-stockfish-nnue",
+        "blackEngineId": "pikafish-2026-nnue",
+        "swapped": true,
+        "outcome": "draw",
+        "plies": 240
+      }
+    ],
+    "summary": {
+      "engineId": "pikafish-2026-nnue",
+      "opponentId": "fairy-stockfish-nnue",
+      "games": 2,
+      "decisiveGames": 1,
+      "wins": 1,
+      "draws": 1,
+      "losses": 0,
+      "technicalFailures": 0,
+      "score": 1.5,
+      "scoreRate": 0.75,
+      "scoreRateWilson95": [
+        0.19786745576231107,
+        0.9733226579910155
+      ],
+      "eloDifference": 190.84850188786498,
+      "practicallyEquivalent": false
+    },
+    "finishedAt": "2026-08-18T02:54:50.809Z",
+    "durationMs": 55381
+  },
+  "page": {
+    "href": "http://127.0.0.1:4173/xiangqi-calibration.html?engine=pikafish-2026-nnue&opponent=fairy-stockfish-nnue&pairs=1&nodes=30000&max-plies=240&search-timeout-ms=30000",
+    "readyState": "complete",
+    "crossOriginIsolated": true,
+    "sharedArrayBuffer": true,
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.0.0 Safari/537.36 Edg/151.0.0.0"
+  },
+  "startedAt": "2026-08-18T02:53:55.199Z",
+  "finishedAt": "2026-08-18T02:54:50.912Z",
+  "elapsedMs": 55710,
+  "cdpUrl": "http://127.0.0.1:9222/",
+  "pageUrl": "http://127.0.0.1:4173/xiangqi-calibration.html?engine=pikafish-2026-nnue&opponent=fairy-stockfish-nnue&pairs=1&nodes=30000&max-plies=240&search-timeout-ms=30000",
+  "timeoutMs": 7320000,
+  "pollMs": 1000,
+  "targetId": "C318E0DCB0B705FEF34E691875AEF9E0",
+  "pageClosed": true
+}

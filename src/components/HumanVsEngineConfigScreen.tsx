@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { DIFFICULTY_PROFILES, type DifficultyLevel } from '../engine/difficulty'
 import type { AIEngineConfig } from '../engine/types'
+import { xiangqiDifficultyProfile } from '../games/xiangqi/strength-profile'
 import type { HumanColorChoice, HumanEngineState } from '../hooks/useHumanVsEngine'
 import { ChevronLeftIcon, PlayIcon } from './Icons'
 
@@ -23,7 +24,9 @@ export function HumanVsEngineConfigScreen({
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const selectedEngine = engines.find((engine) => engine.id === engineId)
-  const selectedDifficulty = DIFFICULTY_PROFILES[difficulty]
+  const selectedDifficulty = selectedEngine
+    ? xiangqiDifficultyProfile(selectedEngine.id, difficulty)
+    : DIFFICULTY_PROFILES[difficulty]
 
   const start = async () => {
     if (!engineId || starting) return
@@ -96,23 +99,30 @@ export function HumanVsEngineConfigScreen({
         <fieldset className="config-panel config-panel--difficulty">
           <legend>AI 难度</legend>
           <div className="difficulty-options">
-            {(Object.values(DIFFICULTY_PROFILES)).map((profile) => (
-              <label key={profile.level} className={difficulty === profile.level ? 'is-selected' : ''}>
-                <input
-                  type="radio"
-                  name="difficulty"
-                  value={profile.level}
-                  checked={difficulty === profile.level}
-                  disabled={starting}
-                  onChange={() => setDifficulty(profile.level)}
-                />
-                <strong>等级 {profile.level}</strong>
-                <span>{profile.name}</span>
-                <small>{profile.minThinkMs / 1000}–{profile.maxThinkMs / 1000} 秒</small>
-              </label>
-            ))}
+            {(Object.values(DIFFICULTY_PROFILES)).map((profile) => {
+              const engineProfile = selectedEngine
+                ? xiangqiDifficultyProfile(selectedEngine.id, profile.level)
+                : profile
+              return (
+                <label key={profile.level} className={difficulty === profile.level ? 'is-selected' : ''}>
+                  <input
+                    type="radio"
+                    name="difficulty"
+                    value={profile.level}
+                    checked={difficulty === profile.level}
+                    disabled={starting}
+                    onChange={() => setDifficulty(profile.level)}
+                  />
+                  <strong>等级 {profile.level}</strong>
+                  <span>{profile.name}</span>
+                  <small>{engineProfile.minThinkMs / 1000}–{engineProfile.maxThinkMs / 1000} 秒</small>
+                </label>
+              )
+            })}
           </div>
-          <p className="difficulty-summary">{selectedDifficulty.description}</p>
+          <p className="difficulty-summary">
+            {selectedDifficulty.description} · {selectedDifficulty.calibrationStatus === 'validated' ? '已校准' : '暂定校准档位'}
+          </p>
         </fieldset>
       </section>
 

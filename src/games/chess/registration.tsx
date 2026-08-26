@@ -17,7 +17,7 @@ function ChessLobbyVisual() {
 export const chessGameRegistration: RegisteredGame = {
   id: 'chess',
   route: '#/games/chess',
-  childRoutes: ['#/games/chess/theatre', '#/games/chess/arena', '#/games/chess/human'],
+  childRoutes: ['#/games/chess/theatre', '#/games/chess/arena', '#/games/chess/human', '#/games/chess/local'],
   loadPage: () => import('./ChessModulePage').then(({ ChessModulePage }) => ({ default: ChessModulePage })),
   lobby: {
     theme: 'chess',

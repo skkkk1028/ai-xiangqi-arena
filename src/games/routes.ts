@@ -6,6 +6,7 @@ export const GAME_ROUTES = {
   chessTheatre: '#/games/chess/theatre',
   chessArena: '#/games/chess/arena',
   chessHuman: '#/games/chess/human',
+  chessLocal: '#/games/chess/local',
 } as const
 
 export type GameRoute = keyof typeof GAME_ROUTES
@@ -17,5 +18,6 @@ export function readGameRoute(hash = window.location.hash): GameRoute {
   if (hash === GAME_ROUTES.chessTheatre) return 'chessTheatre'
   if (hash === GAME_ROUTES.chessArena) return 'chessArena'
   if (hash === GAME_ROUTES.chessHuman) return 'chessHuman'
+  if (hash === GAME_ROUTES.chessLocal) return 'chessLocal'
   return 'lobby'
 }

@@ -2121,6 +2121,14 @@ a:focus-visible {
   border-color: rgba(39, 126, 78, 0.7);
 }
 
+.mode-button--local {
+  border-color: rgba(42, 132, 107, 0.5);
+  background: linear-gradient(135deg, #dcece3, #f1e7ca);
+  color: #214f45;
+}
+
+.mode-button--local:hover:not(:disabled) { border-color: #2d8a73; }
+
 .mode-button > span {
   display: grid;
   gap: 0.25rem;
@@ -2472,6 +2480,212 @@ a:focus-visible {
 .human-rule-note strong { color: #d8c29a; font-size: 0.7rem; }
 .human-rule-note span,
 .human-rule-note small { color: #756550; font-size: 0.58rem; line-height: 1.55; }
+
+/* Shared, stateless negotiation surface. Business rules remain in each match hook. */
+.negotiation-panel {
+  position: relative;
+  margin-top: 0.8rem;
+  border: 1px solid rgba(91, 68, 47, 0.16);
+  border-radius: 8px;
+  padding: 1rem;
+  background: rgba(250, 246, 237, 0.92);
+  box-shadow: 0 12px 32px rgba(78, 55, 35, 0.08);
+  color: #554335;
+  font-family: "Microsoft YaHei", sans-serif;
+}
+
+.negotiation-panel .section-heading { margin-bottom: 0.75rem; }
+.negotiation-panel h3 { margin: 0.15rem 0 0; font-size: 0.86rem; }
+.negotiation-actions { display: grid; gap: 0.55rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.negotiation-actions > div { display: grid; min-width: 0; gap: 0.3rem; }
+.negotiation-actions button,
+.negotiation-dialog button {
+  min-height: 44px;
+  border: 1px solid rgba(68, 102, 85, 0.3);
+  border-radius: 6px;
+  background: #edf2e8;
+  color: #315647;
+  cursor: pointer;
+  font: 700 0.68rem "Microsoft YaHei", sans-serif;
+}
+.negotiation-actions button.is-danger { border-color: rgba(159, 55, 47, 0.35); background: #f7e8df; color: #91382f; }
+.negotiation-actions button:disabled { cursor: not-allowed; opacity: 0.48; }
+.negotiation-actions small { color: #806f5e; font-size: 0.52rem; line-height: 1.45; }
+.negotiation-help,
+.negotiation-notice { margin: 0.75rem 0 0; color: #756555; font-size: 0.56rem; line-height: 1.55; }
+.negotiation-notice { border-left: 2px solid #4a8c73; padding-left: 0.6rem; color: #416958; }
+.negotiation-dialog-backdrop {
+  position: fixed;
+  z-index: 100;
+  display: grid;
+  inset: 0;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(16, 25, 23, 0.62);
+}
+.negotiation-dialog {
+  width: min(420px, 100%);
+  border: 1px solid rgba(80, 124, 103, 0.45);
+  border-radius: 10px;
+  padding: 1.3rem;
+  background: #faf7ef;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.3);
+}
+.negotiation-dialog h4 { margin: 0; color: #3b332a; font-size: 1rem; }
+.negotiation-dialog p { color: #706152; font-size: 0.72rem; line-height: 1.7; }
+.negotiation-dialog > div { display: flex; justify-content: flex-end; gap: 0.6rem; }
+.negotiation-dialog button { min-width: 88px; padding: 0.55rem 0.8rem; }
+.negotiation-dialog .negotiation-primary { background: #396f5b; color: #fff; }
+.negotiation-waiting { display: block; color: #42705e; font-size: 0.72rem; }
+
+/* Same-device Xiangqi: deliberately scoped jade-and-brass table theme. */
+.local-xiangqi-match-page {
+  min-height: 100vh;
+  overflow-x: hidden;
+  color: #f3eddd;
+  background:
+    radial-gradient(circle at 22% 8%, rgba(74, 168, 143, 0.18), transparent 34%),
+    radial-gradient(circle at 82% 84%, rgba(214, 180, 111, 0.11), transparent 30%),
+    #0e2527;
+  font-family: "Microsoft YaHei", sans-serif;
+}
+.local-match-header {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: grid;
+  min-height: 76px;
+  padding: 0.8rem clamp(1rem, 3vw, 2.6rem);
+  align-items: center;
+  border-bottom: 1px solid rgba(214, 180, 111, 0.2);
+  background: rgba(14, 37, 39, 0.94);
+  backdrop-filter: blur(14px);
+  gap: 1rem;
+  grid-template-columns: auto minmax(180px, 1fr) auto auto;
+}
+.local-icon-button,
+.local-header-actions button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(214, 180, 111, 0.28);
+  border-radius: 7px;
+  padding: 0.55rem 0.8rem;
+  background: rgba(22, 52, 56, 0.9);
+  color: #eee5d1;
+  cursor: pointer;
+  gap: 0.4rem;
+}
+.local-icon-button { width: 44px; padding: 0; }
+.local-header-actions { display: flex; gap: 0.55rem; }
+.local-header-actions button:disabled { cursor: not-allowed; opacity: 0.45; }
+.local-header-actions .local-primary-button { border-color: #4aa88f; background: #367c6a; color: white; }
+.local-match-brand { display: flex; align-items: center; gap: 0.75rem; }
+.local-match-brand > span { display: grid; width: 42px; height: 42px; place-items: center; border: 1px solid #d6b46f; border-radius: 50%; color: #d6b46f; font: 800 1.2rem serif; }
+.local-match-brand div { display: grid; gap: 0.16rem; }
+.local-match-brand strong { font-size: 1rem; letter-spacing: 0.08em; }
+.local-match-brand small,
+.local-match-status small { color: #8ebcb0; font-size: 0.58rem; }
+.local-match-status { display: grid; min-width: 150px; gap: 0.2rem; text-align: right; }
+.local-match-status strong { color: #d6b46f; font-size: 0.72rem; }
+.local-match-layout {
+  display: grid;
+  width: min(1280px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.4rem 0 2.4rem;
+  align-items: start;
+  gap: clamp(1rem, 2.5vw, 2rem);
+  grid-template-columns: minmax(500px, 730px) minmax(280px, 390px);
+  justify-content: center;
+}
+.local-board-workspace { min-width: 0; }
+.local-clocks { display: grid; margin-bottom: 0.8rem; gap: 0.8rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.local-clock {
+  display: grid;
+  min-width: 0;
+  border: 1px solid rgba(214, 180, 111, 0.2);
+  border-radius: 9px;
+  padding: 0.8rem 1rem;
+  align-items: center;
+  background: #163438;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.2);
+  gap: 0.4rem 0.8rem;
+  grid-template-columns: 1fr auto;
+}
+.local-clock.is-active { border-color: #4aa88f; box-shadow: 0 0 0 2px rgba(74, 168, 143, 0.15), 0 0 28px rgba(74, 168, 143, 0.15); }
+.local-clock div { display: grid; gap: 0.1rem; }
+.local-clock small { color: #78a69a; font-size: 0.5rem; letter-spacing: 0.13em; }
+.local-clock strong { font-size: 0.76rem; }
+.local-clock time { color: #d6b46f; font: 700 1.45rem "SFMono-Regular", Consolas, monospace; }
+.local-clock > span { grid-column: 1 / -1; color: #87a79f; font-size: 0.55rem; text-align: right; }
+.local-clock--red.is-active { border-color: #bc5b4c; }
+.local-clock--red time { color: #e07a69; }
+.local-evaluation-block { margin-bottom: 0.7rem; }
+.local-xiangqi-match-page .position-evaluation { margin: 0; border-color: rgba(214, 180, 111, 0.22); background: #163438; }
+.local-xiangqi-match-page .position-evaluation span,
+.local-xiangqi-match-page .position-evaluation small { color: #8eb5ab; }
+.local-xiangqi-match-page .position-evaluation strong { color: #d6b46f; }
+.local-evaluation-state { display: flex; min-height: 28px; padding: 0.35rem 0.7rem; align-items: center; justify-content: space-between; color: #82aaa0; font-size: 0.54rem; }
+.local-evaluation-state.is-error { color: #ef9a87; }
+.local-evaluation-state button { min-height: 32px; border: 1px solid #4aa88f; border-radius: 5px; background: transparent; color: #8fd0bd; cursor: pointer; }
+.local-xiangqi-match-page .chess-board-shell { border-color: rgba(214, 180, 111, 0.55); box-shadow: 0 28px 60px rgba(0, 0, 0, 0.35); }
+.local-board-caption { display: flex; padding: 0.7rem; justify-content: center; align-items: center; color: #82a49c; font-size: 0.56rem; gap: 0.7rem; }
+.local-board-caption i { width: 4px; height: 4px; border-radius: 50%; background: #d6b46f; }
+.local-match-workbench { display: grid; min-width: 0; gap: 0.8rem; }
+.local-turn-card,
+.local-rule-note,
+.local-xiangqi-match-page .history-card,
+.local-xiangqi-match-page .negotiation-panel {
+  border: 1px solid rgba(214, 180, 111, 0.18);
+  border-radius: 9px;
+  padding: 1rem;
+  background: rgba(22, 52, 56, 0.94);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.18);
+  color: #e9e1cf;
+}
+.local-turn-card h2 { margin: 0.3rem 0 0.55rem; color: #d6b46f; font-size: 1rem; }
+.local-turn-card > p:not(.eyebrow),
+.local-rule-note span,
+.local-rule-note small { color: #91afa7; font-size: 0.59rem; line-height: 1.65; }
+.local-turn-card > div { display: flex; margin-top: 0.7rem; justify-content: space-between; color: #a9c4bd; font-size: 0.55rem; }
+.local-rule-note { display: grid; gap: 0.5rem; }
+.local-rule-note strong { color: #d6b46f; font-size: 0.72rem; }
+.local-rule-note small { color: #728f88; }
+.local-xiangqi-match-page .history-columns,
+.local-xiangqi-match-page .round-number,
+.local-xiangqi-match-page .empty-history { color: #72938b; }
+.local-xiangqi-match-page .history-row { color: #a8c1ba; }
+.local-xiangqi-match-page .move-red { color: #e27767; }
+.local-xiangqi-match-page .move-black { color: #e5dcc9; }
+.local-xiangqi-match-page .negotiation-actions button { background: rgba(74, 168, 143, 0.12); color: #b9ded3; }
+.local-xiangqi-match-page .negotiation-actions button.is-danger { background: rgba(188, 91, 76, 0.13); color: #ef9b8f; }
+.local-xiangqi-match-page .negotiation-actions small,
+.local-xiangqi-match-page .negotiation-help { color: #78978f; }
+.local-xiangqi-match-page .negotiation-notice { color: #a9d3c7; }
+
+@media (max-width: 900px) {
+  .local-match-header { grid-template-columns: auto 1fr auto; }
+  .local-match-status { display: none; }
+  .local-match-layout { grid-template-columns: minmax(0, 690px); }
+}
+
+@media (max-width: 760px) {
+  .local-match-header { position: static; padding: 0.7rem; gap: 0.55rem; }
+  .local-match-brand > span,
+  .local-match-brand small { display: none; }
+  .local-match-brand strong { font-size: 0.78rem; letter-spacing: 0; }
+  .local-header-actions button { min-width: 44px; padding: 0.5rem; font-size: 0; }
+  .local-header-actions button svg { margin: 0; }
+  .local-match-layout { width: min(100% - 1rem, 680px); padding-top: 0.7rem; }
+  .local-clocks { gap: 0.45rem; }
+  .local-clock { padding: 0.65rem; }
+  .local-clock time { font-size: 1.05rem; }
+  .local-clock strong { font-size: 0.62rem; }
+  .local-clock > span { font-size: 0.48rem; }
+  .local-match-workbench { width: 100%; }
+  .negotiation-actions { grid-template-columns: 1fr; }
+}
 
 @media (max-width: 760px) {
   .engine-versus-grid { grid-template-columns: 1fr; }

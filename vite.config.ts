@@ -66,6 +66,7 @@ export default defineConfig(({ mode }) => {
         input: {
           main: 'index.html',
           'browser-validation': 'browser-validation.html',
+          'xiangqi-calibration': 'xiangqi-calibration.html',
         },
       },
     },

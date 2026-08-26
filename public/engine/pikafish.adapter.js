@@ -211,14 +211,18 @@ function startQueuedSearch() {
 function startSearch(message) {
   activeSearchId = message.searchId
   self.postMessage({ type: 'search-started', searchId: message.searchId })
-  const requestedMultiPv = Math.max(2, Math.min(4, Math.floor(message.multiPv || 3)))
+  const requestedMultiPv = Math.max(1, Math.min(4, Math.floor(message.multiPv || 3)))
   if (requestedMultiPv !== currentMultiPv) {
     send(`setoption name MultiPV value ${requestedMultiPv}`)
     currentMultiPv = requestedMultiPv
   }
   send(positionCommand(message.moves))
   const depthLimit = Number(message.maxDepth)
-  send(`go movetime ${message.movetimeMs}${depthLimit > 0 ? ` depth ${Math.floor(depthLimit)}` : ''}`)
+  const nodeLimit = Number(message.maxNodes)
+  const goCommand = nodeLimit > 0
+    ? `go nodes ${Math.floor(nodeLimit)}`
+    : `go movetime ${message.movetimeMs}${depthLimit > 0 ? ` depth ${Math.floor(depthLimit)}` : ''}`
+  send(goCommand)
   clearActiveSearchTimer()
   const searchId = activeSearchId
   activeSearchTimer = setTimeout(() => {

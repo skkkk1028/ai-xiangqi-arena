@@ -2,6 +2,7 @@ import { ChessBoard } from './components/ChessBoard'
 import { EngineSelectionScreen } from './components/EngineSelectionScreen'
 import { HumanVsEngineConfigScreen } from './components/HumanVsEngineConfigScreen'
 import { HumanVsEngineMatchScreen } from './components/HumanVsEngineMatchScreen'
+import { LocalXiangqiMatchScreen } from './components/LocalXiangqiMatchScreen'
 import {
   ChevronLeftIcon,
   PauseIcon,
@@ -18,11 +19,13 @@ import { sideLabel } from './engine/ucci'
 import { AI_PERSONALITIES } from './engine/personality'
 import { useAiMatch } from './hooks/useAiMatch'
 import { useHumanVsEngine } from './hooks/useHumanVsEngine'
+import { useLocalXiangqiMatch } from './hooks/useLocalXiangqiMatch'
 import { serializeMatchArchive } from './games/core'
 import { createXiangqiArchive } from './games/xiangqi'
 
 function App() {
   const humanMatch = useHumanVsEngine()
+  const localMatch = useLocalXiangqiMatch()
   const {
     state,
     view,
@@ -53,6 +56,20 @@ function App() {
     void retryEngine().catch(() => undefined)
   }
 
+  const openLocalBattle = () => {
+    releaseEngines()
+    void localMatch.open()
+  }
+
+  const closeLocalBattle = () => {
+    localMatch.close()
+    void retryEngine().catch(() => undefined)
+  }
+
+  if (localMatch.view === 'match') {
+    return <LocalXiangqiMatchScreen match={localMatch} onHome={closeLocalBattle} />
+  }
+
   if (humanMatch.view === 'configuration') {
     return (
       <HumanVsEngineConfigScreen
@@ -75,6 +92,13 @@ function App() {
         onResume={humanMatch.resume}
         onNewGame={humanMatch.newGame}
         onHome={closeHumanBattle}
+        negotiation={humanMatch.negotiation}
+        resignEligibility={humanMatch.resignEligibility}
+        drawEligibility={humanMatch.drawEligibility}
+        undoEligibility={humanMatch.undoEligibility}
+        onResign={humanMatch.resign}
+        onOfferDraw={humanMatch.offerDraw}
+        onRequestUndo={humanMatch.requestUndo}
       />
     )
   }
@@ -85,6 +109,7 @@ function App() {
         onStart={start}
         onEngineBattle={openEngineSelection}
         onHumanBattle={openHumanBattle}
+        onLocalBattle={openLocalBattle}
         engine={engineState}
         onRetry={() => void retryEngine()}
       />

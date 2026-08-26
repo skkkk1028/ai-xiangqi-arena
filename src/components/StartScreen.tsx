@@ -5,6 +5,7 @@ interface StartScreenProps {
   onStart: () => void
   onEngineBattle: () => void
   onHumanBattle: () => void
+  onLocalBattle: () => void
   onRetry: () => void
   engine: EngineState
 }
@@ -16,7 +17,7 @@ function progressPercent(engine: EngineState): number {
   return progress.phase === 'downloading' ? 15 : 55
 }
 
-export function StartScreen({ onStart, onEngineBattle, onHumanBattle, onRetry, engine }: StartScreenProps) {
+export function StartScreen({ onStart, onEngineBattle, onHumanBattle, onLocalBattle, onRetry, engine }: StartScreenProps) {
   const ready = engine.phase === 'ready'
   const failed = engine.phase === 'error' || engine.phase === 'unsupported'
   const percent = progressPercent(engine)
@@ -109,6 +110,13 @@ export function StartScreen({ onStart, onEngineBattle, onHumanBattle, onRetry, e
                 <span>
                   <strong>真人 vs AI</strong>
                   <small>选择颜色、引擎与难度，亲自挑战 AI</small>
+                </span>
+                <PlayIcon />
+              </button>
+              <button className="mode-button mode-button--local" aria-label="同屏双人对战" onClick={onLocalBattle} disabled={!ready}>
+                <span>
+                  <strong>同屏双人对战</strong>
+                  <small>共用一台设备，固定棋钟轮流行棋</small>
                 </span>
                 <PlayIcon />
               </button>

@@ -15,12 +15,19 @@ export interface DifficultyProfile {
   multiPv: 2 | 3 | 4
   alternativeChance: number
   candidateCount: number
+  /** Optional deterministic node budget used by the Xiangqi calibration profile. */
+  maxNodes?: number
+  /** Maximum acceptable centipawn loss when selecting a deliberate alternative. */
+  maxCentipawnLoss?: number
+  /** Human-facing evidence state; uncalibrated profiles must not be presented as Elo. */
+  calibrationStatus?: 'provisional' | 'validated'
 }
 
 export interface EngineDifficultySettings {
   threads: number
   hash: number
   maxDepth?: number
+  maxNodes?: number
   multiPv: 2 | 3 | 4
 }
 
@@ -108,6 +115,7 @@ export function mapDifficultyToEngine(
     threads: Math.max(1, Math.min(profile.threads, device.threads)),
     hash: Math.max(engineHashFloor, Math.min(profile.hashMb, device.hashMb)),
     maxDepth: profile.maxDepth,
+    maxNodes: profile.maxNodes,
     multiPv: profile.multiPv,
   }
 }

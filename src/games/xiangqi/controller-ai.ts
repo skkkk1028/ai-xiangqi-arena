@@ -1,9 +1,7 @@
 import type { EngineAdapter } from '../../engine/adapter'
 import {
-  difficultyProfile,
   difficultyThinkTime,
   mapDifficultyToEngine,
-  selectDifficultyMove,
   type DifficultyLevel,
 } from '../../engine/difficulty'
 import { engineRegistry } from '../../engine/default-registry'
@@ -23,6 +21,10 @@ import type {
 } from '../../game/types'
 import type { AIEngine, AIThinkRequest, AIThinkResult } from '../core'
 import type { XiangqiGameState, XiangqiRecordEntry } from './game-engine'
+import {
+  selectXiangqiDifficultyMove,
+  xiangqiDifficultyProfile,
+} from './strength-profile'
 
 const SEARCH_MIN_MS = 12_000
 const SEARCH_RANGE_MS = 6_001
@@ -271,9 +273,9 @@ export interface HumanMatchControllerAIOptions extends ManagedAILifecycle {
 }
 
 export function resolveHumanThinkPlan(context: HumanMatchTurnContext) {
-  const profile = difficultyProfile(context.difficulty)
   const engineConfig = engineRegistry.getEngine('xiangqi', context.engineId)
   if (!engineConfig) throw new Error('选择了未注册的 AI 引擎。')
+  const profile = xiangqiDifficultyProfile(context.engineId, context.difficulty)
   const support = detectEngineSupport()
   const mapped = mapDifficultyToEngine(profile, engineConfig, {
     threads: support.threads,
@@ -314,6 +316,7 @@ export class HumanMatchControllerAI extends ManagedXiangqiAI {
       {
         multiPv: mapped.multiPv,
         maxDepth: mapped.maxDepth,
+        maxNodes: mapped.maxNodes,
         onInfo: (info) =>
           this.options.onInfo(request.player, info, context.requestToken),
       },
@@ -324,7 +327,7 @@ export class HumanMatchControllerAI extends ManagedXiangqiAI {
     )
     if (remainingThinkMs > 0) await wait(remainingThinkMs, request.signal)
     if (!response.bestmove) throw new XiangqiNoBestMoveError(noBestMoveResult(request.state))
-    const decision = selectDifficultyMove(response, profile, context.seed)
+    const decision = selectXiangqiDifficultyMove(response, profile, context.seed)
     const action = decision.ucci
       ? matchUcciMove(request.state.board, [...request.legalActions], decision.ucci)
       : null

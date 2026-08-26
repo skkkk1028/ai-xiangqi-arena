@@ -7,7 +7,7 @@ import type {
 } from '../game/types'
 import { configureFairyStockfish } from './config'
 import { UcciParser } from './parsers/ucci-parser'
-import { UciParser } from './parsers/uci-parser'
+import { UciParser, XIANGQI_UCI_MOVE_PATTERN } from './parsers/uci-parser'
 import type { EngineAdapter } from './adapter'
 import type {
   AIEngineConfig,
@@ -65,7 +65,10 @@ export class WorkerEngineAdapter implements EngineAdapter {
 
   constructor(config: Readonly<AIEngineConfig>, context: EngineAdapterContext) {
     this.config = config
-    this.parser = config.protocol === 'UCI' ? new UciParser() : new UcciParser()
+    this.parser =
+      config.protocol === 'UCI'
+        ? new UciParser(config.gameId === 'xiangqi' ? XIANGQI_UCI_MOVE_PATTERN : undefined)
+        : new UcciParser()
     this.assetBase = context.assetBase
     this.onProgress = context.onProgress
     this.onRuntimeFatal = context.onRuntimeFatal
@@ -141,6 +144,7 @@ export class WorkerEngineAdapter implements EngineAdapter {
         movetimeMs: effectiveMovetimeMs,
         multiPv: options.multiPv,
         maxDepth: options.maxDepth,
+        maxNodes: options.maxNodes,
       })
     })
   }

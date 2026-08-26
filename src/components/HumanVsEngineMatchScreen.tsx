@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { difficultyProfile } from '../engine/difficulty'
 import { normalizePositionEvaluation } from '../engine/evaluation'
 import { sideLabel } from '../engine/ucci'
+import { xiangqiDifficultyProfile } from '../games/xiangqi/strength-profile'
 import type { Move, Position } from '../game/types'
 import type { HumanEngineState, HumanMatchState } from '../hooks/useHumanVsEngine'
+import type { ActionEligibility } from '../games/xiangqi'
 import { ChessBoard } from './ChessBoard'
 import { ChevronLeftIcon, PauseIcon, PlayIcon, RefreshIcon } from './Icons'
 import { MoveHistory } from './MoveHistory'
 import { PositionEvaluation } from './PositionEvaluation'
 import { ResultModal } from './ResultModal'
+import { MatchNegotiationPanel, type NegotiationPending } from './MatchNegotiationPanel'
 
 interface HumanVsEngineMatchScreenProps {
   state: HumanMatchState
@@ -19,6 +21,13 @@ interface HumanVsEngineMatchScreenProps {
   onResume: () => void
   onNewGame: () => void
   onHome: () => void
+  negotiation: { pending: 'draw' | 'undo' | null; notice: string | null }
+  resignEligibility: ActionEligibility
+  drawEligibility: ActionEligibility
+  undoEligibility: ActionEligibility
+  onResign: () => void
+  onOfferDraw: () => void
+  onRequestUndo: () => void
 }
 
 export function HumanVsEngineMatchScreen({
@@ -30,6 +39,13 @@ export function HumanVsEngineMatchScreen({
   onResume,
   onNewGame,
   onHome,
+  negotiation,
+  resignEligibility,
+  drawEligibility,
+  undoEligibility,
+  onResign,
+  onOfferDraw,
+  onRequestUndo,
 }: HumanVsEngineMatchScreenProps) {
   const [selected, setSelected] = useState<Position | null>(null)
   const humanTurn = state.turn === state.config.humanColor && state.phase === 'running'
@@ -40,7 +56,7 @@ export function HumanVsEngineMatchScreen({
       : [],
     [legalMoves, selected],
   )
-  const difficulty = difficultyProfile(state.config.difficulty)
+  const difficulty = xiangqiDifficultyProfile(state.config.engineId, state.config.difficulty)
   const evaluation = normalizePositionEvaluation(
     state.liveInfo.score,
     state.liveInfo.wdl,
@@ -50,7 +66,7 @@ export function HumanVsEngineMatchScreen({
   useEffect(() => setSelected(null), [state.history.length, state.phase, state.turn])
 
   const clickSquare = (position: Position) => {
-    if (!humanTurn || state.thinking) return
+    if (!humanTurn || state.thinking || negotiation.pending) return
     const piece = state.board[position.row][position.col]
     if (selected && onMove(selected, position)) {
       setSelected(null)
@@ -68,6 +84,16 @@ export function HumanVsEngineMatchScreen({
         : state.checkColor
           ? `${sideLabel(state.checkColor)}被将军`
           : humanTurn ? '等待你行棋' : 'AI 准备行棋'
+  const pending: NegotiationPending | null = negotiation.pending
+    ? {
+        kind: negotiation.pending,
+        title: negotiation.pending === 'draw' ? 'AI 正在回应提和' : 'AI 正在执行礼让悔棋',
+        message: negotiation.pending === 'draw'
+          ? '当前引擎会按所选难度对局面执行一次不落子的单主变化搜索。'
+          : '正在重建控制器并重放保留棋谱。',
+        awaitingOpponent: false,
+      }
+    : null
 
   return (
     <div className="match-page human-match-page">
@@ -84,13 +110,13 @@ export function HumanVsEngineMatchScreen({
           <div><small>第 {Math.floor(state.history.length / 2) + 1} 回合</small><strong>{status}</strong></div>
         </div>
         <div className="header-actions">
-          <button className="icon-button" onClick={onNewGame} aria-label="开始新对局" title="新对局">
+          <button className="icon-button" onClick={onNewGame} disabled={Boolean(negotiation.pending)} aria-label="开始新对局" title="新对局">
             <RefreshIcon />
           </button>
           <button
             className="control-button"
             onClick={state.phase === 'paused' ? onResume : onPause}
-            disabled={state.phase === 'finished'}
+            disabled={state.phase === 'finished' || Boolean(negotiation.pending)}
           >
             {state.phase === 'paused' ? <PlayIcon /> : <PauseIcon />}
             {state.phase === 'paused' ? '继续' : '暂停'}
@@ -116,6 +142,7 @@ export function HumanVsEngineMatchScreen({
               <div><dt>深度</dt><dd>{state.liveInfo.depth || '—'}</dd></div>
               <div><dt>评价</dt><dd>{evaluation.label}</dd></div>
               <div><dt>本步</dt><dd>{formatSeconds(state.aiElapsedMs)} / {formatSeconds(state.aiBudgetMs)}</dd></div>
+              <div><dt>校准</dt><dd>{difficulty.calibrationStatus === 'validated' ? '已验证' : '暂定档位'}</dd></div>
               <div><dt>资源</dt><dd>{engineState.profile ? `${engineState.profile.threads} 线程 · ${engineState.profile.hashMb} MB Hash` : '—'}</dd></div>
             </dl>
           </section>
@@ -138,7 +165,7 @@ export function HumanVsEngineMatchScreen({
             lastMove={state.lastMove}
             checkColor={state.checkColor}
             paused={state.phase === 'paused'}
-            interactive={humanTurn && !state.thinking}
+            interactive={humanTurn && !state.thinking && !negotiation.pending}
             selected={selected}
             legalTargets={legalTargets}
             onSquareClick={clickSquare}
@@ -155,6 +182,16 @@ export function HumanVsEngineMatchScreen({
             <span>将死 · 困毙 · 三次重复 · 120 半回合无吃子</span>
             <small>AI 单步 {difficulty.minThinkMs / 1000}–{difficulty.maxThinkMs / 1000} 秒；真人不限时</small>
           </div>
+          <MatchNegotiationPanel
+            resign={resignEligibility}
+            draw={drawEligibility}
+            undo={undoEligibility}
+            pending={pending}
+            notice={negotiation.notice}
+            onResign={onResign}
+            onOfferDraw={onOfferDraw}
+            onRequestUndo={onRequestUndo}
+          />
         </aside>
       </main>
 

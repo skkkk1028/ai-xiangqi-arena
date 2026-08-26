@@ -2,8 +2,12 @@ import type { EngineScore, SearchInfo } from '../../game/types'
 
 /** Standard coordinate UCI, including q/r/b/n promotion suffixes. */
 export const UCI_MOVE_PATTERN = /^[a-h][1-8][a-h][1-8][qrbn]?$/
+/** UCI coordinate form used by Xiangqi engines such as Pikafish. */
+export const XIANGQI_UCI_MOVE_PATTERN = /^[a-i][0-9][a-i][0-9]$/
 
 export class UciParser {
+  constructor(private readonly movePattern: RegExp = UCI_MOVE_PATTERN) {}
+
   parseInfo(line: string, previous?: SearchInfo): SearchInfo | null {
     if (!line.startsWith('info ')) return null
     const next: SearchInfo = previous
@@ -33,7 +37,7 @@ export class UciParser {
         const loss = Number(tokens[++index])
         if ([win, draw, loss].every(Number.isFinite)) next.wdl = { win, draw, loss }
       } else if (token === 'pv') {
-        next.pv = tokens.slice(index + 1).filter((move) => UCI_MOVE_PATTERN.test(move))
+        next.pv = tokens.slice(index + 1).filter((move) => this.movePattern.test(move))
         break
       }
     }
@@ -44,7 +48,7 @@ export class UciParser {
     if (line === 'nobestmove') return null
     const match = /^bestmove(?:\s+(\S+))?/.exec(line)
     if (!match) return undefined
-    return match[1] && UCI_MOVE_PATTERN.test(match[1]) ? match[1] : null
+    return match[1] && this.movePattern.test(match[1]) ? match[1] : null
   }
 
   readMultiPvRank(line: string): number {

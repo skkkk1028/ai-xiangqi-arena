@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 
@@ -118,7 +118,7 @@ describe('观战界面', () => {
     vi.unstubAllGlobals()
   })
 
-  it('首页保留两个 AI 入口并新增独立真人入口', async () => {
+  it('首页保留两个 AI 入口并新增独立真人和同屏双人入口', async () => {
     vi.stubGlobal('Worker', MockWorker)
     vi.stubGlobal('crossOriginIsolated', true)
     const view = render(<App />)
@@ -126,6 +126,55 @@ describe('观战界面', () => {
     expect(await screen.findByText('AI 人格对战')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /AI 引擎对战/ })).toHaveTextContent('AI 引擎大战')
     expect(screen.getByRole('button', { name: '真人 vs AI' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: '同屏双人对战' })).toBeEnabled()
+    view.unmount()
+  })
+
+  it('同屏双人入口进入独立主题，双方确认后启动红方棋钟并可合法落子', async () => {
+    vi.stubGlobal('Worker', HumanModeWorker)
+    vi.stubGlobal('crossOriginIsolated', true)
+    const view = render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: '同屏双人对战' }))
+    expect((await screen.findAllByText('双方就绪，等待开始')).length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: '开始对局' })).toBeEnabled()
+    expect(screen.getByLabelText('红方剩余时间')).toHaveTextContent('20:00')
+    expect(screen.getByLabelText('黑方剩余时间')).toHaveTextContent('20:00')
+    expect(screen.getByText('对局协商')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '提和' })).toBeDisabled()
+    await waitFor(() => expect(screen.getByText(/红方视角 W\/D\/L/)).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: '开始对局' }))
+    fireEvent.click(screen.getByRole('button', { name: '红方兵 7行1列' }))
+    fireEvent.click(screen.getByRole('button', { name: '6行1列空位' }))
+    expect(await screen.findByText('兵九进一')).toBeInTheDocument()
+    expect(screen.getByText('1 步')).toBeInTheDocument()
+    await waitFor(() => expect(HumanModeWorker.searchMessages.at(-1)?.moves).toEqual(['a3a4']))
+    view.unmount()
+  })
+
+  it('同屏双人友谊悔棋经对手同意后撤销完整一回合', async () => {
+    vi.stubGlobal('Worker', MockWorker)
+    vi.stubGlobal('crossOriginIsolated', true)
+    const view = render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: '同屏双人对战' }))
+    fireEvent.click(await screen.findByRole('button', { name: '开始对局' }))
+    fireEvent.click(screen.getByRole('button', { name: '红方兵 7行1列' }))
+    fireEvent.click(screen.getByRole('button', { name: '6行1列空位' }))
+    fireEvent.click(screen.getByRole('button', { name: '黑方卒 4行1列' }))
+    fireEvent.click(screen.getByRole('button', { name: '5行1列空位' }))
+    expect(screen.getByText('2 步')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '悔棋' }))
+    const confirmation = screen.getByRole('dialog', { name: '申请友谊悔棋？' })
+    fireEvent.click(within(confirmation).getByRole('button', { name: '确认' }))
+    const opponentDialog = await screen.findByRole('dialog', { name: '对方申请友谊悔棋' })
+    fireEvent.click(within(opponentDialog).getByRole('button', { name: '同意' }))
+
+    await waitFor(() => expect(screen.getByText('0 步')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: '红方兵 7行1列' })).toBeInTheDocument()
+    expect(screen.getByText('本局礼让次数已使用')).toBeInTheDocument()
     view.unmount()
   })
 
@@ -240,6 +289,51 @@ describe('观战界面', () => {
       'fairy-stockfish-nnue',
       'fairy-stockfish-nnue',
     ])
+    expect(screen.queryByText('AI Worker 恢复失败。')).not.toBeInTheDocument()
+    view.unmount()
+  })
+
+  it('真人可在 AI 搜索期间认输并立即判 AI 获胜', async () => {
+    vi.stubGlobal('Worker', HumanModeWorker)
+    vi.stubGlobal('crossOriginIsolated', true)
+    const view = render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: '真人 vs AI' }))
+    fireEvent.click(screen.getByText('入门').closest('label')!)
+    fireEvent.click(screen.getByRole('button', { name: '开始人机对战' }))
+    await screen.findByText('真人玩家 · 红方')
+    fireEvent.click(screen.getByRole('button', { name: '红方兵 7行1列' }))
+    fireEvent.click(screen.getByRole('button', { name: '6行1列空位' }))
+    await waitFor(() => expect(screen.getAllByText('AI 正在计算…').length).toBeGreaterThan(0))
+
+    fireEvent.click(screen.getByRole('button', { name: '认输' }))
+    const confirmation = screen.getByRole('dialog', { name: '确认认输？' })
+    fireEvent.click(within(confirmation).getByRole('button', { name: '确认' }))
+    expect(await screen.findByRole('heading', { name: '黑方获胜' })).toBeInTheDocument()
+    expect(screen.getByText(/因“认输”结束/)).toBeInTheDocument()
+    view.unmount()
+  })
+
+  it('Pikafish 人机 Worker 异常后重建同一引擎并恢复到真人回合', async () => {
+    vi.stubGlobal('Worker', HumanModeWorker)
+    vi.stubGlobal('crossOriginIsolated', true)
+    HumanModeWorker.failNextSearch = true
+    const view = render(<App />)
+
+    await screen.findByRole('button', { name: '真人 vs AI' })
+    fireEvent.click(screen.getByRole('button', { name: '真人 vs AI' }))
+    fireEvent.change(screen.getByLabelText('Engine Registry'), { target: { value: 'pikafish-2026-nnue' } })
+    fireEvent.click(screen.getByLabelText('黑方 · 后手'))
+    fireEvent.click(screen.getByText('入门').closest('label')!)
+    fireEvent.click(screen.getByRole('button', { name: '开始人机对战' }))
+
+    await waitFor(() => expect(HumanModeWorker.initConfigs.filter((config) => config.id === 'pikafish-2026-nnue')).toHaveLength(2))
+    await waitFor(() => expect(screen.getAllByText('等待你行棋').length).toBeGreaterThan(0), { timeout: 4_000 })
+    expect(HumanModeWorker.initConfigs.slice(-2).map((config) => config.id)).toEqual([
+      'pikafish-2026-nnue',
+      'pikafish-2026-nnue',
+    ])
+    expect(screen.getByText('真人玩家 · 黑方')).toBeInTheDocument()
     expect(screen.queryByText('AI Worker 恢复失败。')).not.toBeInTheDocument()
     view.unmount()
   })

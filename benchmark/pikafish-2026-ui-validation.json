@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "startedAt": "2026-08-21T09:10:30.637Z",
+  "cdpUrl": "http://127.0.0.1:9222",
+  "pageUrl": "http://127.0.0.1:4173/#/games/xiangqi",
+  "checks": {
+    "homeReady": true,
+    "humanPickerHasPikafish2026": true,
+    "humanMatchPikafish2026": true,
+    "humanPause": true,
+    "humanResume": true,
+    "humanMoveAndPikafishReply": true,
+    "battlePickerHasPikafish2026": true,
+    "engineBattlePikafish2026": true,
+    "engineBattlePause": true,
+    "engineBattleResumeAndMove": true
+  },
+  "finishedAt": "2026-08-21T09:10:41.191Z",
+  "elapsedMs": 10554,
+  "pageClosed": true
+}

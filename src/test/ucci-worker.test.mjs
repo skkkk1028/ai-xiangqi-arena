@@ -49,6 +49,18 @@ describe('生产 UCCI Worker 搜索状态机', () => {
     expect(source.indexOf('const readyOk = waitFor')).toBeLessThan(source.indexOf("send('isready')"))
   })
 
+  it('校准搜索允许 MultiPV 1，并优先使用固定节点数', () => {
+    for (const name of ['fairy-stockfish.adapter.js', 'pikafish.adapter.js']) {
+      const source = readFileSync(resolve(process.cwd(), 'public/engine', name), 'utf8')
+      expect(source).toContain('Math.max(1, Math.min(4')
+      expect(source).toContain('message.maxNodes')
+      expect(source).toContain('go nodes ${Math.floor(nodeLimit)}')
+    }
+    const harness = createHarness()
+    harness.api.startSearch({ type: 'search', searchId: 99, moves: [], movetimeMs: 30_000, multiPv: 1, maxNodes: 50_000 })
+    expect(harness.commands.at(-1)).toBe('go nodes 50000')
+  })
+
   it('通用 Worker 按注册类型转发完整引擎生命周期', async () => {
     const calls = []
     const outbound = []

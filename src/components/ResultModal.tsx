@@ -13,6 +13,7 @@ const reasonLabels: Record<GameResult['reason'], string> = {
   stalemate: '困毙',
   timeout: '超时',
   resignation: '认输',
+  agreement: '双方同意作和',
   repetition: '三次重复',
   'no-capture': '自然限着',
   technical: '技术中止',

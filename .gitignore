@@ -14,6 +14,11 @@ benchmark-assets/chess/
 reports/chess-strength/
 reports/chess-arena-strength/
 .tmp-edge-stockfish18/
+.tmp-xiangqi-calibration-browser/
+benchmark/pikafish-browser-after-calibration.json
+benchmark/pikafish-browser-cloudflare.json
+benchmark/pikafish-browser-start-script-debug.json
+benchmark/pikafish-browser-start-script.json
 leelaz_opencl_tuning
 *.log
 reports/**/*.json

@@ -99,6 +99,30 @@ Threads 2 / Hash 128 MB，`crossOriginIsolated=true`，NNUE SHA 与发布网络�
 [`browser-validation-result.json`](./browser-validation-result.json)。这是一台设备的约 13 分钟
 耐久筛查，不等同于建议的 1000 搜索、多设备发布门槛。
 
+## Pikafish 中国象棋成对校准
+
+`pnpm benchmark:xiangqi:calibration` 驱动 `xiangqi-calibration.html`，在真实 Chromium
+Worker 中以固定 `go nodes` 预算运行 Pikafish 与 Fairy-Stockfish 的换色成对对局。每对局
+复用开局种子并交换红黑方；报告会明确区分技术失败、规则终局和单局半回合上限造成的和棋，
+并计算 Wilson 95% 区间与描述性 Elo。`--pairs 1` 或短 `--max-plies` 只验证运行链路，
+不构成棋力或等级分证据。
+
+正式等效判断预注册为 500 对（1000 局）、零技术失败且 Wilson 区间完全位于 40%–60%；
+未满足条件时 UI 保持“暂定档位”。示例结果（均为非商业本地浏览器运行）保存在：
+
+- [`xiangqi-calibration-natural-smoke.json`](./xiangqi-calibration-natural-smoke.json)：1 对、30k 节点，验证自然终局/规则和棋路径；
+- [`xiangqi-calibration-4pairs.json`](./xiangqi-calibration-4pairs.json)：4 对、30k 节点，验证换色批量管线。
+- [`pikafish-2026-calibration-20pairs.json`](./pikafish-2026-calibration-20pairs.json)：20 对、30k 节点、240 半回合上限，40/40 局完成且零技术失败；Pikafish 26 胜、14 和、0 负，描述性得分率 82.5%。
+- [`pikafish-2026-ui-validation.json`](./pikafish-2026-ui-validation.json)：真实 Chromium 页面回归，覆盖两个选择器、真人走子与 Pikafish 应答、双方模式的暂停/继续和引擎大战走子。
+
+上述浏览器样本均没有技术失败，但样本远未达到正式门槛，不能据此声称 Pikafish 与 Fairy-Stockfish
+棋力相等或给出可迁移的 Elo。
+
+20 对报告同样未达到门槛，且只测了一个固定节点预算。其 Wilson 区间按局级得分计算，成对
+对局内的相关性意味着它只能作描述性展示，不能替代以“对”为统计单位的正式推断。当前产品
+因此明确保留 Fairy-Stockfish、Pikafish 2025 和 Pikafish 2026 的节点阶梯为暂定档位，不从该
+报告调整任一档位，也不把报告中的描述性 Elo 作为产品值。
+
 ## 整局人格开/关 A/B 结果边界
 
 `pnpm benchmark:personality-selfplay` 已提供固定联合四半回合书谱、红黑换色、产品基线

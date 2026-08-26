@@ -53,6 +53,30 @@ Elo 相等。页面进入后才按需加载约 47.7 MB 的标准国际象棋 NNU
 - 三次重复与 120 半回合无吃子的产品简化和棋
 - 响应式桌面与移动端布局
 
+### 中国象棋引擎强度校准
+
+人机难度现在按所选中国象棋引擎维护独立的暂定档位。Pikafish 2026、Pikafish 2025
+和 Fairy-Stockfish 都通过固定节点预算、MultiPV 候选安全线和换色成对对局校准；
+校准页不会把短样本或浏览器性能差异包装成 Elo。浏览器预览启动后，可用下面的命令
+运行一次非商业本地校准：
+
+```powershell
+# 快速协议/对局烟雾检查
+pnpm benchmark:xiangqi:calibration:smoke
+
+# 正式流程入口；默认 20 对换色局，建议在目标设备上按需提高到 200/500 对
+pnpm benchmark:xiangqi:calibration -- --pairs 20 --nodes 100000 --max-plies 240
+```
+
+每对局使用相同开局种子并交换红黑方，报告技术失败、胜和负、Wilson 95% 区间和
+描述性 Elo。只有达到预注册的 500 对（1000 局）、零技术失败且区间完整落在
+40%–60% 实用等效带内，档位才可改标为“已验证”；当前仓库中的浏览器报告是运行链路
+证据，不是正式等级分结论。2026-08-21 的 20 对本地浏览器检查在相同 30k 节点下得到
+Pikafish 26 胜、14 和、0 负（描述性得分率 82.5%），因此不能把三个引擎的相同节点
+阶梯说成已匹配；它只支持继续保留“暂定档位”，而不是据 20 对或描述性 Elo 改写难度。
+Pikafish 及其 NNUE 网络的非商业使用边界见
+[`PIKAFISH_NNUE_LICENSE.md`](./PIKAFISH_NNUE_LICENSE.md)。
+
 > `Pikafish 2025 NNUE` 是同一引擎系列的独立固定核心配置，不是第三个引擎家族。官方 2026
 > 发布测试相对 2025-06-23 在三档时间控制下提升约 22–28 Elo，因此将 2025 版作为棋力接近、
 > 可审计且可在浏览器运行的新增选项；双方都保持满强度和相同资源/时间控制。
@@ -163,6 +187,11 @@ pnpm benchmark:personality-selfplay
 pnpm build
 pnpm build:sites
 ```
+
+完成本机构建、启动 `127.0.0.1:4173` 预览和带 CDP 的隔离 Chromium 后，可运行
+`pnpm verify:pikafish-ui`。它在真实页面中检查 Pikafish 2026 在真人 vs AI 与 AI 引擎大战
+选择器中均可选、可初始化、暂停/继续，且完成一段真人走子—AI 应答及一段引擎大战走子。
+这项 UI 回归不模拟网络错误；Worker 故障恢复和非法着法处理由单元测试覆盖。
 
 ## Personality candidate-selection self-play A/B
 

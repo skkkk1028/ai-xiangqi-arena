@@ -42,6 +42,7 @@ export type ResultReason =
   | 'stalemate'
   | 'timeout'
   | 'resignation'
+  | 'agreement'
   | 'repetition'
   | 'no-capture'
   | 'technical'
