@@ -1,6 +1,8 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
+import { moveToUcci } from '../engine/ucci'
+import { XiangqiGameEngine } from '../games/xiangqi'
 
 class MockWorker {
   static instances: MockWorker[] = []
@@ -107,6 +109,47 @@ class HumanModeWorker extends MockWorker {
   }
 }
 
+class BattleRecoveryWorker extends MockWorker {
+  static failNextSearch = true
+  static completedReplies = 0
+
+  override postMessage(message: {
+    type: string
+    searchId?: number
+    moves?: string[]
+    config?: { id: string; name: string; engineType: string; protocol: 'UCCI' | 'UCI' }
+  }) {
+    super.postMessage(message)
+    if (message.type !== 'search' || message.searchId === undefined) return
+    const searchId = message.searchId
+    if (BattleRecoveryWorker.failNextSearch) {
+      BattleRecoveryWorker.failNextSearch = false
+      queueMicrotask(() => {
+        this.onmessage?.({ data: { type: 'search-started', searchId } } as MessageEvent)
+        this.onmessage?.({ data: { type: 'fatal', message: '模拟引擎大战 Worker 崩溃' } } as MessageEvent)
+      })
+      return
+    }
+    if (BattleRecoveryWorker.completedReplies > 0) return
+    BattleRecoveryWorker.completedReplies += 1
+    const game = new XiangqiGameEngine()
+    let state = game.initializeGame()
+    for (const ucci of message.moves ?? []) {
+      const move = game.findLegalActionByUcci(state, ucci)
+      if (!move) throw new Error(`测试棋谱包含非法着法：${ucci}`)
+      state = game.executeAction(state, move)
+    }
+    const bestmove = moveToUcci(game.getLegalActions(state)[0])
+    queueMicrotask(() => {
+      this.onmessage?.({ data: { type: 'search-started', searchId } } as MessageEvent)
+      this.onmessage?.({
+        data: { type: 'line', searchId, line: `info depth 8 multipv 1 score cp 20 wdl 400 400 200 pv ${bestmove}` },
+      } as MessageEvent)
+      this.onmessage?.({ data: { type: 'line', searchId, line: `bestmove ${bestmove}` } } as MessageEvent)
+    })
+  }
+}
+
 describe('观战界面', () => {
   afterEach(() => {
     cleanup()
@@ -115,6 +158,8 @@ describe('观战界面', () => {
     HumanModeWorker.searchMessages = []
     HumanModeWorker.initConfigs = []
     HumanModeWorker.failNextSearch = false
+    BattleRecoveryWorker.failNextSearch = true
+    BattleRecoveryWorker.completedReplies = 0
     vi.unstubAllGlobals()
   })
 
@@ -359,6 +404,23 @@ describe('观战界面', () => {
       'pikafish-2026-nnue',
     ])
     expect(new Set(MockWorker.instances.slice(-2)).size).toBe(2)
+    view.unmount()
+  })
+
+  it('Pikafish 引擎大战 Worker 异常后只重建故障席位并继续走子', async () => {
+    vi.stubGlobal('Worker', BattleRecoveryWorker)
+    vi.stubGlobal('crossOriginIsolated', true)
+    const view = render(<App />)
+
+    fireEvent.click(await screen.findByRole('button', { name: /AI 引擎对战/ }))
+    fireEvent.change(screen.getByLabelText('红方 AI'), { target: { value: 'pikafish-2026-nnue' } })
+    fireEvent.change(screen.getByLabelText('黑方 AI'), { target: { value: 'fairy-stockfish-nnue' } })
+    fireEvent.click(screen.getByRole('button', { name: '开始引擎对战' }))
+
+    await waitFor(() => expect(screen.getByText('5 步')).toBeInTheDocument(), { timeout: 4_000 })
+    expect(MockWorker.initializedEngineIds.filter((id) => id === 'pikafish-2026-nnue')).toHaveLength(2)
+    expect(MockWorker.initializedEngineIds.filter((id) => id === 'fairy-stockfish-nnue')).toHaveLength(2)
+    expect(screen.queryByText('引擎恢复失败。')).not.toBeInTheDocument()
     view.unmount()
   })
 

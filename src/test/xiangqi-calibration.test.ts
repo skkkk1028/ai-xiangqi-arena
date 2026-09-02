@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   createCalibrationSchedule,
+  determineRoundRobinLeaders,
+  empiricalBernsteinConfidenceSequence,
+  pairCalibrationResults,
   summarizeCalibration,
   wilsonInterval,
   XIANGQI_CALIBRATION_TARGETS,
@@ -50,5 +53,41 @@ describe('中国象棋强度校准统计', () => {
       'b',
     )
     expect(shortDrawReport.practicallyEquivalent).toBe(false)
+  })
+
+  it('以换色对为统计单位，并把失效尝试整对替换', () => {
+    const results = [
+      { pairIndex: 0, pairId: 'attempt-1', gameIndex: 0, openingSeed: 1, redEngineId: 'a', blackEngineId: 'b', outcome: 'technical' as const, plies: 10, termination: 'technical' as const },
+      { pairIndex: 0, pairId: 'attempt-1', gameIndex: 1, openingSeed: 1, redEngineId: 'b', blackEngineId: 'a', outcome: 'black-win' as const, plies: 50 },
+      { pairIndex: 0, pairId: 'attempt-2', gameIndex: 0, openingSeed: 2, redEngineId: 'a', blackEngineId: 'b', outcome: 'draw' as const, plies: 90 },
+      { pairIndex: 0, pairId: 'attempt-2', gameIndex: 1, openingSeed: 2, redEngineId: 'b', blackEngineId: 'a', outcome: 'draw' as const, plies: 92 },
+    ]
+    const pairs = pairCalibrationResults(results, 'a')
+    expect(pairs.map((pair) => pair.valid)).toEqual([false, true])
+    const summary = summarizeCalibration(results, 'a', 'b')
+    expect(summary).toMatchObject({ pairs: 1, invalidPairs: 0, technicalFailures: 0, recoveredTechnicalFailures: 1 })
+  })
+
+  it('时间一致经验 Bernstein 序列可认证 500 个完全对称换色对', () => {
+    const confidence = empiricalBernsteinConfidenceSequence(Array.from({ length: 500 }, () => 0.5), 0.95, 3)
+    expect(confidence.eloInterval[0]).not.toBeNull()
+    expect(confidence.eloInterval[1]).not.toBeNull()
+    expect(confidence.eloInterval[0] as number).toBeGreaterThanOrEqual(-30)
+    expect(confidence.eloInterval[1] as number).toBeLessThanOrEqual(30)
+  })
+
+  it('区分唯一领先者与统计共同领先者', () => {
+    const strong = (engineId: string, opponentId: string) => ({
+      ...summarizeCalibration([], engineId, opponentId),
+      eloInterval95: [10, 80] as const,
+    })
+    const unique = determineRoundRobinLeaders(['a', 'b', 'c'], [strong('a', 'b'), strong('a', 'c'), strong('b', 'c')])
+    expect(unique.uniqueLeader).toBe('a')
+    const tied = determineRoundRobinLeaders(['a', 'b', 'c'], [
+      { ...strong('a', 'b'), eloInterval95: [-20, 20] as const },
+      { ...strong('a', 'c'), eloInterval95: [-20, 20] as const },
+      { ...strong('b', 'c'), eloInterval95: [-20, 20] as const },
+    ])
+    expect(tied).toMatchObject({ uniqueLeader: null, leaders: ['a', 'b', 'c'] })
   })
 })

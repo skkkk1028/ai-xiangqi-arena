@@ -1,5 +1,6 @@
 import type { EngineSearchResponse, SearchCandidate } from '../game/types'
 import type { AIEngineConfig } from './types'
+import type { MultiPvCount } from './search-policy'
 
 export type DifficultyLevel = 1 | 2 | 3 | 4 | 5
 
@@ -12,7 +13,7 @@ export interface DifficultyProfile {
   hashMb: number
   threads: number
   maxDepth?: number
-  multiPv: 2 | 3 | 4
+  multiPv: MultiPvCount
   alternativeChance: number
   candidateCount: number
   /** Optional deterministic node budget used by the Xiangqi calibration profile. */
@@ -20,7 +21,7 @@ export interface DifficultyProfile {
   /** Maximum acceptable centipawn loss when selecting a deliberate alternative. */
   maxCentipawnLoss?: number
   /** Human-facing evidence state; uncalibrated profiles must not be presented as Elo. */
-  calibrationStatus?: 'provisional' | 'validated'
+  calibrationStatus?: 'provisional' | 'validated' | 'unmatched'
 }
 
 export interface EngineDifficultySettings {
@@ -28,7 +29,7 @@ export interface EngineDifficultySettings {
   hash: number
   maxDepth?: number
   maxNodes?: number
-  multiPv: 2 | 3 | 4
+  multiPv: MultiPvCount
 }
 
 export const DIFFICULTY_PROFILES: Readonly<Record<DifficultyLevel, Readonly<DifficultyProfile>>> =

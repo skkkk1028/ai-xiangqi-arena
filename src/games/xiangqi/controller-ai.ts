@@ -23,11 +23,12 @@ import type { AIEngine, AIThinkRequest, AIThinkResult } from '../core'
 import type { XiangqiGameState, XiangqiRecordEntry } from './game-engine'
 import {
   selectXiangqiDifficultyMove,
+  xiangqiCalibratedResource,
   xiangqiDifficultyProfile,
+  xiangqiResourceProfileId,
+  type XiangqiResourceProfileId,
 } from './strength-profile'
 
-const SEARCH_MIN_MS = 12_000
-const SEARCH_RANGE_MS = 6_001
 const CLOCK_SAFETY_MS = 500
 const TURN_TIME_MS = 60_000
 const OPENING_DELAY_MS = 250
@@ -147,6 +148,8 @@ abstract class ManagedXiangqiAI
 
 export interface AIMatchTurnContext {
   mode: 'fairy-duel' | 'engine-battle'
+  engineId: string
+  resourceProfile: XiangqiResourceProfileId
   seed: number
   openingMoves: readonly string[]
   clocks: ClockState
@@ -194,7 +197,13 @@ export class AIMatchControllerAI extends ManagedXiangqiAI {
 
     const remainingTotal = context.clocks[request.player]
     const remainingTurn = TURN_TIME_MS - context.clocks.turn
-    const preferred = SEARCH_MIN_MS + (context.seed % SEARCH_RANGE_MS)
+    const calibrated = xiangqiCalibratedResource(
+      context.engineId,
+      'battle-full',
+      context.resourceProfile,
+    )
+    const searchRange = Math.max(1, calibrated.maxThinkMs - calibrated.minThinkMs + 1)
+    const preferred = calibrated.minThinkMs + (context.seed % searchRange)
     const lowTimeBudget =
       remainingTotal < 45_000
         ? Math.min(5_000, remainingTotal - CLOCK_SAFETY_MS)
@@ -206,17 +215,20 @@ export class AIMatchControllerAI extends ManagedXiangqiAI {
         lowTimeBudget,
         remainingTotal - CLOCK_SAFETY_MS,
         remainingTurn - CLOCK_SAFETY_MS,
+        calibrated.latencyLimitMs,
       ),
     )
-    const multiPv = selectSearchMultiPv({
-      board: request.state.board,
-      color: request.player,
-      historyLength: request.record.length,
-      threads: context.profile?.threads ?? 1,
-      hashMb: context.profile?.hashMb ?? 64,
-      remainingTimeMs: remainingTotal,
-      turnBudgetMs: budget,
-    }).multiPv
+    const multiPv = calibrated.multiPv === 'dynamic'
+      ? selectSearchMultiPv({
+          board: request.state.board,
+          color: request.player,
+          historyLength: request.record.length,
+          threads: context.profile?.threads ?? 1,
+          hashMb: context.profile?.hashMb ?? 64,
+          remainingTimeMs: remainingTotal,
+          turnBudgetMs: budget,
+        }).multiPv
+      : calibrated.multiPv
     const response = await adapter.search(
       request.record.map((record) => record.ucci),
       budget,
@@ -275,8 +287,12 @@ export interface HumanMatchControllerAIOptions extends ManagedAILifecycle {
 export function resolveHumanThinkPlan(context: HumanMatchTurnContext) {
   const engineConfig = engineRegistry.getEngine('xiangqi', context.engineId)
   if (!engineConfig) throw new Error('选择了未注册的 AI 引擎。')
-  const profile = xiangqiDifficultyProfile(context.engineId, context.difficulty)
   const support = detectEngineSupport()
+  const resourceProfile = xiangqiResourceProfileId({
+    threads: support.threads,
+    hashMb: support.hashMb,
+  })
+  const profile = xiangqiDifficultyProfile(context.engineId, context.difficulty, resourceProfile)
   const mapped = mapDifficultyToEngine(profile, engineConfig, {
     threads: support.threads,
     hashMb: support.hashMb,

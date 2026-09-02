@@ -22,6 +22,8 @@ benchmark/pikafish-browser-start-script.json
 leelaz_opencl_tuning
 *.log
 reports/**/*.json
+benchmark/xiangqi-calibration-quick-smoke/
+benchmark/xiangqi-calibration-v2-smoke-matrix/
 *.tsbuildinfo
 .DS_Store
 .openai/hosting.json

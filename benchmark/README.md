@@ -101,27 +101,26 @@ Threads 2 / Hash 128 MB，`crossOriginIsolated=true`，NNUE SHA 与发布网络�
 
 ## Pikafish 中国象棋成对校准
 
-`pnpm benchmark:xiangqi:calibration` 驱动 `xiangqi-calibration.html`，在真实 Chromium
-Worker 中以固定 `go nodes` 预算运行 Pikafish 与 Fairy-Stockfish 的换色成对对局。每对局
-复用开局种子并交换红黑方；报告会明确区分技术失败、规则终局和单局半回合上限造成的和棋，
-并计算 Wilson 95% 区间与描述性 Elo。`--pairs 1` 或短 `--max-plies` 只验证运行链路，
-不构成棋力或等级分证据。
+当前 v2 流程以换色对为统计单位，支持三引擎、六场景和 constrained/desktop 两种资源画像；
+完整运行、调参与正式认证命令见 [`XIANGQI_CALIBRATION.md`](./XIANGQI_CALIBRATION.md)。正式认证
+要求独立冻结语料上的 500 个有效换色对、完整 95% Elo 区间位于 `[-30,+30]`、零未恢复技术
+失败/超时/半回合上限，并通过 P95 延迟门槛。基线、调参、quick 和 smoke 均不得发布为
+`validated`，也不等同于人类 Elo。
 
-正式等效判断预注册为 500 对（1000 局）、零技术失败且 Wilson 区间完全位于 40%–60%；
-未满足条件时 UI 保持“暂定档位”。示例结果（均为非商业本地浏览器运行）保存在：
+以下文件是 v2 之前的历史短样本（均为非商业本地浏览器运行）：
 
 - [`xiangqi-calibration-natural-smoke.json`](./xiangqi-calibration-natural-smoke.json)：1 对、30k 节点，验证自然终局/规则和棋路径；
 - [`xiangqi-calibration-4pairs.json`](./xiangqi-calibration-4pairs.json)：4 对、30k 节点，验证换色批量管线。
 - [`pikafish-2026-calibration-20pairs.json`](./pikafish-2026-calibration-20pairs.json)：20 对、30k 节点、240 半回合上限，40/40 局完成且零技术失败；Pikafish 26 胜、14 和、0 负，描述性得分率 82.5%。
 - [`pikafish-2026-ui-validation.json`](./pikafish-2026-ui-validation.json)：真实 Chromium 页面回归，覆盖两个选择器、真人走子与 Pikafish 应答、双方模式的暂停/继续和引擎大战走子。
 
-上述浏览器样本均没有技术失败，但样本远未达到正式门槛，不能据此声称 Pikafish 与 Fairy-Stockfish
-棋力相等或给出可迁移的 Elo。
+上述浏览器样本均没有技术失败，但统计方法、语料和样本量不满足当前正式门槛，不能据此声称
+Pikafish 与 Fairy-Stockfish 棋力相等、确认 Pikafish 2026 最强，或给出可迁移的 Elo。
 
-20 对报告同样未达到门槛，且只测了一个固定节点预算。其 Wilson 区间按局级得分计算，成对
-对局内的相关性意味着它只能作描述性展示，不能替代以“对”为统计单位的正式推断。当前产品
-因此明确保留 Fairy-Stockfish、Pikafish 2025 和 Pikafish 2026 的节点阶梯为暂定档位，不从该
-报告调整任一档位，也不把报告中的描述性 Elo 作为产品值。
+20 对报告只测了一个固定节点预算，其 Wilson 区间按局级得分计算；成对对局内的相关性意味着
+它只能作描述性展示，不能替代当前以“对”为统计单位的推断。2026-08-28 的 v2 matrix/quick
+smoke 也只有每个任务 1 个换色对，结论为 `insufficient-evidence`/`smoke-reference`。当前产品
+因此保留三个引擎的暂定档位，生成配置不包含任何 quick 覆盖。
 
 ## 整局人格开/关 A/B 结果边界
 

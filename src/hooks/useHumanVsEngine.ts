@@ -34,7 +34,11 @@ import {
   type XiangqiTurnAnalysis,
   type ActionEligibility,
 } from '../games/xiangqi'
-import { xiangqiDifficultyProfile } from '../games/xiangqi/strength-profile'
+import {
+  xiangqiDifficultyProfile,
+  xiangqiResourceProfileId,
+  type XiangqiResourceProfileId,
+} from '../games/xiangqi/strength-profile'
 
 export type HumanColorChoice = Color | 'random'
 export type HumanModeView = 'inactive' | 'configuration' | 'match'
@@ -44,6 +48,7 @@ export interface HumanGameConfig {
   aiColor: Color
   engineId: string
   difficulty: DifficultyLevel
+  resourceProfile: XiangqiResourceProfileId
 }
 
 export interface HumanMatchState {
@@ -182,7 +187,11 @@ export function useHumanVsEngine() {
       })
       throw new Error(support.reason ?? '当前浏览器不支持专业引擎。')
     }
-    const mapped = mapDifficultyToEngine(xiangqiDifficultyProfile(engineId, difficulty), config, {
+    const resourceProfile = xiangqiResourceProfileId({
+      threads: support.threads,
+      hashMb: support.hashMb,
+    })
+    const mapped = mapDifficultyToEngine(xiangqiDifficultyProfile(engineId, difficulty, resourceProfile), config, {
       threads: support.threads,
       hashMb: support.hashMb,
     })
@@ -292,12 +301,14 @@ export function useHumanVsEngine() {
     clientRef.current = null
     const engine = engineRegistry.getEngine('xiangqi', engineId)
     if (!engine) throw new Error('选择了未注册的 AI 引擎。')
+    const support = detectEngineSupport()
     const humanColor = resolveHumanColor(choice)
     const config: HumanGameConfig = {
       humanColor,
       aiColor: opposite(humanColor),
       engineId,
       difficulty,
+      resourceProfile: xiangqiResourceProfileId(support),
     }
     await initializeEngine(engineId, difficulty)
     const controller = createController(config)
@@ -331,9 +342,10 @@ export function useHumanVsEngine() {
     try {
       const client = await initializeEngine(current.config.engineId, current.config.difficulty, true)
       client.newGame()
-      const latest = stateRef.current
-      if (latest && viewRef.current === 'match' && !latest.result) {
-        setState({ ...latest, phase: 'running', thinking: false })
+      if (viewRef.current === 'match') {
+        setState((latest) => latest && !latest.result
+          ? { ...latest, phase: 'running', thinking: false }
+          : latest)
       }
     } catch (error) {
       const latest = stateRef.current

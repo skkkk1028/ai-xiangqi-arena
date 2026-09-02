@@ -56,7 +56,11 @@ export function HumanVsEngineMatchScreen({
       : [],
     [legalMoves, selected],
   )
-  const difficulty = xiangqiDifficultyProfile(state.config.engineId, state.config.difficulty)
+  const difficulty = xiangqiDifficultyProfile(
+    state.config.engineId,
+    state.config.difficulty,
+    state.config.resourceProfile,
+  )
   const evaluation = normalizePositionEvaluation(
     state.liveInfo.score,
     state.liveInfo.wdl,
@@ -142,7 +146,11 @@ export function HumanVsEngineMatchScreen({
               <div><dt>深度</dt><dd>{state.liveInfo.depth || '—'}</dd></div>
               <div><dt>评价</dt><dd>{evaluation.label}</dd></div>
               <div><dt>本步</dt><dd>{formatSeconds(state.aiElapsedMs)} / {formatSeconds(state.aiBudgetMs)}</dd></div>
-              <div><dt>校准</dt><dd>{difficulty.calibrationStatus === 'validated' ? '已验证' : '暂定档位'}</dd></div>
+              <div><dt>校准</dt><dd>{difficulty.calibrationStatus === 'validated'
+                ? '已验证'
+                : difficulty.calibrationStatus === 'unmatched'
+                  ? '未完全拉齐'
+                  : '暂定档位'}</dd></div>
               <div><dt>资源</dt><dd>{engineState.profile ? `${engineState.profile.threads} 线程 · ${engineState.profile.hashMb} MB Hash` : '—'}</dd></div>
             </dl>
           </section>

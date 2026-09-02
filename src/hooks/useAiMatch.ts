@@ -34,6 +34,7 @@ import {
   type XiangqiRecordEntry,
   type XiangqiTurnAnalysis,
 } from '../games/xiangqi'
+import { xiangqiResourceProfileId } from '../games/xiangqi/strength-profile'
 
 export type MatchMode = 'fairy-duel' | 'engine-battle'
 export type AppView = 'home' | 'engine-selection' | 'match'
@@ -311,9 +312,10 @@ export function useAiMatch() {
           previous?.dispose()
           await initializeSlot(color, engineIdsRef.current[color])
         }
-        const latest = stateRef.current
-        if (viewRef.current === 'match' && latest.phase === 'paused' && !latest.result) {
-          setState({ ...latest, phase: 'running' })
+        if (viewRef.current === 'match') {
+          setState((latest) => latest.phase === 'paused' && !latest.result
+            ? { ...latest, phase: 'running' }
+            : latest)
         }
       } catch (error) {
         const latest = stateRef.current
@@ -352,6 +354,11 @@ export function useAiMatch() {
         const current = stateRef.current
         return {
           mode: current.mode,
+          engineId: current.players[player].engineId,
+          resourceProfile: xiangqiResourceProfileId({
+            threads: engineStatesRef.current[player].profile?.threads ?? 1,
+            hashMb: engineStatesRef.current[player].profile?.hashMb ?? 64,
+          }),
           seed: current.seed,
           openingMoves: current.opening.moves,
           clocks: current.clocks,

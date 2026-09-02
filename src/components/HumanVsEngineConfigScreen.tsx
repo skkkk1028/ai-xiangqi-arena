@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { DIFFICULTY_PROFILES, type DifficultyLevel } from '../engine/difficulty'
+import { detectEngineSupport } from '../engine/support'
 import type { AIEngineConfig } from '../engine/types'
-import { xiangqiDifficultyProfile } from '../games/xiangqi/strength-profile'
+import { xiangqiDifficultyProfile, xiangqiResourceProfileId } from '../games/xiangqi/strength-profile'
 import type { HumanColorChoice, HumanEngineState } from '../hooks/useHumanVsEngine'
 import { ChevronLeftIcon, PlayIcon } from './Icons'
 
@@ -24,8 +25,10 @@ export function HumanVsEngineConfigScreen({
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const selectedEngine = engines.find((engine) => engine.id === engineId)
+  const support = detectEngineSupport()
+  const resourceProfile = xiangqiResourceProfileId(support)
   const selectedDifficulty = selectedEngine
-    ? xiangqiDifficultyProfile(selectedEngine.id, difficulty)
+    ? xiangqiDifficultyProfile(selectedEngine.id, difficulty, resourceProfile)
     : DIFFICULTY_PROFILES[difficulty]
 
   const start = async () => {
@@ -101,7 +104,7 @@ export function HumanVsEngineConfigScreen({
           <div className="difficulty-options">
             {(Object.values(DIFFICULTY_PROFILES)).map((profile) => {
               const engineProfile = selectedEngine
-                ? xiangqiDifficultyProfile(selectedEngine.id, profile.level)
+                ? xiangqiDifficultyProfile(selectedEngine.id, profile.level, resourceProfile)
                 : profile
               return (
                 <label key={profile.level} className={difficulty === profile.level ? 'is-selected' : ''}>
@@ -121,7 +124,11 @@ export function HumanVsEngineConfigScreen({
             })}
           </div>
           <p className="difficulty-summary">
-            {selectedDifficulty.description} · {selectedDifficulty.calibrationStatus === 'validated' ? '已校准' : '暂定校准档位'}
+            {selectedDifficulty.description} · {selectedDifficulty.calibrationStatus === 'validated'
+              ? '已校准'
+              : selectedDifficulty.calibrationStatus === 'unmatched'
+                ? '当前设备下未与最强引擎完全拉齐'
+                : '暂定校准档位'}
           </p>
         </fieldset>
       </section>
