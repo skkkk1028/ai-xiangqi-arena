@@ -9,6 +9,7 @@ export function createStockfishBridgeServer({ engine, threads, hashMb, timeoutMs
     try {
       const url = new URL(request.url ?? '/', 'http://bridge.local')
       if (url.pathname === '/health/live') return json(response, 200, { live: true })
+      if (url.pathname.startsWith('/api/')) assertLocalRequest(request)
       if (request.method === 'GET' && url.pathname === '/api/chess/stockfish/capabilities') {
         await engine.start()
         return json(response, 200, { ready: true, ...engine.capabilities, runtimeBackend: 'native-stockfish-18', threads, hashMb, timeoutMs })
@@ -47,7 +48,8 @@ function validateInput(value) {
 }
 
 function boundedInt(value, min, max, fallback) { const n = Number(value); return Number.isInteger(n) && n >= min && n <= max ? n : fallback }
-function protocolError(code, message) { const error = new Error(message); error.code = code; error.status = 400; return error }
+function protocolError(code, message, status = 400) { const error = new Error(message); error.code = code; error.status = status; return error }
+function assertLocalRequest(request) { const host = String(request.headers.host ?? '').split(':')[0].toLowerCase(); if ((host !== '127.0.0.1' && host !== 'localhost') || request.headers['sec-fetch-site'] === 'cross-site') throw protocolError('LOCAL_REQUEST_REQUIRED', '本机引擎只接受本地站点请求。', 403) }
 function readJsonBody(request, maxBytes) { return new Promise((resolve, reject) => { let size = 0; const chunks = []; request.on('data', (chunk) => { size += chunk.length; if (size > maxBytes) reject(protocolError('BODY_TOO_LARGE', '请求体过大。')); else chunks.push(chunk) }); request.on('end', () => { try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))) } catch { reject(protocolError('INVALID_JSON', '请求体不是有效 JSON。')) } }); request.on('error', reject) }) }
 function json(response, status, value) { response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }); response.end(JSON.stringify(value)) }
 

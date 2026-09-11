@@ -2,6 +2,23 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createChessArenaServer } from '../src/server.mjs'
 
+test('rejects cross-site browser access to the local engine', async (context) => {
+  let created = false
+  const server = createChessArenaServer({
+    availableEngines: [{ id: 'stockfish-18' }],
+    createSession() { created = true; return {} },
+  })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  context.after(() => new Promise((resolve) => server.close(resolve)))
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/chess/arena/sessions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Sec-Fetch-Site': 'cross-site' },
+    body: JSON.stringify({ engineId: 'stockfish-18' }),
+  })
+  assert.equal(response.status, 403)
+  assert.equal(created, false)
+})
+
 function fakeSession(engine, threads, hashMb) {
   const token = `${engine.id}-${Math.random().toString(36).slice(2)}`
   return { token, closed: false, async start() { return { token, engineId: engine.id, engineVersion: engine.name, commit: engine.commit, binarySha256: 'abc', networkSha256: null, threads, hashMb } }, async analyze(input) { return { bestmove: 'e2e4', info: { depth: 10, nodes: 1000, nps: 10000, elapsedMs: 100, score: { kind: 'cp', value: 20 }, wdl: null, pv: ['e2e4'] }, candidates: [], input } }, cancel() {}, async close() { this.closed = true } }

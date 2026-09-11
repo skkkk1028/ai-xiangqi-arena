@@ -2,6 +2,19 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createStockfishBridgeServer } from '../src/server.mjs'
 
+test('rejects cross-site browser access to the local engine', async (context) => {
+  let started = false
+  const engine = { capabilities: {}, async start() { started = true } }
+  const server = createStockfishBridgeServer({ engine, threads: 1, hashMb: 64, timeoutMs: 45_000 })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  context.after(() => new Promise((resolve) => server.close(resolve)))
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/chess/stockfish/capabilities`, {
+    headers: { 'Sec-Fetch-Site': 'cross-site' },
+  })
+  assert.equal(response.status, 403)
+  assert.equal(started, false)
+})
+
 test('reports verified capabilities and returns an analyzed move', async (context) => {
   let starts = 0
   const engine = {

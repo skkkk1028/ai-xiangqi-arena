@@ -1,4 +1,5 @@
 import { createServer } from 'node:http'
+import { timingSafeEqual } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { KataGoProcess } from './katago-process.mjs'
 import {
@@ -20,7 +21,7 @@ import {
 export function createKataGoBridgeServer(options) {
   const engine = options.engine
   const sessionSecret = requireSecret(options.sessionSecret, 'KATAGO_SESSION_SECRET')
-  const proxySecret = options.proxySecret ?? ''
+  const proxySecret = requireSecret(options.proxySecret, 'KATAGO_PROXY_SECRET')
   const allowedOrigins = new Set(options.allowedOrigins ?? [])
   const secureCookies = options.secureCookies ?? true
   const limiter = options.limiter ?? new AnalysisLimiter(options.limits)
@@ -191,13 +192,20 @@ async function handleAnalyze({ request, response, engine, session, limiter, acti
 }
 
 function assertProxy(request, proxySecret, allowedOrigins) {
-  if (proxySecret && request.headers['x-katago-proxy-secret'] !== proxySecret) {
+  if (!matchesSecret(request.headers['x-katago-proxy-secret'], proxySecret)) {
     throw httpError(403, 'PROXY_REQUIRED', '请求必须通过受信任的同源代理。')
   }
   const origin = request.headers.origin
   if (origin && allowedOrigins.size > 0 && !allowedOrigins.has(origin)) {
     throw httpError(403, 'ORIGIN_DENIED', '请求来源不在允许列表中。')
   }
+}
+
+function matchesSecret(value, expected) {
+  if (typeof value !== 'string') return false
+  const actualBuffer = Buffer.from(value)
+  const expectedBuffer = Buffer.from(expected)
+  return actualBuffer.length === expectedBuffer.length && timingSafeEqual(actualBuffer, expectedBuffer)
 }
 
 function readJsonBody(request, maxBytes) {

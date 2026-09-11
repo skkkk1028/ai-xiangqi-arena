@@ -2,6 +2,19 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createLeelaZeroBridgeServer } from '../src/server.mjs'
 
+test('rejects cross-site browser access to the local engine', async (context) => {
+  let started = false
+  const engine = { ready: false, capabilities: {}, async start() { started = true } }
+  const server = createLeelaZeroBridgeServer({ engine })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  context.after(() => new Promise((resolve) => server.close(resolve)))
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/go/leela-zero/capabilities`, {
+    headers: { 'Sec-Fetch-Site': 'cross-site' },
+  })
+  assert.equal(response.status, 403)
+  assert.equal(started, false)
+})
+
 test('reports capabilities and returns a generated move', async (context) => {
   const engine = {
     ready: true,

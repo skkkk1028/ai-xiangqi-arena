@@ -10,6 +10,7 @@ export function createSayuriBridgeServer({ engine, playouts = MATCH_SETTINGS.pla
       const url = new URL(request.url ?? '/', 'http://bridge.local')
       if (url.pathname === '/health/live') return json(response, 200, { live: true })
       if (url.pathname === '/health/ready') return json(response, 200, { ready: Boolean(engine.ready) })
+      if (url.pathname.startsWith('/api/')) assertLocalRequest(request)
       if (request.method === 'GET' && url.pathname === '/api/go/sayuri/capabilities') {
         if (!engine.ready) await engine.start()
         return json(response, 200, {
@@ -88,6 +89,13 @@ function json(response, status, value) {
     'X-Content-Type-Options': 'nosniff',
   })
   response.end(JSON.stringify(value))
+}
+
+function assertLocalRequest(request) {
+  const host = String(request.headers.host ?? '').split(':')[0].toLowerCase()
+  if ((host !== '127.0.0.1' && host !== 'localhost') || request.headers['sec-fetch-site'] === 'cross-site') {
+    throw new ProtocolError('LOCAL_REQUEST_REQUIRED', '本机引擎只接受本地站点请求。', 403)
+  }
 }
 
 async function startMain() {

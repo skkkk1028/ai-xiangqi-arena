@@ -2,6 +2,19 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { createSayuriBridgeServer } from '../src/server.mjs'
 
+test('rejects cross-site browser access to the local engine', async (context) => {
+  let started = false
+  const engine = { ready: false, capabilities: {}, async start() { started = true } }
+  const server = createSayuriBridgeServer({ engine })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  context.after(() => new Promise((resolve) => server.close(resolve)))
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/api/go/sayuri/capabilities`, {
+    headers: { 'Sec-Fetch-Site': 'cross-site' },
+  })
+  assert.equal(response.status, 403)
+  assert.equal(started, false)
+})
+
 test('starts lazily, reports actual configuration, and returns a move', async (context) => {
   let starts = 0
   const engine = {

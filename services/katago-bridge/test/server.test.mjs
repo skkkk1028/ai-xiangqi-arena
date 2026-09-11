@@ -6,6 +6,18 @@ import { KATAGO_RULES, SEARCH_PROFILES } from '../src/protocol.mjs'
 const PROXY_SECRET = 'proxy-secret-that-is-long-enough-for-test'
 const SESSION_SECRET = 'session-secret-that-is-long-enough-for-test'
 
+test('refuses to start without strong proxy and session secrets', () => {
+  const engine = new FakeEngine()
+  assert.throws(
+    () => createKataGoBridgeServer({ engine, sessionSecret: SESSION_SECRET }),
+    /KATAGO_PROXY_SECRET must contain at least 32 characters/,
+  )
+  assert.throws(
+    () => createKataGoBridgeServer({ engine, proxySecret: PROXY_SECRET, sessionSecret: 'short' }),
+    /KATAGO_SESSION_SECRET must contain at least 32 characters/,
+  )
+})
+
 test('issues an HttpOnly session and streams partial plus final analysis', async (context) => {
   const engine = new FakeEngine()
   const server = createKataGoBridgeServer({

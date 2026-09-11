@@ -14,6 +14,7 @@ export function createChessArenaServer({ createSession, availableEngines, maxSes
     try {
       const url = new URL(request.url ?? '/', 'http://arena.local')
       if (request.method === 'GET' && url.pathname === '/health/live') return json(response, 200, { live: true })
+      if (url.pathname.startsWith('/api/')) assertLocalRequest(request)
       if (request.method === 'GET' && url.pathname === '/api/chess/arena/capabilities') return json(response, 200, { ready: true, runtimeBackend: 'native-chess-arena', maxSessions, engines: availableEngines })
       if (request.method === 'POST' && url.pathname === '/api/chess/arena/sessions') {
         if (sessions.size >= maxSessions) throw protocolError(429, 'SESSION_LIMIT', '本局已经建立两个引擎席位。')
@@ -40,6 +41,7 @@ export function createChessArenaServer({ createSession, availableEngines, maxSes
 
 function validateSearch(value) { if (!value || typeof value !== 'object') throw protocolError(400, 'INVALID_BODY', '请求体无效。'); const moves = Array.isArray(value.moves) ? value.moves : []; if (moves.length > 400 || moves.some((move) => !/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(move))) throw protocolError(400, 'INVALID_MOVES', 'UCI 着法列表无效。'); const chess = new Chess(); for (const uci of moves) { let move = null; try { move = chess.move({ from: uci.slice(0,2), to: uci.slice(2,4), ...(uci[4] ? { promotion: uci[4] } : {}) }) } catch { move = null }; if (!move) throw protocolError(400, 'ILLEGAL_MOVE', `非法历史着法：${uci}`) }; const clock = value.clock && typeof value.clock === 'object' ? { wtimeMs: boundedInt(value.clock.wtimeMs, 0, 86400000, 0), btimeMs: boundedInt(value.clock.btimeMs, 0, 86400000, 0), wincMs: boundedInt(value.clock.wincMs, 0, 600000, 0), bincMs: boundedInt(value.clock.bincMs, 0, 600000, 0) } : undefined; return { moves, movetimeMs: clock ? Math.max(clock.wtimeMs, clock.btimeMs, 50) : boundedInt(value.movetimeMs, 50, 120000, 10000), ...(clock ? { clock } : {}), ...(value.maxDepth ? { maxDepth: boundedInt(value.maxDepth, 1, 128, 128) } : {}) } }
 function boundedInt(value, min, max, fallback) { const n = Number(value); return Number.isInteger(n) && n >= min && n <= max ? n : fallback }
+function assertLocalRequest(request) { const host = String(request.headers.host ?? '').split(':')[0].toLowerCase(); if ((host !== '127.0.0.1' && host !== 'localhost') || request.headers['sec-fetch-site'] === 'cross-site') throw protocolError(403, 'LOCAL_REQUEST_REQUIRED', '本机引擎只接受本地站点请求。') }
 function readJson(request) { return new Promise((resolve, reject) => { let size = 0; const chunks = []; request.on('data', (chunk) => { size += chunk.length; if (size > 262144) reject(protocolError(413, 'BODY_TOO_LARGE', '请求体过大。')); else chunks.push(chunk) }); request.on('end', () => { try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))) } catch { reject(protocolError(400, 'INVALID_JSON', '请求体不是有效 JSON。')) } }); request.on('error', reject) }) }
 function json(response, status, value) { response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }); response.end(JSON.stringify(value)) }
 
