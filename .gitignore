@@ -22,6 +22,7 @@ benchmark/pikafish-browser-start-script.json
 leelaz_opencl_tuning
 *.log
 reports/**/*.json
+reports/**/*.jsonl
 benchmark/xiangqi-calibration-quick-smoke/
 benchmark/xiangqi-calibration-v2-smoke-matrix/
 *.tsbuildinfo
@@ -40,3 +41,7 @@ public/engine/stockfish-18*.js
 public/engine/stockfish-18*.wasm
 public/engine/stockfish-18*.wasm.part-*
 public/engine/STOCKFISH-18-GPL-3.0.txt
+
+# Large generated experiment artifacts (never publish these to git)
+benchmark/personality-selfplay-result.json
+bun.lock
