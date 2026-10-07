@@ -4,6 +4,7 @@ import { GAME_ROUTES } from '../routes'
 import { ChessBoard } from './ChessBoard'
 import { ChessMatchInfoPanel } from './ChessMatchInfoPanel'
 import { CHESS_ARENA_PROFILES, arenaEngineLabel, useChessMatch } from './useChessMatch'
+import { ChessLibraryActions } from './ChessLibraryActions'
 import type { ChessArenaBudgetId, ChessArenaEngineId, ChessColor, ChessGameState } from './types'
 import './chess.css'
 
@@ -47,6 +48,7 @@ export function ChessHumanPage() {
         <div className="chess-brand"><span>♙</span><div><strong>PROJECT10 · HUMAN MATCH</strong><small>HUMAN VS ENGINE</small></div></div>
         <div className={`chess-runtime chess-runtime--${match.runState}`}><i /><span>{match.runState.toUpperCase()}</span><b>{arenaEngineLabel(match.humanEngine)} · {match.profile.label}</b></div>
       </header>
+      <ChessLibraryActions mode="human" id={match.libraryId} state={match.state} players={match.archivePlayers} status={match.saveStatus} pause={match.pause} saveNow={match.saveNow} />
       <section className="chess-arena" aria-labelledby="human-title">
         <div className="chess-stage">
           <div className="chess-heading"><div><p>FIDE 标准规则 · 真人执一方 · 现有三种 AI 引擎</p><h1 id="human-title">人机对战</h1></div><div className="chess-phase"><span>{status}</span><strong>{String(match.state.history.length).padStart(2, '0')} PLY</strong></div></div>
@@ -56,7 +58,7 @@ export function ChessHumanPage() {
             <HumanSeat color={match.humanColor === 'w' ? 'b' : 'w'} name={arenaEngineLabel(match.humanEngine)} active={!humanTurn && busy} />
           </div>
           <ChessBoard state={match.state} interactive={boardInteractive} humanColor={match.humanColor} disabled={!boardInteractive} onMove={match.playHumanMove} />
-          <p className="human-board-hint">{boardInteractive ? '点击你的棋子，再点击目标格完成落子；升变默认选择后（Queen）。' : match.state.result ? '本局已结束。' : '点击“开始对战”后，轮到你时即可在棋盘上落子。'}</p>
+          <p className="human-board-hint">{boardInteractive ? '点击你的棋子，再点击目标格完成落子；升变时选择后、车、象或马。' : match.state.result ? '本局已结束。' : '点击“开始对战”后，轮到你时即可在棋盘上落子。'}</p>
           <ChessMatchInfoPanel state={match.state} analyses={match.analyses} liveInfo={match.liveInfo} />
         </div>
         <aside className="chess-console" aria-label="人机对战工作台">

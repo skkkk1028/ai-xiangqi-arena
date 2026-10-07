@@ -1,0 +1,34 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>围棋练习本 IndexedDB 验证</title><h1>练习本真实存储验证</h1><p>只创建和清理本次测试条目，不清空练习本。</p><button id="run">运行验证</button><pre id="output">尚未执行</pre><script type="module">
+import { goNotebook as db, createNotebookEntry, exportNotebook, parseNotebook, notebookKey } from '/src/games/go/notebook.ts'
+import { createGoArchive } from '/src/games/go/sgf.ts'
+import { studyGame } from '/src/games/go/study-analysis.ts'
+const output = document.querySelector('#output')
+document.querySelector('#run').onclick = async () => {
+ const ids = new Set(), lines = []
+ const assert = (ok, label) => { if (!ok) throw new Error(label); lines.push('PASS '+label); output.textContent=lines.join('\n') }
+ try {
+  const old = await db.list(), keys = new Set(old.map(notebookKey))
+  const drafts = [0,1,2,3,4,5].map(col=>({archive:createGoArchive(studyGame.applyMove(studyGame.init(),{row:3,col})), source:{kind:'practice',label:'临时真实存储测试'}})).filter(d=>!keys.has(notebookKey(d)))
+  if(drafts.length<2) throw new Error('可用测试局面已有收藏；请使用独立测试站点。')
+  const entry=createNotebookEntry(drafts[0], '临时练习本验证', '原备注', '待理解')
+  const results=await Promise.all([db.save(entry),db.save({...entry,id:crypto.randomUUID(),note:'不应覆盖'})])
+  ids.add(results[0].id)
+  assert(results[0].id===results[1].id,'并发保存同快照仅一条')
+  await db.update({...entry,note:'修改后的备注',category:'已掌握'})
+  const saved=await db.get(entry.id)
+  assert(saved.note==='修改后的备注' && saved.category==='已掌握','修改备注与分类后读回一致')
+  const imported=await db.import(exportNotebook([entry]))
+  assert(imported.skipped===1 && (await db.get(entry.id)).note==='修改后的备注','重复导入不覆盖备注')
+  const second=createNotebookEntry(drafts[1], '临时导入验证')
+  let rejected=false
+  try { await db.import(JSON.stringify({format:'project10-go-notebook',version:1,entries:[second,{...second,archive:{...second.archive,moves:['B:A20']} }]})) } catch { rejected=true }
+  assert(rejected && !(await db.list()).some(e=>notebookKey(e)===notebookKey(second)), '混入非法条目整批拒绝')
+  const bundle=exportNotebook([second]);assert(parseNotebook(bundle)[0].archive.moves.join()===second.archive.moves.join(),'JSON 文件内容往返')
+  assert((await db.import(bundle)).added===1,'合法 JSON 事务导入')
+  const actual=(await db.list()).find(e=>notebookKey(e)===notebookKey(second));ids.add(actual.id)
+  await db.remove(actual.id);ids.delete(actual.id)
+  assert(!await db.get(actual.id),'删除后不可读取')
+ } catch(error) { lines.push('FAIL '+error);output.textContent=lines.join('\n') }
+ finally { for(const id of ids) await db.remove(id); lines.push('本次临时记录已清理');output.textContent=lines.join('\n') }
+}
+</script></html>

@@ -1,0 +1,8 @@
+.chess-guess { margin: 16px 0; padding: 16px; border: 1px solid #baa587; border-radius: 12px; background: #fff9ed; color: #352b20; }
+.chess-guess label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.chess-guess p { margin: 10px 0; line-height: 1.6; }
+.chess-guess button { margin: 4px 8px 4px 0; padding: 8px 12px; border: 1px solid #9d886a; border-radius: 6px; background: white; color: inherit; cursor: pointer; }
+.chess-guess button:disabled { opacity: .5; cursor: default; }
+.chess-guess button:focus-visible, .chess-guess input:focus-visible { outline: 2px solid #087f76; outline-offset: 3px; }
+.chess-guess__stats { font-size: 13px; }
+.chess-square.chess-square--guess { outline: 3px dashed #087f76; outline-offset: -4px; }

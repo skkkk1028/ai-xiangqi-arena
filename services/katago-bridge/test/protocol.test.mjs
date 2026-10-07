@@ -25,6 +25,13 @@ const VALID_REQUEST = {
   moves: [['B', 'D4'], ['W', 'pass']],
 }
 
+test('preserves both passes and resumed moves in native analysis history', () => {
+  const moves = [['B', 'D16'], ['W', 'pass'], ['B', 'pass'], ['W', 'Q4']]
+  const query = buildKataGoQuery(validateAnalyzeRequest({ ...VALID_REQUEST, moves }))
+  assert.deepEqual(query.moves, moves)
+  assert.deepEqual(query.rules, KATAGO_RULES)
+})
+
 test('validates and clamps browser requests to fixed KataGo rules and profiles', () => {
   const input = validateAnalyzeRequest(VALID_REQUEST)
   const query = buildKataGoQuery(input)

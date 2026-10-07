@@ -1,0 +1,11 @@
+.guess-panel { margin: 16px 0; padding: 18px; border: 1px solid #b6a38655; border-radius: 14px; background: #fff9ec; color: #30271f; }
+.guess-panel-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.guess-panel h2 { font-size: 19px; margin: 0 0 10px; }
+.guess-panel-heading span { color: #876d54; font-size: 12px; }
+.guess-panel p { line-height: 1.65; margin: 8px 0; }
+.guess-panel button { padding: 9px 14px; margin: 5px 8px 5px 0; border-radius: 7px; border: 1px solid #9e8065; background: #fff; color: #35271c; cursor: pointer; }
+.guess-panel button:disabled { opacity: .45; cursor: default; }
+.guess-toggle { display: inline-flex; align-items: center; gap: 7px; margin: 8px 0; color: #594532; font-size: 14px; }
+.guess-toggle input { accent-color: #9e8065; }
+.guess-summary { font-size: 13px; line-height: 1.7; }
+.guess-review-result { margin-top: 12px; padding-top: 10px; border-top: 1px solid #b6a38655; font-size: 13px; }

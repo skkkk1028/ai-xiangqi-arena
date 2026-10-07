@@ -21,6 +21,7 @@ export class ChessArenaNativeAdapter implements EngineAdapter {
   private session: ArenaSession | null = null
   private fallback: WorkerEngineAdapter | null = null
   private abort: AbortController | null = null
+  private closed = false
 
   constructor(
     config: Readonly<AIEngineConfig>,
@@ -29,9 +30,11 @@ export class ChessArenaNativeAdapter implements EngineAdapter {
   ) { this.config = config }
 
   async init(): Promise<EngineProfile> {
+    if (this.closed) throw new DOMException('引擎已关闭。', 'AbortError')
     this.context.onProgress({ phase: 'checking', loaded: 0, total: 1, message: `检查 ${this.config.name} 竞技场桥接` })
     try {
       this.session = await this.createNativeSession()
+      if (this.closed) { await this.releaseSession(); throw new DOMException('引擎已关闭。', 'AbortError') }
       this.context.onProgress({ phase: 'ready', loaded: 1, total: 1, message: `${this.config.name} 独立原生会话已就绪` })
       return {
         id: this.config.id, engineType: this.config.engineType, protocol: 'UCI',
@@ -41,6 +44,7 @@ export class ChessArenaNativeAdapter implements EngineAdapter {
         threads: this.session.threads, hashMb: this.session.hashMb,
       }
     } catch (error) {
+      if (this.closed) throw new DOMException('引擎已关闭。', 'AbortError')
       if (this.engineId === 'obsidian-16') {
         throw new Error(`Obsidian 16 需要本地竞技场桥接：${error instanceof Error ? error.message : String(error)}`)
       }
@@ -87,6 +91,7 @@ export class ChessArenaNativeAdapter implements EngineAdapter {
     if (session) await fetch(`/api/chess/arena/sessions/${encodeURIComponent(session.token)}`, { method: 'DELETE', keepalive: true }).catch(() => undefined)
   }
   dispose(): void {
+    this.closed = true
     this.stop('引擎已关闭。')
     void this.releaseSession()
     this.fallback?.dispose()

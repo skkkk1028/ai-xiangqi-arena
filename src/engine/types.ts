@@ -74,6 +74,8 @@ export interface EngineProgress {
 
 export interface EngineSearchOptions {
   multiPv: MultiPvCount
+  /** Chess studies may begin from a validated custom FEN. */
+  initialFen?: string
   /** Optional human-mode limit. Existing AI modes deliberately leave this unset. */
   maxDepth?: number
   /** Optional deterministic calibration limit. When present, the Worker issues `go nodes`. */

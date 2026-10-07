@@ -6,6 +6,8 @@ interface WinRateChartProps {
   points: readonly GoWinRatePoint[]
   status: GoWinRateAnalysisStatus
   error: string | null
+  selectedMove?: number
+  onSelectMove?: (moveNumber: number) => void
 }
 
 const WIDTH = 620
@@ -14,11 +16,12 @@ const PLOT = { left: 46, right: 18, top: 16, bottom: 32 }
 const PLOT_WIDTH = WIDTH - PLOT.left - PLOT.right
 const PLOT_HEIGHT = HEIGHT - PLOT.top - PLOT.bottom
 
-export function WinRateChart({ points, status, error }: WinRateChartProps) {
+export function WinRateChart({ points, status, error, selectedMove, onSelectMove }: WinRateChartProps) {
   const [hoveredMove, setHoveredMove] = useState<number | null>(null)
-  const current = points.at(-1) ?? null
+  const latest = points.at(-1) ?? null
+  const current = points.find((point) => point.moveNumber === selectedMove) ?? latest
   const hovered = points.find((point) => point.moveNumber === hoveredMove) ?? null
-  const maxMove = Math.max(1, current?.moveNumber ?? 1)
+  const maxMove = Math.max(1, latest?.moveNumber ?? 1)
   const blackPath = useMemo(() => curvePath(points, maxMove, (point) => point.blackWinRate), [maxMove, points])
   const whitePath = useMemo(() => curvePath(points, maxMove, (point) => point.whiteWinRate), [maxMove, points])
 
@@ -84,13 +87,19 @@ export function WinRateChart({ points, status, error }: WinRateChartProps) {
                       width={Math.min(targetWidth, WIDTH - PLOT.right - Math.max(PLOT.left, x - targetWidth / 2))}
                       height={PLOT_HEIGHT}
                       tabIndex={0}
+                      role={onSelectMove ? 'button' : undefined}
+                      aria-pressed={onSelectMove ? selectedMove === point.moveNumber : undefined}
+                      onClick={() => onSelectMove?.(point.moveNumber)}
+                      onKeyDown={(event) => {
+                        if (onSelectMove && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); onSelectMove(point.moveNumber) }
+                      }}
                       aria-label={`第 ${point.moveNumber} 手，黑方 ${percent(point.blackWinRate)}，白方 ${percent(point.whiteWinRate)}`}
                       onMouseEnter={() => setHoveredMove(point.moveNumber)}
                       onMouseLeave={() => setHoveredMove(null)}
                       onFocus={() => setHoveredMove(point.moveNumber)}
                       onBlur={() => setHoveredMove(null)}
                     />
-                    {hovered?.moveNumber === point.moveNumber && (
+                    {(hovered?.moveNumber === point.moveNumber || selectedMove === point.moveNumber) && (
                       <line className="go-winrate-chart__cursor" x1={x} x2={x} y1={PLOT.top} y2={HEIGHT - PLOT.bottom} />
                     )}
                     {index === points.length - 1 && <circle className="go-winrate-chart__pulse" cx={x} cy={yPosition(point.blackWinRate)} r="7" />}
@@ -114,7 +123,7 @@ export function WinRateChart({ points, status, error }: WinRateChartProps) {
       <footer className="go-winrate-panel__footer">
         <span><i className="go-winrate-legend go-winrate-legend--black" />黑方</span>
         <span><i className="go-winrate-legend go-winrate-legend--white" />白方</span>
-        <small>KataGo · {GO_WIN_RATE_ANALYSIS.requestedVisits} visits · 中国规则</small>
+        <small>KataGo · {current?.requestedVisits ?? GO_WIN_RATE_ANALYSIS.requestedVisits} visits · 中国规则</small>
       </footer>
       {error && <p className="go-winrate-panel__error">{error}</p>}
     </section>

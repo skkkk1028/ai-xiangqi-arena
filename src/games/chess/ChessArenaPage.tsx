@@ -1,3 +1,6 @@
+import { ChessStudyActions } from './ChessStudyActions'
+import { ChessStudyPage } from './ChessStudyPage'
+import type { ChessStudyEntry } from './ChessTemporaryStudy'
 import { useMemo, useState } from 'react'
 import { BoardWorkbenchTabs, type WorkbenchPanel } from '../core'
 import { GAME_ROUTES } from '../routes'
@@ -6,6 +9,7 @@ import { ChessMatchInfoPanel } from './ChessMatchInfoPanel'
 import { createChessArchive, exportChessArenaPgn } from './archive'
 import { serializeMatchArchive } from '../core/archive'
 import { CHESS_ARENA_PROFILES, arenaEngineLabel, useChessMatch } from './useChessMatch'
+import { ChessLibraryActions } from './ChessLibraryActions'
 import type { ChessArenaBudgetId, ChessArenaEngineId, ChessColor, ChessGameState, ChessTurnAnalysis } from './types'
 import './chess.css'
 
@@ -18,6 +22,7 @@ const ENGINES: readonly { id: ChessArenaEngineId; description: string; availabil
 ]
 
 export function ChessArenaPage() {
+  const [study, setStudy] = useState<ChessStudyEntry | null>(null)
   const match = useChessMatch({ mode: 'arena' })
   const [panel, setPanel] = useState<ArenaPanel>('setup')
   const busy = ['loading', 'running', 'thinking'].includes(match.runState)
@@ -30,6 +35,7 @@ export function ChessArenaPage() {
     { id: 'runtime', label: '运行时', eyebrow: 'UCI', content: <ArenaRuntime match={match} /> },
   ], [locked, match])
 
+  if (study) return <ChessStudyPage entry={study} onClose={() => setStudy(null)} />
   return (
     <main className="chess-page chess-arena-page">
       <div className="chess-page__ambient chess-page__ambient--one" aria-hidden="true" />
@@ -38,6 +44,7 @@ export function ChessArenaPage() {
         <div className="chess-brand"><span>♛</span><div><strong>PROJECT10 · ENGINE ARENA</strong><small>INDEPENDENT UCI MATCH</small></div></div>
         <div className={`chess-runtime chess-runtime--${match.runState}`}><i /><span>{match.runState.toUpperCase()}</span><b>同资源 · MultiPV 1 · PV1</b></div>
       </header>
+      <ChessLibraryActions mode="arena" id={match.libraryId} state={match.state} players={match.archivePlayers} status={match.saveStatus} pause={match.pause} saveNow={match.saveNow} />
       <section className="chess-arena" aria-labelledby="arena-title">
         <div className="chess-stage">
           <div className="chess-heading"><div><p>FIDE 标准规则 · 双独立会话 · 中立选招</p><h1 id="arena-title">多引擎对战竞技场</h1></div><div className="chess-phase"><span>{status}</span><strong>{String(match.state.history.length).padStart(2, '0')} PLY</strong></div></div>
@@ -47,6 +54,7 @@ export function ChessArenaPage() {
             <EngineBadge color="b" id={match.arenaEngines.b} active={busy && match.state.turn === 'b'} />
           </div>
           <ChessBoard state={match.state} />
+          <ChessStudyActions match={match} onOpen={setStudy} />
           <ChessMatchInfoPanel state={match.state} analyses={match.analyses} liveInfo={match.liveInfo} />
         </div>
         <aside className="chess-console" aria-label="多引擎竞技场工作台">

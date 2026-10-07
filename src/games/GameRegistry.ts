@@ -61,7 +61,7 @@ export class GameRegistry {
   }
 
   getGameByRoute(route: string): RegisteredGame | undefined {
-    return [...this.games.values()].find((game) => game.route === route || game.childRoutes?.includes(route))
+    return [...this.games.values()].find((game) => game.route === route || game.childRoutes?.some((child) => child === route || child === '#/games/chess/study' && route.startsWith(`${child}/`)))
   }
 
   listGames(): readonly RegisteredGame[] {

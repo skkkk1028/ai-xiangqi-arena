@@ -25,6 +25,11 @@ reports/**/*.json
 reports/**/*.jsonl
 benchmark/xiangqi-calibration-quick-smoke/
 benchmark/xiangqi-calibration-v2-smoke-matrix/
+# Local short-sample Xiangqi runs; keep only separately reviewed evidence notes.
+benchmark/xiangqi-balance-*/*.json
+benchmark/xiangqi-balance-*/*.jsonl
+benchmark/xiangqi-calibration-minimal-*/*.json
+benchmark/xiangqi-calibration-minimal-*/*.jsonl
 *.tsbuildinfo
 .DS_Store
 .openai/hosting.json

@@ -40,7 +40,7 @@ export class StockfishProcess {
     this.capabilities = { engineVersion: name, binarySha256 }
   }
 
-  async analyze({ moves, movetimeMs, multiPv = 1, maxDepth }, signal) {
+  async analyze({ moves, initialFen, movetimeMs, multiPv = 1, maxDepth }, signal) {
     await this.start()
     if (this.searching) throw new Error('Stockfish is busy.')
     this.searching = true
@@ -48,7 +48,7 @@ export class StockfishProcess {
     signal?.addEventListener('abort', abort, { once: true })
     try {
       this.send(`setoption name MultiPV value ${multiPv}`)
-      this.send(`position startpos${moves.length ? ` moves ${moves.join(' ')}` : ''}`)
+      this.send(`position ${initialFen ? `fen ${initialFen}` : 'startpos'}${moves.length ? ` moves ${moves.join(' ')}` : ''}`)
       const started = Date.now()
       this.send(`go movetime ${movetimeMs}${maxDepth ? ` depth ${maxDepth}` : ''}`)
       const lines = await this.collectUntil((line) => line.startsWith('bestmove '), Math.max(this.timeoutMs, movetimeMs + 10_000))

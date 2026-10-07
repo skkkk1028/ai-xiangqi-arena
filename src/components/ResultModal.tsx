@@ -6,6 +6,8 @@ interface ResultModalProps {
   plies: number
   onNewGame: () => void
   onHome: () => void
+  onReview?: () => void
+  interactionSummary?: string
 }
 
 const reasonLabels: Record<GameResult['reason'], string> = {
@@ -19,7 +21,7 @@ const reasonLabels: Record<GameResult['reason'], string> = {
   technical: '技术中止',
 }
 
-export function ResultModal({ result, plies, onNewGame, onHome }: ResultModalProps) {
+export function ResultModal({ result, plies, onNewGame, onHome, onReview, interactionSummary }: ResultModalProps) {
   const isDraw = !result.winner
   const winnerName = result.winner === 'red' ? '红方' : '黑方'
 
@@ -36,11 +38,13 @@ export function ResultModal({ result, plies, onNewGame, onHome }: ResultModalPro
           因“{reasonLabels[result.reason]}”结束。
         </p>
         {result.detail && <p className="result-detail">{result.detail}</p>}
+        {interactionSummary && <p className="result-detail">{interactionSummary}</p>}
         <div className="result-rule">
           <span>终局裁定</span>
           <strong>{reasonLabels[result.reason]}</strong>
         </div>
         <div className="modal-actions">
+          {onReview && <button className="primary-action" onClick={onReview}>复盘与再挑战</button>}
           <button className="primary-action" onClick={onNewGame}>
             <RefreshIcon />
             再弈一局

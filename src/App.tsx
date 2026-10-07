@@ -1,7 +1,12 @@
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { MoveRecord, Position } from './game/types'
+import { formatMove } from './game/notation'
+import { XiangqiReviewScreen } from './components/XiangqiReviewScreen'
 import { ChessBoard } from './components/ChessBoard'
 import { EngineSelectionScreen } from './components/EngineSelectionScreen'
 import { HumanVsEngineConfigScreen } from './components/HumanVsEngineConfigScreen'
 import { HumanVsEngineMatchScreen } from './components/HumanVsEngineMatchScreen'
+import { GuessNextMove } from './components/GuessNextMove'
 import { LocalXiangqiMatchScreen } from './components/LocalXiangqiMatchScreen'
 import {
   ChevronLeftIcon,
@@ -15,15 +20,33 @@ import { PlayerCard } from './components/PlayerCard'
 import { PositionEvaluation } from './components/PositionEvaluation'
 import { ResultModal } from './components/ResultModal'
 import { StartScreen } from './components/StartScreen'
-import { sideLabel } from './engine/ucci'
+import { moveToUcci, sideLabel } from './engine/ucci'
 import { AI_PERSONALITIES } from './engine/personality'
 import { useAiMatch } from './hooks/useAiMatch'
 import { useHumanVsEngine } from './hooks/useHumanVsEngine'
 import { useLocalXiangqiMatch } from './hooks/useLocalXiangqiMatch'
 import { serializeMatchArchive } from './games/core'
 import { createXiangqiArchive } from './games/xiangqi'
+import { XiangqiGameEngine, type XiangqiGameState } from './games/xiangqi/game-engine'
+
+import { NotebookPage } from './games/xiangqi/NotebookPage'
+import { SearchComparison } from './components/SearchComparison'
+import { OpeningPracticePage } from './games/xiangqi/OpeningPracticePage'
+import { NotebookSave } from './games/xiangqi/NotebookSave'
+import type { NotebookReference } from './games/xiangqi/notebook'
+
+const guessGame = new XiangqiGameEngine()
 
 function App() {
+  const [review, setReview] = useState<{ history: readonly MoveRecord[]; engineId?: string; initialIndex?: number; entry?: 'practice'; reference?: NotebookReference } | null>(null)
+  const [notebookOpen, setNotebookOpen] = useState(false)
+  const [openingBookOpen, setOpeningBookOpen] = useState(false)
+  const [openingPractice, setOpeningPractice] = useState(false)
+  const [practiceError, setPracticeError] = useState<string | null>(null)
+  const openingPracticeRef = useRef(false)
+  const mountedRef = useRef(true)
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false } }, [])
+  const [guessSelected, setGuessSelected] = useState<Position | null>(null)
   const humanMatch = useHumanVsEngine()
   const localMatch = useLocalXiangqiMatch()
   const {
@@ -39,12 +62,49 @@ function App() {
     closeEngineSelection,
     startEngineBattle,
     pause,
+    suspendForPractice,
     resume,
     newGame,
     returnHome,
     releaseEngines,
     retryEngine,
+    guess,
+    toggleGuess,
+    selectGuess,
+    submitGuess,
+    nextGuess,
   } = useAiMatch()
+  const guessLegalMoves = useMemo(() => guess.phase === 'choosing' && guess.round ? [...guessGame.getLegalActions(guess.round.before)] : [], [guess.phase, guess.round])
+  const guessLegalTargets = useMemo(() => guessSelected ? guessLegalMoves.filter((move) => move.from.row === guessSelected.row && move.from.col === guessSelected.col).map((move) => move.to) : [], [guessLegalMoves, guessSelected])
+  useLayoutEffect(() => { setGuessSelected(null) }, [guess.phase, guess.round?.before])
+  const onGuessSquareClick = (position: Position) => {
+    if (guess.phase !== 'choosing' || !guess.round) return
+    const piece = guess.round.before.board[position.row][position.col]
+    if (guessSelected) {
+      const move = guessLegalMoves.find((candidate) => candidate.from.row === guessSelected.row && candidate.from.col === guessSelected.col && candidate.to.row === position.row && candidate.to.col === position.col)
+      if (move) { selectGuess(move); setGuessSelected(null); return }
+    }
+    setGuessSelected(piece?.color === guess.round.before.turn ? position : null)
+  }
+
+  const openPractice = async (before?: XiangqiGameState, reference?: NotebookReference) => {
+    if (openingPracticeRef.current) return
+    openingPracticeRef.current = true
+    setOpeningPractice(true)
+    setPracticeError(null)
+    try {
+      const stable = await suspendForPractice()
+      if (!mountedRef.current) return
+      const position = before ?? stable
+      const history = position.history.map((move) => ({ ...move, score: null, wdl: null, depth: 0 }))
+      setReview({ history, initialIndex: history.length, entry: 'practice', reference })
+    } catch (error) {
+      if (mountedRef.current) setPracticeError(error instanceof Error ? error.message : '暂时无法进入练习。')
+    } finally {
+      openingPracticeRef.current = false
+      if (mountedRef.current) setOpeningPractice(false)
+    }
+  }
 
   const openHumanBattle = () => {
     releaseEngines()
@@ -66,8 +126,16 @@ function App() {
     void retryEngine().catch(() => undefined)
   }
 
+  if (review) return <XiangqiReviewScreen history={review.history} engineId={review.engineId} initialIndex={review.initialIndex} entry={review.entry} reference={review.reference} onClose={() => setReview(null)} />
+
+  if (notebookOpen) return <NotebookPage onClose={() => { setNotebookOpen(false); void retryEngine().catch(() => undefined) }} />
+  if (openingBookOpen) return <OpeningPracticePage onClose={() => { setOpeningBookOpen(false); void retryEngine().catch(() => undefined) }} />
+
   if (localMatch.view === 'match') {
-    return <LocalXiangqiMatchScreen match={localMatch} onHome={closeLocalBattle} />
+    return <LocalXiangqiMatchScreen match={localMatch} onHome={closeLocalBattle} onReview={() => {
+      localMatch.pause()
+      setReview({ history: [...localMatch.state.history] })
+    }} />
   }
 
   if (humanMatch.view === 'configuration') {
@@ -99,6 +167,10 @@ function App() {
         onResign={humanMatch.resign}
         onOfferDraw={humanMatch.offerDraw}
         onRequestUndo={humanMatch.requestUndo}
+        onReview={() => {
+          humanMatch.pause()
+          setReview({ history: [...humanMatch.state!.history], engineId: humanMatch.state!.config.engineId })
+        }}
       />
     )
   }
@@ -110,8 +182,12 @@ function App() {
         onEngineBattle={openEngineSelection}
         onHumanBattle={openHumanBattle}
         onLocalBattle={openLocalBattle}
+        onNotebook={() => { releaseEngines(); setNotebookOpen(true) }}
+        onOpeningPractice={() => { releaseEngines(); setOpeningBookOpen(true) }}
         engine={engineState}
         onRetry={() => void retryEngine()}
+        guessEnabled={guess.phase !== 'off'}
+        onGuessChange={toggleGuess}
       />
     )
   }
@@ -123,11 +199,14 @@ function App() {
         engineStates={engineStates}
         onBack={closeEngineSelection}
         onStart={startEngineBattle}
+        guessEnabled={guess.phase !== 'off'}
+        onGuessChange={toggleGuess}
       />
     )
   }
 
   const fullRound = Math.floor(state.history.length / 2) + 1
+  const concealGuess = guess.phase === 'choosing' || guess.phase === 'searching'
   const statusText =
     state.phase === 'paused'
       ? '对局暂停'
@@ -156,6 +235,10 @@ function App() {
           </div>
         </div>
         <div className="header-actions">
+          <button className="header-archive-button" disabled={state.history.length === 0} onClick={() => {
+            toggleGuess(false)
+            setReview({ history: [...state.history] })
+          }}>复盘与再挑战</button>
           <button
             className="header-archive-button"
             type="button"
@@ -204,14 +287,14 @@ function App() {
             turnElapsedMs={state.turn === 'red' ? state.clocks.turn : 0}
             active={state.turn === 'red' && state.phase === 'running'}
             thinking={state.turn === 'red' && state.thinking}
-            info={state.liveInfoSide === 'red' ? state.liveInfo : null}
+            info={!concealGuess && state.liveInfoSide === 'red' ? state.liveInfo : null}
             personality={state.mode === 'fairy-duel' ? AI_PERSONALITIES.red : undefined}
             engineName={state.players.red.name}
             protocol={state.players.red.protocol}
             skillLevel={state.players.red.skillLevel}
             styleDescription={state.players.red.styleDescription}
             openingName={state.opening.name}
-            openingBranch={state.opening.redName}
+            openingBranch={concealGuess ? '竞猜中' : state.opening.redName}
           />
           <div className="side-quote engine-build">
             <span>核</span>
@@ -238,14 +321,24 @@ function App() {
             <strong>VS</strong>
             <span>{state.players.black.name}</span>
           </div>
-          <PositionEvaluation info={state.liveInfo} perspective={state.liveInfoSide} />
+          {!concealGuess && <PositionEvaluation info={state.liveInfo} perspective={state.liveInfoSide} />}
           <ChessBoard
             board={state.board}
             turn={state.turn}
             lastMove={state.lastMove}
             checkColor={state.checkColor}
-            paused={state.phase === 'paused'}
+            paused={state.phase === 'paused' && guess.phase !== 'choosing'}
+            interactive={guess.phase === 'choosing'}
+            selected={guessSelected}
+            legalTargets={guessLegalTargets}
+            onSquareClick={onGuessSquareClick}
           />
+          <button className="header-archive-button" disabled={openingPractice} onClick={() => void openPractice()}>{openingPractice ? '正在暂停原对局…' : '从当前局面练习'}</button>
+          {practiceError && <p role="alert">{practiceError}</p>}
+          {!concealGuess && <SearchComparison board={state.board} turn={state.turn} paused={state.phase === 'paused' || state.phase === 'finished'} />}
+          <NotebookSave getDraft={async () => { const position = await suspendForPractice(); return { moves: position.history.map((move) => move.ucci), source: { kind: 'live', label: state.mode === 'fairy-duel' ? 'AI 人格观战' : 'AI 引擎对战' } } }} />
+          <label className="guess-toggle"><input type="checkbox" checked={guess.phase !== 'off'} onChange={(event) => toggleGuess(event.target.checked)} />猜下一手</label>
+          <GuessNextMove guess={guess} finished={Boolean(state.result)} onSubmit={submitGuess} onNext={nextGuess} onPractice={() => void openPractice(guess.round?.before, { guessed: guess.round?.selected ? moveToUcci(guess.round.selected) : undefined, actual: guess.round?.actual?.ucci, source: guess.round?.source })} practiceDisabled={openingPractice} />
           <div className="board-footnote">
             <span>红方视角</span>
             <i />
@@ -260,14 +353,14 @@ function App() {
             turnElapsedMs={state.turn === 'black' ? state.clocks.turn : 0}
             active={state.turn === 'black' && state.phase === 'running'}
             thinking={state.turn === 'black' && state.thinking}
-            info={state.liveInfoSide === 'black' ? state.liveInfo : null}
+            info={!concealGuess && state.liveInfoSide === 'black' ? state.liveInfo : null}
             personality={state.mode === 'fairy-duel' ? AI_PERSONALITIES.black : undefined}
             engineName={state.players.black.name}
             protocol={state.players.black.protocol}
             skillLevel={state.players.black.skillLevel}
             styleDescription={state.players.black.styleDescription}
             openingName={state.opening.name}
-            openingBranch={state.opening.blackName}
+            openingBranch={concealGuess ? '竞猜中' : state.opening.blackName}
           />
           <MoveHistory history={state.history} />
         </aside>
@@ -284,6 +377,10 @@ function App() {
           plies={state.history.length}
           onNewGame={newGame}
           onHome={returnHome}
+          interactionSummary={guess.round?.actual
+            ? `你的猜招：${guess.round.selected ? formatMove(guess.round.selected) : '跳过'}；AI 实战着：${guess.round.actual.notation}（${guess.round.source === 'opening' ? '开局库' : '引擎选招'}）；${guess.round.selected && moveToUcci(guess.round.selected) === guess.round.actual.ucci ? '猜中' : guess.round.selected ? '未猜中' : '本题跳过'}；本局命中 ${guess.stats.hits} / ${guess.stats.answered}，最长连续命中 ${guess.stats.longest}。`
+            : guess.phase === 'void' ? `竞猜本题作废；本局命中 ${guess.stats.hits} / ${guess.stats.answered}。` : undefined}
+          onReview={state.history.length ? () => setReview({ history: [...state.history] }) : undefined}
         />
       )}
     </div>

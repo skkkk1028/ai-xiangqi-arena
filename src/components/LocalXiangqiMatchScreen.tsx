@@ -3,6 +3,7 @@ import { sideLabel } from '../engine/ucci'
 import type { Position } from '../game/types'
 import type { useLocalXiangqiMatch } from '../hooks/useLocalXiangqiMatch'
 import { ChessBoard } from './ChessBoard'
+import { SearchComparison } from './SearchComparison'
 import { ChevronLeftIcon, PauseIcon, PlayIcon, RefreshIcon } from './Icons'
 import { MatchNegotiationPanel, type NegotiationPending } from './MatchNegotiationPanel'
 import { MoveHistory } from './MoveHistory'
@@ -14,9 +15,10 @@ type LocalMatch = ReturnType<typeof useLocalXiangqiMatch>
 interface LocalXiangqiMatchScreenProps {
   match: LocalMatch
   onHome: () => void
+  onReview?: () => void
 }
 
-export function LocalXiangqiMatchScreen({ match, onHome }: LocalXiangqiMatchScreenProps) {
+export function LocalXiangqiMatchScreen({ match, onHome, onReview }: LocalXiangqiMatchScreenProps) {
   const { state } = match
   const [selected, setSelected] = useState<Position | null>(null)
   const legalTargets = useMemo(() => selected
@@ -62,6 +64,7 @@ export function LocalXiangqiMatchScreen({ match, onHome }: LocalXiangqiMatchScre
         <div className="local-match-brand"><span>双</span><div><strong>同屏双人对战</strong><small>同设备轮流行棋 · 友谊赛</small></div></div>
         <div className="local-match-status"><small>第 {Math.floor(state.history.length / 2) + 1} 回合</small><strong>{status}</strong></div>
         <div className="local-header-actions">
+          {onReview && <button type="button" disabled={!state.history.length || Boolean(state.pending)} onClick={onReview}>复盘与再挑战</button>}
           <button type="button" onClick={match.newGame} disabled={Boolean(state.pending)}><RefreshIcon />新局</button>
           {state.phase === 'ready' ? (
             <button type="button" className="local-primary-button" onClick={match.startMatch}><PlayIcon />开始对局</button>
@@ -113,6 +116,7 @@ export function LocalXiangqiMatchScreen({ match, onHome }: LocalXiangqiMatchScre
             <div><span>红方提和 {state.drawOffers.red} 次</span><span>黑方提和 {state.drawOffers.black} 次</span></div>
           </section>
           <MoveHistory history={state.history} />
+          <SearchComparison board={state.game.board} turn={state.game.turn} paused={state.phase === 'paused' || state.phase === 'finished'} />
           <section className="local-rule-note">
             <strong>对局规则</strong>
             <span>认输立即判负；第 26 回合起可提和；每方前 25 回合内最多获得一次双方同意的完整回合悔棋。</span>
@@ -133,7 +137,7 @@ export function LocalXiangqiMatchScreen({ match, onHome }: LocalXiangqiMatchScre
         </aside>
       </main>
 
-      {state.game.result && <ResultModal result={state.game.result} plies={state.history.length} onNewGame={match.newGame} onHome={onHome} />}
+      {state.game.result && <ResultModal result={state.game.result} plies={state.history.length} onNewGame={match.newGame} onHome={onHome} onReview={state.history.length ? onReview : undefined} />}
     </div>
   )
 }

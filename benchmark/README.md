@@ -107,6 +107,13 @@ Threads 2 / Hash 128 MB，`crossOriginIsolated=true`，NNUE SHA 与发布网络�
 失败/超时/半回合上限，并通过 P95 延迟门槛。基线、调参、quick 和 smoke 均不得发布为
 `validated`，也不等同于人类 Elo。
 
+2026-09-12/13 的 L1 基线和节点探测只覆盖每项 8 或 16 个换色对，复用了内置 12 个
+非正式开局前缀；所有换色对置信区间均无界，各任务的停止原因是 `insufficient-evidence`，
+节点探测 manifest 的汇总结论为 `incomplete`。其中
+Pikafish 2025 的 480k 节点复测还出现 12 盘已恢复技术失败，P95 3268 ms 超过 3000 ms
+门槛。可复核摘要、完整参数和复现命令见
+[`XIANGQI_CALIBRATION_20260912.md`](./XIANGQI_CALIBRATION_20260912.md)；原始逐局输出不纳入 Git。
+
 以下文件是 v2 之前的历史短样本（均为非商业本地浏览器运行）：
 
 - [`xiangqi-calibration-natural-smoke.json`](./xiangqi-calibration-natural-smoke.json)：1 对、30k 节点，验证自然终局/规则和棋路径；

@@ -1,6 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GAME_ROUTES } from '../routes'
-import { BoardWorkbenchTabs, saveLatestArchive, serializeMatchArchive, type WorkbenchPanel } from '../core'
+import { BoardWorkbenchTabs, serializeMatchArchive, type WorkbenchPanel } from '../core'
+import { useGoLibraryMatch } from './useGoLibraryMatch'
+import { GoLibraryPanel } from './GoLibraryPanel'
+import { NotebookPage } from './NotebookPage'
+import { NotebookSave } from './NotebookSave'
+import { GoStudyPage, type GoStudyEntry } from './GoStudyPage'
+import type { GoLibraryGame } from './library'
 import {
   GO_AI_ENGINES,
   goAIEngineName,
@@ -11,13 +17,50 @@ import {
   type KataGoSearchProfile,
 } from './ai'
 import { GoBoard } from './GoBoard'
+import { GoGuessPanel } from './GoGuessPanel'
 import { createGoArchive, exportGoSgf } from './sgf'
 import { WinRateChart } from './WinRateChart'
-import { GO_PASS_MOVE, type GoGameState, type GoPlayer, type GoScore } from './types'
+import { GO_PASS_MOVE, isGoPassMove, type GoGameState, type GoPlayer, type GoScore } from './types'
 import { useGoMatch, type GoAIRunState, type GoMatchMode } from './useGoMatch'
 
 export function GoGamePage() {
   const match = useGoMatch()
+  const library = useGoLibraryMatch(match)
+  const [studyView, setStudyView] = useState<'match' | 'library' | 'review' | 'notebook'>('match')
+  const [studyGame, setStudyGame] = useState<GoLibraryGame | null>(null)
+  const [practice, setPractice] = useState<{ game: GoLibraryGame; entry: GoStudyEntry } | null>(null)
+  const openingRef = useRef(false)
+  const mounted = useRef(true)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
+  const [openingStudy, setOpeningStudy] = useState(false)
+  const [studyError, setStudyError] = useState<string | null>(null)
+  const openLibrary = async () => {
+    if (openingRef.current) return
+    openingRef.current = true
+    setOpeningStudy(true)
+    setStudyError(null)
+    try { await match.suspendForStudy(); await library.save(); setStudyView('library') }
+    catch (error) { setStudyError(error instanceof Error ? error.message : '暂停对局失败，请重试。') }
+    finally { openingRef.current = false; if (mounted.current) setOpeningStudy(false) }
+  }
+  const openPractice = async (source?: GoGameState, reference?: GoStudyEntry['reference']) => {
+    if (openingRef.current) return
+    openingRef.current = true; setOpeningStudy(true); setStudyError(null)
+    try {
+      const stable = await match.suspendForStudy()
+      if (!mounted.current) return
+      const position = source ?? stable
+      setPractice({ game: { id: crypto.randomUUID(), title: '围棋局面练习', favorite: false, archive: createGoArchive(position), mode: '临时练习', configuration: {} }, entry: { initialIndex: position.history.length, reference } })
+    } catch (error) { if (mounted.current) setStudyError(String(error)) }
+    finally { openingRef.current = false; if (mounted.current) setOpeningStudy(false) }
+  }
+  const openNotebook = async () => {
+    if (openingRef.current) return
+    openingRef.current = true; setOpeningStudy(true); setStudyError(null)
+    try { await match.suspendForStudy(); if (mounted.current) setStudyView('notebook') }
+    catch (error) { if (mounted.current) setStudyError(String(error)) }
+    finally { openingRef.current = false; if (mounted.current) setOpeningStudy(false) }
+  }
   const [activePanel, setActivePanel] = useState<GoWorkbenchPanel>('match')
   const {
     state,
@@ -32,23 +75,25 @@ export function GoGamePage() {
   const turnName = playerName(state.turn)
   const status = getStatusCopy(state, mode, runState)
   const recentHistory = [...state.history.slice(-40)].reverse()
-  const activeAnalysis = analysisByPlayer[state.turn] ?? analysisByPlayer.black ?? analysisByPlayer.white ?? null
+  const guessActive = match.guess.phase !== 'off'
+  const choosingGuess = match.guess.phase === 'choosing'
+  const guessSelection = match.guess.round?.selected
+  const activeAnalysis = guessActive
+    ? match.guess.phase === 'revealed' ? match.guess.round?.analysis ?? null : null
+    : analysisByPlayer[state.turn] ?? analysisByPlayer.black ?? analysisByPlayer.white ?? null
   const aiBusy = runState === 'running' || runState === 'thinking'
   const aiMode = mode !== 'local'
-  const humanTurn = mode === 'human' && state.turn === match.humanColor
+  const humanTurn = mode === 'human' && state.turn === match.humanColor && match.sessionReady
 
   useEffect(() => {
     if (state.phase === 'scoring') setActivePanel('match')
   }, [state.phase])
 
-  useEffect(() => {
-    if (state.history.length === 0) return
-    try {
-      saveLatestArchive(createGoArchive(state))
-    } catch {
-      // Storage availability is optional; the active game remains authoritative.
-    }
-  }, [state])
+  const openReview = (game: GoLibraryGame) => { setStudyGame(game); setStudyView('review') }
+  if (studyView === 'notebook') return <NotebookPage onClose={() => setStudyView('match')} />
+  if (practice) return <GoStudyPage key={practice.game.id} game={practice.game} entry={practice.entry} onOpen={openReview} onClose={() => setPractice(null)} />
+  if (studyView === 'review' && studyGame) return <GoStudyPage key={studyGame.id} game={studyGame} onClose={() => setStudyView('library')} onOpen={openReview} />
+  if (studyView === 'library') return <GoLibraryPanel current={library.record} onOpen={openReview} onClose={() => setStudyView('match')} />
 
   return (
     <main className="go-page go-match-page">
@@ -56,6 +101,14 @@ export function GoGamePage() {
       <div className="go-page__mist go-page__mist--two" aria-hidden="true" />
 
       <header className="go-page__header go-match-header">
+        <div className="go-study-actions">
+          <button disabled={openingStudy} onClick={() => void openNotebook()}>个人练习本</button>
+          <button disabled={openingStudy || runState === 'connecting'} onClick={() => void openLibrary()}>棋谱库 / 复盘</button>
+          <button disabled={!state.history.length || library.status === '保存中'} onClick={() => void library.save()}>保存棋局</button>
+          <span role="status">{library.status}</span>
+          {library.error && <span role="alert">{library.error} 可在棋谱面板下载备份。</span>}
+          {studyError && <span role="alert">{studyError}</span>}
+        </div>
         <a className="go-page__back" href={GAME_ROUTES.lobby}>
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M19 12H6m5-6-6 6 6 6" />
@@ -99,12 +152,16 @@ export function GoGamePage() {
               lastMove={state.lastMove}
               legalMoveKeys={legalMoveKeys}
               deadStoneKeys={match.deadStoneKeys}
-              interactive={(mode === 'local' || humanTurn) && state.phase === 'playing' && !aiBusy}
+              interactive={(choosingGuess || mode === 'local' || humanTurn) && state.phase === 'playing' && !aiBusy}
+              guessPoint={choosingGuess && guessSelection && !isGoPassMove(guessSelection) ? guessSelection : null}
               scoring={state.phase === 'scoring'}
-              onPlay={match.execute}
+              onPlay={choosingGuess ? match.selectGuess : match.execute}
               onToggleDead={match.toggleDeadGroup}
             />
           </div>
+
+          {(mode === 'ai' || mode === 'battle') && <div className="go-study-actions"><button disabled={openingStudy} onClick={() => void openPractice()}>从当前局面练习</button><NotebookSave getDraft={async () => ({ archive: createGoArchive(await match.suspendForStudy()), source: {kind:'live', label: mode === 'ai' ? 'AI 自对弈' : 'AI 互对弈'} })} /></div>}
+          <GoGuessPanel match={match} disabled={openingStudy} onPractice={(before, reference) => void openPractice(before, reference)} />
 
           <div className="go-board-caption">
             <span>十九路标准棋盘</span>
@@ -132,7 +189,7 @@ export function GoGamePage() {
               name={mode === 'battle' ? `${goAIEngineName(match.battleEngines.black)} · 黑` : mode === 'ai' ? 'KataGo · 黑' : mode === 'human' ? (match.humanColor === 'black' ? '真人玩家 · 黑' : 'KataGo · 黑') : '本地棋手 A'}
               active={state.phase === 'playing' && state.turn === 'black'}
               prisoners={state.prisoners.black}
-              analysis={analysisByPlayer.black}
+              analysis={guessActive ? activeAnalysis?.player === 'black' ? activeAnalysis : undefined : analysisByPlayer.black}
             />
             <div className="go-players__versus"><span />VS<span /></div>
             <PlayerStrip
@@ -140,7 +197,7 @@ export function GoGamePage() {
               name={mode === 'battle' ? `${goAIEngineName(match.battleEngines.white)} · 白` : mode === 'ai' ? 'KataGo · 白' : mode === 'human' ? (match.humanColor === 'white' ? '真人玩家 · 白' : 'KataGo · 白') : '本地棋手 B'}
               active={state.phase === 'playing' && state.turn === 'white'}
               prisoners={state.prisoners.white}
-              analysis={analysisByPlayer.white}
+              analysis={guessActive ? activeAnalysis?.player === 'white' ? activeAnalysis : undefined : analysisByPlayer.white}
             />
           </section>
 
@@ -158,6 +215,8 @@ export function GoGamePage() {
               recentHistory,
               aiBusy,
               notice,
+              onLibrary: () => void openLibrary(),
+              archive: library.record.archive,
             })}
           />
         </aside>
@@ -179,12 +238,16 @@ function createGoPanels({
   recentHistory,
   aiBusy,
   notice,
+  onLibrary,
+  archive,
 }: {
   match: ReturnType<typeof useGoMatch>
   activeAnalysis: GoAIAnalysis | null
   recentHistory: GoGameState['history']
   aiBusy: boolean
   notice: string | null
+  onLibrary: () => void
+  archive: GoLibraryGame['archive']
 }): WorkbenchPanel<GoWorkbenchPanel>[] {
   const { state, mode, profile, runState, capabilities } = match
   return [
@@ -231,7 +294,7 @@ function createGoPanels({
             <span>分析策略 · POSTGAME</span>
             <strong>公平对战默认关闭第三方实时分析</strong>
             <p>暂停或结束后按棋谱顺序分析；不会修改落子、结果或耗时。</p>
-            <button type="button" disabled={state.history.length === 0 || aiBusy} onClick={() => void match.analyzePostgame()}>
+            <button type="button" disabled={state.history.length === 0 || aiBusy || match.guess.phase !== 'off'} onClick={() => void match.analyzePostgame()}>
               启动赛后分析
             </button>
           </section>
@@ -252,9 +315,9 @@ function createGoPanels({
           <header><span>最近棋谱</span><small>MOVE LOG</small></header>
           <div className="go-history-actions">
             <button type="button" disabled={state.history.length === 0} onClick={() => downloadText('go-game.sgf', exportGoSgf(state), 'application/x-go-sgf')}>下载 SGF</button>
-            <button type="button" disabled={state.history.length === 0} onClick={() => downloadText('go-game.json', serializeMatchArchive(createGoArchive(state)), 'application/json')}>下载档案</button>
+            <button type="button" disabled={state.history.length === 0} onClick={() => downloadText('go-game.json', serializeMatchArchive(archive), 'application/json')}>下载档案</button>
             <button type="button" disabled={state.history.length === 0} onClick={() => void copyText(exportGoSgf(state))}>复制棋谱</button>
-            <button type="button" onClick={() => void match.restoreLatest()}>恢复最近一局</button>
+            <button type="button" onClick={onLibrary}>打开已保存棋局</button>
           </div>
           {recentHistory.length > 0 ? (
             <ol>{recentHistory.map((record) => (
@@ -390,6 +453,7 @@ function MatchControls({ match, aiBusy }: { match: ReturnType<typeof useGoMatch>
     const humanTurn = state.turn === match.humanColor && state.phase === 'playing'
     return (
       <section className="go-controls" aria-label="棋局操作">
+        {(runState === 'paused' || runState === 'error') && <button onClick={() => void match.resumeHuman()}>继续人机对局</button>}
         <button
           type="button"
           className="go-control go-control--primary"
@@ -407,7 +471,7 @@ function MatchControls({ match, aiBusy }: { match: ReturnType<typeof useGoMatch>
   }
 
   if (mode !== 'local') {
-    const canStart = state.phase === 'playing' && !aiBusy && runState !== 'connecting'
+    const canStart = state.phase === 'playing' && !aiBusy && runState !== 'connecting' && match.guess.phase === 'off'
     return (
       <section className="go-controls go-controls--ai" aria-label="AI 对弈操作">
         <button type="button" className="go-control go-control--primary" disabled={!canStart} onClick={() => void match.startAI()}>

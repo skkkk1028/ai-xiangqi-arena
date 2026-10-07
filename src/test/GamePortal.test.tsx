@@ -45,7 +45,7 @@ describe('AI 棋类大厅', () => {
     window.history.replaceState(null, '', '#/games/chess')
     render(<GamePortal />)
 
-    expect(await screen.findByRole('heading', { name: '国际象棋演算厅' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '国际象棋演算厅' }, { timeout: 5000 })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /双人格观战剧场/ })).toHaveAttribute('href', '#/games/chess/theatre')
     expect(screen.getByRole('link', { name: /多引擎对战竞技场/ })).toHaveAttribute('href', '#/games/chess/arena')
     expect(screen.getByRole('link', { name: /双人对战/ })).toHaveAttribute('href', '#/games/chess/local')

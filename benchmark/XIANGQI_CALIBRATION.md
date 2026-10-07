@@ -22,11 +22,16 @@ npm run benchmark:xiangqi:calibration:quick:smoke
 
 快速报告包含 `evidenceTier: quick`、实际耗时、停止原因、暂定参考或共同领先者、调参前后得分和发布结果。进入 ±50 Elo 点估计且区间包含 0 的候选仍只能标记为 `provisional`；只改善但未拉齐的候选标记为 `unmatched`。若没有单一参考或独立复测未完成，不修改强度矩阵。
 
-### 当前短样本证据（2026-08-28）
+### 当前短样本证据（截至 2026-09-13）
 
 本轮本地快速 smoke 在约 11.4 分钟内完成，但每个基线、调参和复测任务都只有 1 个换色对。报告中的 95% Elo 区间均为无界值，结论字段为 `smoke-reference`，并明确说明固定参考席位只验证流程。另一次矩阵 smoke 也只覆盖 `human-l1` 的 constrained/desktop 两个画像，每个对阵 1 个换色对；两个画像均为 `insufficient-evidence`。
 
 因此这些结果只确认开局语料、三引擎换色、检查点、延迟探针和报告链路可以运行。`quick-calibration.generated.json` 保持空覆盖，生产难度档位和 12–18 秒引擎大战预算均保留暂定值；不能据此宣称 Pikafish 2026 已验证领先、任意两引擎等强，或给出可迁移 Elo。
+
+2026-09-12/13 又运行了每项 8 对的 L1 基线和每项 8/16 对的节点探测，但它们使用
+`standard` 证据层和内置 12 个非正式开局前缀，不符合本节 quick 协议的冻结 220 局面及
+独立分区要求。所有换色对置信区间仍无界，且有一项延迟门槛失败；完整边界、参数和复现入口见
+[`XIANGQI_CALIBRATION_20260912.md`](./XIANGQI_CALIBRATION_20260912.md)。这些结果同样不产生 quick 覆盖。
 
 ## 运行前提
 

@@ -1,9 +1,11 @@
+import { IsolatedKataGoClient } from './IsolatedKataGoClient'
 import type { BoardState, Move } from '../../../vendor/web-katago/types'
 import {
   getKataGoEngineClient,
   resetKataGoEngineClientForTests,
 } from '../../../vendor/web-katago/engine/katago/client'
 import { GoGameEngine } from '../game-engine'
+import { applyGoReplayMove } from '../sgf'
 import type { GoGameState, GoMove } from '../types'
 import { gtpToGoMove, goPointToGtp } from './coordinates'
 import type {
@@ -27,6 +29,7 @@ const PROFILES: Readonly<
 }
 
 export interface BrowserKataGoTransportOptions {
+  isolated?: boolean
   strongModelUrl?: string
   fallbackModelUrl?: string
   backend?: 'webgpu' | 'wasm' | 'cpu'
@@ -39,6 +42,10 @@ export interface BrowserKataGoTransportOptions {
  * executable, Docker service or remote move-generation endpoint is involved.
  */
 export class BrowserKataGoTransport implements KataGoTransport {
+  private readonly isolated: boolean
+  private isolatedClient: IsolatedKataGoClient | null = null
+  private client() { return this.isolated ? this.isolatedClient ??= new IsolatedKataGoClient() : getKataGoEngineClient() }
+  private releaseClient() { if (this.isolated) { this.isolatedClient?.dispose(); this.isolatedClient = null } else resetKataGoEngineClientForTests() }
   private readonly strongModelUrl: string
   private readonly fallbackModelUrl: string
   private readonly backend: 'webgpu' | 'wasm' | 'cpu'
@@ -51,6 +58,7 @@ export class BrowserKataGoTransport implements KataGoTransport {
   private disposed = false
 
   constructor(options: BrowserKataGoTransportOptions = {}) {
+    this.isolated = options.isolated ?? false
     this.strongModelUrl = options.strongModelUrl ?? resolvePublicAsset(STRONG_MODEL_PATH)
     this.fallbackModelUrl = options.fallbackModelUrl ?? resolvePublicAsset(FALLBACK_MODEL_PATH)
     this.backend = options.backend ?? 'webgpu'
@@ -79,7 +87,7 @@ export class BrowserKataGoTransport implements KataGoTransport {
 
     const position = replayPosition(request)
     const profile = PROFILES[request.profile]
-    const client = getKataGoEngineClient()
+    const client = this.client()
     this.activeRequests.set(request.requestId, analysisGroup)
     const abortSearch = () => this.cancel(request.requestId)
     options.signal?.addEventListener('abort', abortSearch, { once: true })
@@ -114,7 +122,7 @@ export class BrowserKataGoTransport implements KataGoTransport {
       nnRandomize: false,
       onProgress: (analysis) => {
         if (!this.activeRequests.has(request.requestId)) return
-        options.onUpdate?.(toWireEvent(request, analysis, startedAt, 'partial', capabilities))
+        options.onUpdate?.(toWireEvent(request, analysis, startedAt, 'partial', capabilities, client.getEngineInfo()))
       },
     })
 
@@ -122,7 +130,7 @@ export class BrowserKataGoTransport implements KataGoTransport {
       const analysis = await raceCancellation(search, options.signal, (reject) => {
         this.activeRejects.set(request.requestId, reject)
       })
-      return toWireEvent(request, analysis, startedAt, 'final', capabilities)
+      return toWireEvent(request, analysis, startedAt, 'final', capabilities, client.getEngineInfo())
     } finally {
       options.signal?.removeEventListener('abort', abortSearch)
       this.activeRequests.delete(request.requestId)
@@ -134,7 +142,7 @@ export class BrowserKataGoTransport implements KataGoTransport {
     const group = this.activeRequests.get(requestId)
     if (!group) return
     this.activeRejects.get(requestId)?.(createAbortError('浏览器 KataGo 搜索已停止。'))
-    getKataGoEngineClient().cancelAnalysis(group)
+    this.client().cancelAnalysis(group)
     this.activeRequests.delete(requestId)
     this.activeRejects.delete(requestId)
   }
@@ -151,7 +159,7 @@ export class BrowserKataGoTransport implements KataGoTransport {
   private async loadModel(signal?: AbortSignal): Promise<KataGoCapabilities> {
     try {
       await raceCancellation(
-        getKataGoEngineClient().init(this.strongModelUrl, this.backend),
+        this.client().init(this.strongModelUrl, this.backend),
         signal,
         () => undefined,
       )
@@ -160,10 +168,10 @@ export class BrowserKataGoTransport implements KataGoTransport {
       this.modelFallbackReason = null
     } catch (strongError) {
       if (signal?.aborted) throw signal.reason ?? strongError
-      resetKataGoEngineClientForTests()
+      this.releaseClient()
       try {
         await raceCancellation(
-          getKataGoEngineClient().init(this.fallbackModelUrl, this.backend),
+          this.client().init(this.fallbackModelUrl, this.backend),
           signal,
           () => undefined,
         )
@@ -178,7 +186,7 @@ export class BrowserKataGoTransport implements KataGoTransport {
       }
     }
 
-    const info = getKataGoEngineClient().getEngineInfo()
+    const info = this.client().getEngineInfo()
     const actualBackend = browserRuntimeBackend(info.backend ?? this.backend)
     const requestedBackend = browserRuntimeBackend(this.backend)
     return {
@@ -200,7 +208,7 @@ export class BrowserKataGoTransport implements KataGoTransport {
   }
 
   private resetWorker(): void {
-    resetKataGoEngineClientForTests()
+    this.releaseClient()
     this.initialization = null
     this.activeRequests.clear()
     this.activeRejects.clear()
@@ -219,11 +227,11 @@ function toWireEvent(
   startedAt: number,
   stage: 'partial' | 'final',
   capabilities: KataGoCapabilities,
+  info: { backend: string | null; modelName: string | null },
 ): KataGoWireAnalysisEvent {
   if (request.profile === 'battle-matched') {
     throw new Error('浏览器 KataGo 不支持 battle-matched 档位。')
   }
-  const info = getKataGoEngineClient().getEngineInfo()
   const requestedVisits = PROFILES[request.profile].maxVisits
   const visits = analysis.rootVisits
   const timedOut = stage === 'final' && visits < requestedVisits
@@ -284,7 +292,7 @@ function replayPosition(request: KataGoAnalyzeRequest): {
     if (state.turn !== expectedColor) throw new Error('围棋棋谱行棋方顺序无效。')
     const move = gtpToGoMove(notation)
     moveHistory.push(toBrowserMove(move, expectedColor))
-    state = engine.applyMove(state, move)
+    state = applyGoReplayMove(engine, state, move)
     boards.push(copyBoard(state.board))
   }
 

@@ -1,0 +1,4 @@
+.opening-practice .review-sidebar label { display: grid; gap: 8px; margin: 12px 0; }
+.opening-practice select { width: 100%; min-width: 0; }
+.opening-practice .review-header { flex-wrap: wrap; }
+@media (max-width: 420px) { .opening-practice .review-layout { grid-template-columns: minmax(0, 1fr); } }

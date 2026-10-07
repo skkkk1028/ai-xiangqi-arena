@@ -1,0 +1,10 @@
+.search-comparison { margin: 16px 0; padding: 16px; border: 1px solid #a39270; border-radius: 12px; width: 100%; box-sizing: border-box; }
+.search-comparison h3 { margin: 0 0 10px; }
+.search-comparison p, .search-comparison small { line-height: 1.6; }
+.search-comparison-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.search-comparison button, .search-comparison select { padding: 8px; font: inherit; color: #fff8e8; background: #344739; border: 1px solid #a39270; border-radius: 6px; }
+.search-comparison button:disabled { opacity: .5; }
+.search-comparison button:focus-visible, .search-comparison select:focus-visible, .search-comparison input:focus-visible { outline: 2px solid #e1ba71; outline-offset: 3px; }
+.search-comparison-table { overflow-x: auto; margin: 12px 0; }
+.search-comparison table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.search-comparison th, .search-comparison td { padding: 8px 6px; border-bottom: 1px solid #a39270; text-align: left; }

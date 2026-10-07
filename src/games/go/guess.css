@@ -1,0 +1,8 @@
+.go-guess-panel { margin-top: 16px; padding: 16px; border: 1px solid #b7a17a; border-radius: 12px; background: #fff9ed; color: #352b20; }
+.go-guess-panel label { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.go-guess-panel p { margin: 10px 0; line-height: 1.6; }
+.go-guess-panel button { margin: 4px 8px 4px 0; padding: 8px 12px; border: 1px solid #9d886a; border-radius: 6px; background: white; color: inherit; cursor: pointer; }
+.go-guess-panel button:disabled { opacity: .5; cursor: default; }
+.go-guess-panel button:focus-visible, .go-guess-panel input:focus-visible { outline: 2px solid #17776d; outline-offset: 3px; }
+.go-guess-stats { font-size: 13px; }
+.go-board__guess-marker { position: absolute; inset: 14%; border: 3px dashed #087f76; border-radius: 50%; background: #eafffa99; pointer-events: none; z-index: 3; }

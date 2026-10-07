@@ -1,0 +1,126 @@
+{
+  "source": "Constructed legal acceptance game, red resigns after ply 9; not a historical tournament game.",
+  "engine": "fairy-stockfish-nnue.wasm 1.1.11, xiangqi-c07e94a5c7cb.nnue, depth 12, Threads 1, Hash 64, root scores before each move",
+  "expectedBlunderIndex": 6,
+  "moves": [
+    "a3a4",
+    "c6c5",
+    "a0a3",
+    "b9c7",
+    "a3b3",
+    "h9g7",
+    "b3b5",
+    "c7b5",
+    "b0c2"
+  ],
+  "evaluations": [
+    {
+      "score": {
+        "kind": "cp",
+        "value": 77
+      },
+      "wdl": {
+        "win": 180,
+        "draw": 812,
+        "loss": 8
+      },
+      "depth": 12
+    },
+    {
+      "score": {
+        "kind": "cp",
+        "value": 7
+      },
+      "wdl": {
+        "win": 48,
+        "draw": 917,
+        "loss": 35
+      },
+      "depth": 12
+    },
+    {
+      "score": {
+        "kind": "cp",
+        "value": 50
+      },
+      "wdl": {
+        "win": 110,
+        "draw": 876,
+        "loss": 14
+      },
+      "depth": 12
+    },
+    {
+      "score": {
+        "kind": "cp",
+        "value": 249
+      },
+      "wdl": {
+        "win": 902,
+        "draw": 98,
+        "loss": 0
+      },
+      "depth": 12
+    },
+    {
+      "score": {
+        "kind": "cp",
+        "value": -56
+      },
+      "wdl": {
+        "win": 12,
+        "draw": 863,
+        "loss": 125
+      },
+      "depth": 12
+    },
+    {
+      "score": {
+        "kind": "cp",
+        "value": 36
+      },
+      "wdl": {
+        "win": 83,
+        "draw": 899,
+        "loss": 18
+      },
+      "depth": 12
+    },
+    {
+      "score": {
+        "kind": "cp",
+        "value": 660
+      },
+      "wdl": {
+        "win": 1000,
+        "draw": 0,
+        "loss": 0
+      },
+      "depth": 12
+    },
+    {
+      "score": {
+        "kind": "cp",
+        "value": 1188
+      },
+      "wdl": {
+        "win": 1000,
+        "draw": 0,
+        "loss": 0
+      },
+      "depth": 12
+    },
+    {
+      "score": {
+        "kind": "cp",
+        "value": -1184
+      },
+      "wdl": {
+        "win": 0,
+        "draw": 0,
+        "loss": 1000
+      },
+      "depth": 12
+    }
+  ]
+}

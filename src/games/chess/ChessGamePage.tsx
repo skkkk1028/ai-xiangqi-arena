@@ -1,28 +1,40 @@
+import { ChessStudyActions } from './ChessStudyActions'
+import { ChessStudyPage } from './ChessStudyPage'
+import type { ChessStudyEntry } from './ChessTemporaryStudy'
 import { useMemo, useState } from 'react'
 import { GAME_ROUTES } from '../routes'
 import { BoardWorkbenchTabs, type WorkbenchPanel } from '../core'
 import { serializeMatchArchive } from '../core/archive'
 import { createChessArchive, exportChessPgn } from './archive'
 import { ChessBoard } from './ChessBoard'
+import { ChessGuessPanel } from './ChessGuessPanel'
 import { ChessMatchInfoPanel } from './ChessMatchInfoPanel'
 import { CHESS_PERSONALITIES, CHESS_SEARCH_PROFILES, chessPersonalityForColor } from './ai-engine'
 import { evaluationCpForWhite, formatWhiteScore, pvToSan, wdlForWhite } from './analysis'
 import { useChessMatch } from './useChessMatch'
+import { ChessLibraryActions } from './ChessLibraryActions'
 import type { ChessColor, ChessGameState, ChessLiveAnalysis, ChessSearchBudgetId, ChessTurnAnalysis } from './types'
 import './chess.css'
 
 type PanelId = 'match' | 'analysis' | 'history' | 'engine'
 
 export function ChessGamePage() {
+  const [study, setStudy] = useState<ChessStudyEntry | null>(null)
   const match = useChessMatch()
   const [activePanel, setActivePanel] = useState<PanelId>('match')
+  const guessing = match.guess.phase !== 'off'
+  const choosing = match.guess.phase === 'choosing'
+  const revealed = match.guess.phase === 'revealed' ? match.guess.round?.analysis : undefined
+  const displayAnalyses = guessing ? revealed?.source === 'engine' ? { [revealed.color]: revealed } : {} : match.analyses
+  const displayLiveInfo = guessing ? {} : match.liveInfo
   const liveAnalysis = match.liveInfo[match.state.turn]
-  const activeAnalysis = liveAnalysis?.rootFen === match.state.fen
+  const activeAnalysis = guessing ? revealed?.source === 'engine' ? revealed : undefined : liveAnalysis?.rootFen === match.state.fen
     ? liveAnalysis
     : latestCompletedAnalysis(match.analyses)
   const busy = match.runState === 'loading' || match.runState === 'running' || match.runState === 'thinking'
   const status = match.state.result ? resultLabel(match.state) : match.runState === 'error' ? '引擎故障已暂停' : match.runState === 'loading' ? '正在加载或恢复引擎' : match.runState === 'paused' ? '观战已暂停' : busy ? `${colorLabel(match.state.turn)}方思考中` : '已就绪'
   const panels = useMemo(() => createPanels(match.state, activeAnalysis, match), [match, activeAnalysis])
+  if (study) return <ChessStudyPage entry={study} onClose={() => setStudy(null)} />
   return (
     <main className="chess-page">
       <div className="chess-page__ambient chess-page__ambient--one" aria-hidden="true" />
@@ -32,16 +44,22 @@ export function ChessGamePage() {
         <div className="chess-brand"><span>♞</span><div><strong>PROJECT10 · CHESS</strong><small>STANDARD AI THEATRE</small></div></div>
         <div className={`chess-runtime chess-runtime--${match.runState}`}><i /> <span>{runtimeLabel(match.runState)}</span><b>{match.profile.mode === 'professional' ? 'STOCKFISH 18 · PV1 专业模式' : 'FAIRY‑STOCKFISH · 双人格'}</b></div>
       </header>
+      <ChessLibraryActions mode="theatre" id={match.libraryId} state={match.state} players={match.archivePlayers} status={match.saveStatus} pause={match.suspendForStudy} saveNow={match.saveNow} />
 
       <section className="chess-arena" aria-labelledby="chess-page-title">
         <div className="chess-stage">
           <div className="chess-heading"><div><p>FIDE 标准规则 · UCI / NNUE · 可审计运行时</p><h1 id="chess-page-title">{match.profile.mode === 'professional' ? 'Stockfish 18 专业对弈' : '双人格观战剧场'}</h1></div><div className="chess-phase"><span>{status}</span><strong>{String(match.state.history.length).padStart(2, '0')} PLY</strong></div></div>
-          <ChessBoard state={match.state} />
-          <ChessMatchInfoPanel state={match.state} analyses={match.analyses} liveInfo={match.liveInfo} />
+          <ChessBoard state={match.state} interactive={choosing} humanColor={match.state.turn}
+            disabled={!choosing || match.guessBusy} onMove={match.selectGuess}
+            guessMove={choosing ? match.guess.round?.selected : null}
+            interactionKey={`${match.guess.phase}-${match.guess.round?.id ?? 0}`} />
+          <ChessGuessPanel match={match} onStudy={setStudy} />
+          <ChessStudyActions match={match} onOpen={setStudy} />
+          <ChessMatchInfoPanel state={match.state} analyses={displayAnalyses} liveInfo={displayLiveInfo} />
           <div className="chess-seats">
-            <Seat color="w" active={match.state.turn === 'w' && busy} name={match.profile.mode === 'professional' ? 'Stockfish 18 · PV1' : CHESS_PERSONALITIES[match.seats.w?.personality ?? personalityFor(match.state, 'w')].label} analysis={match.analyses.w} profile={match.seats.w?.profile?.version} />
+            <Seat color="w" active={match.state.turn === 'w' && busy} name={match.profile.mode === 'professional' ? 'Stockfish 18 · PV1' : CHESS_PERSONALITIES[match.seats.w?.personality ?? personalityFor(match.state, 'w')].label} analysis={displayAnalyses.w} profile={match.seats.w?.profile?.version} />
             <div className="chess-versus">VS</div>
-            <Seat color="b" active={match.state.turn === 'b' && busy} name={match.profile.mode === 'professional' ? 'Stockfish 18 · PV1' : CHESS_PERSONALITIES[match.seats.b?.personality ?? personalityFor(match.state, 'b')].label} analysis={match.analyses.b} profile={match.seats.b?.profile?.version} />
+            <Seat color="b" active={match.state.turn === 'b' && busy} name={match.profile.mode === 'professional' ? 'Stockfish 18 · PV1' : CHESS_PERSONALITIES[match.seats.b?.personality ?? personalityFor(match.state, 'b')].label} analysis={displayAnalyses.b} profile={match.seats.b?.profile?.version} />
           </div>
         </div>
 
@@ -66,7 +84,8 @@ function createPanels(state: ChessGameState, activeAnalysis: ChessTurnAnalysis |
 
 function MatchPanel({ state, match }: { state: ChessGameState; match: ReturnType<typeof useChessMatch> }) {
   const finished = Boolean(state.result)
-  return <div className="chess-panel-content"><div className="chess-opening"><span>OPENING / {state.openingId}</span><strong>{state.openingName}</strong><small>种子 {state.seed}</small></div><div className="chess-budget"><span>SEARCH BUDGET</span>{(Object.keys(CHESS_SEARCH_PROFILES) as ChessSearchBudgetId[]).map((id) => <button key={id} className={match.budgetId === id ? 'is-active' : ''} disabled={finished || match.runState === 'thinking' || match.runState === 'running'} onClick={() => match.changeBudget(id)}>{CHESS_SEARCH_PROFILES[id].label}</button>)}</div><div className="chess-controls"><button className="chess-button chess-button--primary" disabled={finished || match.runState === 'loading'} onClick={match.runState === 'running' || match.runState === 'thinking' ? match.pause : match.start}>{finished ? '对局已结束' : match.runState === 'running' || match.runState === 'thinking' ? '暂停' : match.runState === 'paused' ? '继续' : '开始观战'}</button><button className="chess-button" disabled={finished || match.runState === 'loading' || match.runState === 'running' || match.runState === 'thinking'} onClick={match.step}>单步</button><button className="chess-button" onClick={() => void match.newGame()}>新局</button><button className="chess-button" onClick={() => void match.restore()}>恢复最近</button></div></div>
+  const guessing = match.guess.phase !== 'off'
+  return <div className="chess-panel-content"><div className="chess-opening"><span>OPENING / {state.openingId}</span><strong>{state.openingName}</strong><small>种子 {state.seed}</small></div><div className="chess-budget"><span>SEARCH BUDGET</span>{(Object.keys(CHESS_SEARCH_PROFILES) as ChessSearchBudgetId[]).map((id) => <button key={id} className={match.budgetId === id ? 'is-active' : ''} disabled={finished || match.guessBusy || match.runState === 'loading' || match.runState === 'thinking' || match.runState === 'running'} onClick={() => match.changeBudget(id)}>{CHESS_SEARCH_PROFILES[id].label}</button>)}</div><div className="chess-controls"><button className="chess-button chess-button--primary" disabled={finished || match.runState === 'loading' || (guessing && match.runState !== 'thinking' && match.runState !== 'running')} onClick={match.runState === 'running' || match.runState === 'thinking' ? match.pause : match.start}>{finished ? '对局已结束' : match.runState === 'running' || match.runState === 'thinking' ? '暂停' : match.runState === 'paused' ? '继续' : '开始观战'}</button><button className="chess-button" disabled={finished || guessing || match.runState === 'loading' || match.runState === 'running' || match.runState === 'thinking'} onClick={match.step}>单步</button><button className="chess-button" onClick={() => void match.newGame()}>新局</button><button className="chess-button" onClick={() => void match.restore()}>恢复最近</button></div></div>
 }
 
 function AnalysisPanel({ analysis }: { analysis: ChessTurnAnalysis | ChessLiveAnalysis | undefined }) {

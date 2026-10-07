@@ -1,7 +1,8 @@
 import { opposite } from '../game/board'
 import { getLegalCaptures, getLegalMoves, isInCheck } from '../game/rules'
-import type { BoardState, Color, Move, Piece, PieceType } from '../game/types'
+import type { BoardState, Color, Move, Piece } from '../game/types'
 import { evaluateFor, PIECE_VALUES } from './evaluate'
+import { hashPosition, hashAfterMove } from './zobrist'
 
 const MATE_SCORE = 100_000
 const MATE_THRESHOLD = 90_000
@@ -11,13 +12,7 @@ const MAX_TABLE_ENTRIES = 180_000
 
 class SearchTimeout extends Error {}
 
-interface PositionHash {
-  key: number
-  lock: number
-}
-
 interface TableEntry {
-  lock: number
   depth: number
   score: number
   flag: 'exact' | 'lower' | 'upper'
@@ -37,78 +32,23 @@ export interface SearchResult {
   elapsedMs: number
 }
 
-const PIECE_INDEX: Record<PieceType, number> = {
-  general: 0,
-  advisor: 1,
-  elephant: 2,
-  horse: 3,
-  chariot: 4,
-  cannon: 5,
-  soldier: 6,
-}
-
-function createRandomTable(seed: number): number[] {
-  let state = seed >>> 0
-  const values: number[] = []
-  for (let index = 0; index < 90 * 14 + 1; index += 1) {
-    state ^= state << 13
-    state ^= state >>> 17
-    state ^= state << 5
-    values.push(state >>> 0)
-  }
-  return values
-}
-
-const ZOBRIST_KEY = createRandomTable(0x7f4a7c15)
-const ZOBRIST_LOCK = createRandomTable(0x94d049bb)
-const SIDE_INDEX = 90 * 14
-
-function zobristIndex(piece: Piece, row: number, col: number): number {
-  const colorOffset = piece.color === 'red' ? 0 : 7
-  return (row * 9 + col) * 14 + colorOffset + PIECE_INDEX[piece.type]
-}
-
-function hashPosition(board: BoardState, side: Color): PositionHash {
-  let key = 0
-  let lock = 0
-  for (let row = 0; row < 10; row += 1) {
-    for (let col = 0; col < 9; col += 1) {
-      const piece = board[row][col]
-      if (!piece) continue
-      const index = zobristIndex(piece, row, col)
-      key ^= ZOBRIST_KEY[index]
-      lock ^= ZOBRIST_LOCK[index]
-    }
-  }
-  if (side === 'black') {
-    key ^= ZOBRIST_KEY[SIDE_INDEX]
-    lock ^= ZOBRIST_LOCK[SIDE_INDEX]
-  }
-  return { key: key >>> 0, lock: lock >>> 0 }
+export interface SearchOptions {
+  transpositionTable?: boolean
+  /** Fixed-horizon comparison: no order-dependent reductions or path draw heuristic. */
+  comparison?: boolean
 }
 
 function makeMove(
   board: BoardState,
   move: Move,
-  hash: PositionHash,
-): { captured: Piece | null; hash: PositionHash } {
+  hash: bigint,
+): { captured: Piece | null; hash: bigint } {
   const captured = board[move.to.row][move.to.col]
-  const fromIndex = zobristIndex(move.piece, move.from.row, move.from.col)
-  const toIndex = zobristIndex(move.piece, move.to.row, move.to.col)
-  let key =
-    hash.key ^ ZOBRIST_KEY[fromIndex] ^ ZOBRIST_KEY[toIndex] ^ ZOBRIST_KEY[SIDE_INDEX]
-  let lock =
-    hash.lock ^ ZOBRIST_LOCK[fromIndex] ^ ZOBRIST_LOCK[toIndex] ^ ZOBRIST_LOCK[SIDE_INDEX]
-
-  if (captured) {
-    const capturedIndex = zobristIndex(captured, move.to.row, move.to.col)
-    key ^= ZOBRIST_KEY[capturedIndex]
-    lock ^= ZOBRIST_LOCK[capturedIndex]
-  }
+  const nextHash = hashAfterMove(hash, move, captured)
 
   board[move.from.row][move.from.col] = null
   board[move.to.row][move.to.col] = move.piece
-  return { captured, hash: { key: key >>> 0, lock: lock >>> 0 } }
+  return { captured, hash: nextHash }
 }
 
 function undoMove(board: BoardState, move: Move, captured: Piece | null): void {
@@ -151,13 +91,16 @@ export function searchBestMove(
   timeBudgetMs: number,
   seed: number,
   maxDepth = 12,
+  options: SearchOptions = {},
 ): SearchResult {
+  const useTable = options.transpositionTable !== false
+  const comparison = options.comparison === true
   const startedAt = performance.now()
   const deadline = startedAt + Math.max(20, timeBudgetMs)
-  const table = new Map<number, TableEntry>()
+  const table = new Map<bigint, TableEntry>()
   const killers: Array<[number | null, number | null]> = []
   const history = new Map<number, number>()
-  const path = new Set<string>()
+  const path = new Set<bigint>()
   let nodes = 0
 
   const checkDeadline = (force = false) => {
@@ -201,7 +144,7 @@ export function searchBestMove(
   const quiescence = (
     currentBoard: BoardState,
     side: Color,
-    hash: PositionHash,
+    hash: bigint,
     alphaInput: number,
     beta: number,
     ply: number,
@@ -210,8 +153,8 @@ export function searchBestMove(
     nodes += 1
     checkDeadline()
 
-    const pathKey = `${hash.key}:${hash.lock}`
-    if (path.has(pathKey)) return 0
+    const pathKey = hash
+    if (!comparison && path.has(pathKey)) return 0
     path.add(pathKey)
 
     try {
@@ -250,7 +193,7 @@ export function searchBestMove(
 
       for (const move of ordered(candidates, null, ply)) {
         if (
-          !checked &&
+          !comparison && !checked &&
           move.captured &&
           standPat + PIECE_VALUES[move.captured.type] + 180 < alpha
         ) {
@@ -285,7 +228,7 @@ export function searchBestMove(
   const negamax = (
     currentBoard: BoardState,
     side: Color,
-    hash: PositionHash,
+    hash: bigint,
     depthInput: number,
     alphaInput: number,
     betaInput: number,
@@ -295,13 +238,13 @@ export function searchBestMove(
     nodes += 1
     checkDeadline()
 
-    const pathKey = `${hash.key}:${hash.lock}`
-    if (path.has(pathKey)) return 0
+    const pathKey = hash
+    if (!comparison && path.has(pathKey)) return 0
 
     const checked = isInCheck(currentBoard, side)
     let depth = depthInput
     let extensionsLeft = checkExtensionsLeft
-    if (checked && extensionsLeft > 0) {
+    if (!comparison && checked && extensionsLeft > 0) {
       depth += 1
       extensionsLeft -= 1
     }
@@ -315,10 +258,9 @@ export function searchBestMove(
       let beta = betaInput
       const originalAlpha = alpha
       const originalBeta = beta
-      const cached = table.get(hash.key)
-      const usableCache = cached?.lock === hash.lock ? cached : undefined
+      const usableCache = useTable ? table.get(hash) : undefined
 
-      if (usableCache && usableCache.depth >= depth) {
+      if (usableCache && (comparison ? usableCache.depth === depth : usableCache.depth >= depth)) {
         const score = restoredTableScore(usableCache.score, ply)
         if (usableCache.flag === 'exact') return score
         if (usableCache.flag === 'lower') alpha = Math.max(alpha, score)
@@ -357,7 +299,7 @@ export function searchBestMove(
           } else {
             const quiet = !move.captured
             const reduction =
-              quiet && !checked && childDepth >= 2 && index >= 4
+              !comparison && quiet && !checked && childDepth >= 2 && index >= 4
                 ? childDepth >= 5 && index >= 10
                   ? 2
                   : 1
@@ -415,14 +357,12 @@ export function searchBestMove(
       }
 
       const flag = best <= originalAlpha ? 'upper' : best >= originalBeta ? 'lower' : 'exact'
-      const existing = table.get(hash.key)
-      if (
+      const existing = useTable ? table.get(hash) : undefined
+      if (useTable && (
         table.size < MAX_TABLE_ENTRIES ||
-        existing?.lock === hash.lock ||
-        (existing !== undefined && existing.depth <= depth)
-      ) {
-        table.set(hash.key, {
-          lock: hash.lock,
+        existing !== undefined
+      )) {
+        table.set(hash, {
           depth,
           score: tableScore(best, ply),
           flag,
@@ -460,7 +400,7 @@ export function searchBestMove(
   let completedMove = rootEntries[0].move
   let completedScore = rootEntries[0].score
   let completedDepth = 0
-  const rootPathKey = `${rootHash.key}:${rootHash.lock}`
+  const rootPathKey = rootHash
   path.add(rootPathKey)
 
   try {
@@ -527,14 +467,14 @@ export function searchBestMove(
         completedMove = iterationBest.move
         completedScore = iterationBest.score
         completedDepth = depth
-        rootEntries = [
+        if (!comparison) rootEntries = [
           iterationBest,
           ...iterationEntries
             .filter((entry) => entry !== iterationBest)
             .sort((a, b) => b.score - a.score),
         ]
 
-        if (completedScore > MATE_SCORE - 500) break
+        if (!comparison && completedScore > MATE_SCORE - 500) break
       } catch (error) {
         if (!(error instanceof SearchTimeout)) throw error
         break

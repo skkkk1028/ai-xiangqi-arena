@@ -32,6 +32,28 @@ describe('国际象棋暂停竞态', () => {
   })
   afterEach(cleanup)
 
+  it.each(['theatre', 'arena'] as const)('%s 接管共享暂停任务，等待旧搜索结束后返回稳定快照', async (mode) => {
+    const { result } = renderHook(() => useChessMatch({mode}))
+    if (mode === 'theatre') act(() => result.current.changeBudget('professional'))
+    act(() => result.current.start())
+    await waitFor(() => expect(engineMock.adapters[0]?.pending).toHaveLength(1))
+    let first!: Promise<import('../games/chess/types').ChessGameState>
+    let second!: typeof first
+    act(() => { first = result.current.suspendForStudy(); second = result.current.suspendForStudy(); result.current.start() })
+    expect(first).toBe(second)
+    let complete = false
+    void first.then(() => { complete = true })
+    await act(async () => { await Promise.resolve() })
+    expect(complete).toBe(false)
+    act(() => engineMock.adapters[0].pending[0].resolve(response('e2e4')))
+    let snapshot!: Awaited<typeof first>
+    await act(async () => { snapshot = await first })
+    expect(snapshot.history).toHaveLength(0)
+    expect(result.current.state).toBe(snapshot)
+    expect(result.current.runState).toBe('paused')
+    expect(engineMock.adapters[0].search).toHaveBeenCalledTimes(1)
+  })
+
   it('双人格专业搜索暂停后忽略晚返回结果，恢复后只走一手', async () => {
     const { result } = renderHook(() => useChessMatch())
     act(() => result.current.changeBudget('professional'))

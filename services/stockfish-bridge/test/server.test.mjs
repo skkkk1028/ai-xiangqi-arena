@@ -46,3 +46,21 @@ test('rejects illegal move histories before they reach the native engine', async
   assert.equal(response.status, 400)
   assert.equal(analyzed, false)
 })
+
+test('validates custom initial FEN and passes it to the native engine', async (context) => {
+  let input
+  const engine = { capabilities: { engineVersion: 'Stockfish 18', binarySha256: 'abc123' }, async start() {}, async analyze(value) { input = value; return { bestmove: 'e7e5', info: {}, candidates: [] } } }
+  const server = createStockfishBridgeServer({ engine, threads: 1, hashMb: 64, timeoutMs: 45_000 })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+  context.after(() => new Promise((resolve) => server.close(resolve)))
+  const base = `http://127.0.0.1:${server.address().port}/api/chess/stockfish/analyze`
+  const initialFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1'
+  const response = await fetch(base, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initialFen, moves: ['e7e5'], movetimeMs: 250 }) })
+  assert.equal(response.status, 200)
+  assert.equal(input.initialFen, initialFen)
+  const multiline = await fetch(base, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initialFen: initialFen.replace(' b ', '\n b '), moves: [], movetimeMs: 250 }) })
+  assert.equal(multiline.status, 200)
+  assert.equal(input.initialFen, initialFen, 'forward canonical single-line FEN, never raw whitespace to the UCI command stream')
+  const bad = await fetch(base, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ initialFen: 'bad', moves: [], movetimeMs: 250 }) })
+  assert.equal(bad.status, 400)
+})

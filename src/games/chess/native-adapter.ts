@@ -19,7 +19,7 @@ export class ChessNativeStockfishAdapter implements EngineAdapter {
   private fallback: WorkerEngineAdapter | null = null
   private native = false
   private abort: AbortController | null = null
-  private requestId = 0
+  private closed = false
 
   constructor(config: Readonly<AIEngineConfig>, context: EngineAdapterContext) {
     this.config = config
@@ -27,12 +27,14 @@ export class ChessNativeStockfishAdapter implements EngineAdapter {
   }
 
   async init(): Promise<EngineProfile> {
+    if (this.closed) throw new DOMException('引擎会话已结束。', 'AbortError')
     this.context.onProgress({ phase: 'checking', loaded: 0, total: 1, message: '检查本地 Stockfish 18 原生桥接' })
     try {
       const response = await fetch('/api/chess/stockfish/capabilities', { signal: AbortSignal.timeout(5_000) })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const capabilities = await response.json() as NativeCapabilities
       if (!capabilities.ready || capabilities.runtimeBackend !== 'native-stockfish-18') throw new Error('桥接身份校验失败。')
+      if (this.closed) throw new DOMException('引擎会话已结束。', 'AbortError')
       this.native = true
       this.context.onProgress({ phase: 'ready', loaded: 1, total: 1, message: 'Stockfish 18 原生桥接已就绪' })
       return {
@@ -48,6 +50,7 @@ export class ChessNativeStockfishAdapter implements EngineAdapter {
         hashMb: capabilities.hashMb,
       }
     } catch {
+      if (this.closed) throw new DOMException('引擎会话已结束。', 'AbortError')
       const multithread = typeof SharedArrayBuffer === 'function' && window.crossOriginIsolated === true
       const base = multithread ? CHESS_STOCKFISH_18_CONFIG : CHESS_STOCKFISH_18_SINGLE_CONFIG
       const fallbackConfig: AIEngineConfig = {
@@ -71,8 +74,9 @@ export class ChessNativeStockfishAdapter implements EngineAdapter {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          requestId: `chess-${Date.now()}-${++this.requestId}`,
+          requestId: `chess-${crypto.randomUUID()}`,
           moves,
+          initialFen: options.initialFen,
           movetimeMs,
           multiPv: options.multiPv,
           threads: this.config.threads,
@@ -94,5 +98,5 @@ export class ChessNativeStockfishAdapter implements EngineAdapter {
   setPosition(moves: string[]): void { this.fallback?.setPosition(moves) }
   stop(reason = '搜索已取消。'): void { this.abort?.abort(new DOMException(reason, 'AbortError')); this.abort = null; this.fallback?.stop(reason) }
   newGame(): void { this.fallback?.newGame() }
-  dispose(): void { this.stop('引擎已关闭。'); this.fallback?.dispose(); this.fallback = null; this.native = false }
+  dispose(): void { this.closed = true; this.stop('引擎已关闭。'); this.fallback?.dispose(); this.fallback = null; this.native = false }
 }

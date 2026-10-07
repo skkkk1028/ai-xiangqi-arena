@@ -36,7 +36,10 @@ function validateInput(value) {
   if (!value || typeof value !== 'object') throw protocolError('INVALID_BODY', '请求体无效。')
   const moves = Array.isArray(value.moves) ? value.moves : []
   if (moves.length > 400 || moves.some((move) => !/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(move))) throw protocolError('INVALID_MOVES', 'UCI 着法列表无效。')
-  const chess = new Chess()
+  let chess
+  try { chess = value.initialFen ? new Chess(value.initialFen) : new Chess() }
+  catch { throw protocolError('INVALID_FEN', '初始 FEN 无效。') }
+  const initialFen = value.initialFen ? chess.fen() : null
   for (const uci of moves) {
     let move = null
     try { move = chess.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), ...(uci[4] ? { promotion: uci[4] } : {}) }) }
@@ -44,7 +47,7 @@ function validateInput(value) {
     if (!move) throw protocolError('ILLEGAL_MOVE', `非法历史着法：${uci}`)
   }
   const movetimeMs = boundedInt(value.movetimeMs, 50, 120_000, 10_000)
-  return { moves, movetimeMs, multiPv: boundedInt(value.multiPv, 1, 4, 1), ...(value.maxDepth ? { maxDepth: boundedInt(value.maxDepth, 1, 128, 128) } : {}) }
+  return { moves, initialFen, movetimeMs, multiPv: boundedInt(value.multiPv, 1, 4, 1), ...(value.maxDepth ? { maxDepth: boundedInt(value.maxDepth, 1, 128, 128) } : {}) }
 }
 
 function boundedInt(value, min, max, fallback) { const n = Number(value); return Number.isInteger(n) && n >= min && n <= max ? n : fallback }

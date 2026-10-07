@@ -1,0 +1,20 @@
+.chess-notebook { max-width: 1100px; margin: auto; padding: 24px; color: #263e35; background: #f6f0e5; min-height: 100vh; }
+.chess-notebook header, .chess-notebook-tools { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; }
+.chess-notebook button, .chess-notebook-save button { border: 1px solid #9e9f87; border-radius: 6px; padding: 8px 12px; margin: 4px; background: #fffaf0; color: #263e35; cursor: pointer; }
+.chess-notebook button:disabled, .chess-notebook-save button:disabled { opacity: .5; cursor: default; }
+.chess-notebook form, .chess-notebook-save form { padding: 16px; border: 1px solid #c1b69d; background: #f6f0e5; color: #263e35; border-radius: 8px; }
+.chess-notebook label, .chess-notebook-save label { display: grid; gap: 6px; margin: 8px 0; }
+.chess-notebook input, .chess-notebook textarea, .chess-notebook select, .chess-notebook-save input, .chess-notebook-save textarea, .chess-notebook-save select { max-width: 100%; padding: 8px; color: #263e35; background: white; border: 1px solid #9e9f87; border-radius: 4px; }
+.chess-notebook-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 20px; }
+.chess-notebook-list article { padding: 16px; border: 1px solid #c1b69d; border-radius: 8px; background: #fffaf0; }
+.chess-notebook-save { margin: 8px 0; }
+.chess-notebook :focus-visible, .chess-notebook-save :focus-visible { outline: 3px solid #087f76; outline-offset: 2px; }
+
+.chess-study-page .chess-header button, .chess-study-panel button, .chess-study-panel select, .chess-guess [aria-label="按需两招比较"] button { border: 1px solid #a68d58; border-radius: 6px; padding: 8px 12px; background: #242b28; color: #f0e8d8; cursor: pointer; }
+.chess-study-panel button:disabled, .chess-guess [aria-label="按需两招比较"] button:disabled { opacity: .5; cursor: default; }
+.chess-study-page > p { max-width: 1400px; margin: 1rem auto; padding: 0 1rem; }
+.chess-study-panel [aria-label="按需两招比较"] { overflow-wrap: anywhere; border-top: 1px solid #796c4e; padding-top: 12px; }
+.chess-study-panel [aria-label="按需两招比较"] button { margin: 3px; }
+
+.chess-study-page.chess-temporary-study { color: #263e35; }
+.chess-temporary-study .chess-study-panel { color: #eee5d3; }

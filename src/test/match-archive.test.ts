@@ -34,7 +34,7 @@ describe('版本化棋局档案', () => {
     const restored = importGoSgf(exportGoSgf(state))
     expect(restored.board).toEqual(state.board)
     expect(restored.history.map((move) => move.notation)).toEqual(state.history.map((move) => move.notation))
-    expect(() => importGoSgf('(;GM[1]SZ[19];W[dd])')).toThrow('执子顺序')
+    expect(() => importGoSgf('(;GM[1]SZ[19]KM[7.5]RU[Chinese];W[dd])')).toThrow('执子顺序')
   })
 
   it('象棋 UCCI 导入逐手验证并输出当前 FEN', () => {

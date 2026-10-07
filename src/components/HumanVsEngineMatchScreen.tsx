@@ -6,6 +6,7 @@ import type { Move, Position } from '../game/types'
 import type { HumanEngineState, HumanMatchState } from '../hooks/useHumanVsEngine'
 import type { ActionEligibility } from '../games/xiangqi'
 import { ChessBoard } from './ChessBoard'
+import { SearchComparison } from './SearchComparison'
 import { ChevronLeftIcon, PauseIcon, PlayIcon, RefreshIcon } from './Icons'
 import { MoveHistory } from './MoveHistory'
 import { PositionEvaluation } from './PositionEvaluation'
@@ -28,6 +29,7 @@ interface HumanVsEngineMatchScreenProps {
   onResign: () => void
   onOfferDraw: () => void
   onRequestUndo: () => void
+  onReview?: () => void
 }
 
 export function HumanVsEngineMatchScreen({
@@ -46,6 +48,7 @@ export function HumanVsEngineMatchScreen({
   onResign,
   onOfferDraw,
   onRequestUndo,
+  onReview,
 }: HumanVsEngineMatchScreenProps) {
   const [selected, setSelected] = useState<Position | null>(null)
   const humanTurn = state.turn === state.config.humanColor && state.phase === 'running'
@@ -114,6 +117,7 @@ export function HumanVsEngineMatchScreen({
           <div><small>第 {Math.floor(state.history.length / 2) + 1} 回合</small><strong>{status}</strong></div>
         </div>
         <div className="header-actions">
+          {onReview && <button className="header-archive-button" disabled={!state.history.length || Boolean(negotiation.pending)} onClick={onReview}>复盘与再挑战</button>}
           <button className="icon-button" onClick={onNewGame} disabled={Boolean(negotiation.pending)} aria-label="开始新对局" title="新对局">
             <RefreshIcon />
           </button>
@@ -185,6 +189,7 @@ export function HumanVsEngineMatchScreen({
 
         <aside className="arena-side arena-side--black">
           <MoveHistory history={state.history} />
+          <SearchComparison board={state.board} turn={state.turn} paused={state.phase === 'paused' || state.phase === 'finished'} />
           <div className="human-rule-note">
             <strong>本局规则</strong>
             <span>将死 · 困毙 · 三次重复 · 120 半回合无吃子</span>
@@ -214,6 +219,7 @@ export function HumanVsEngineMatchScreen({
           plies={state.history.length}
           onNewGame={onNewGame}
           onHome={onHome}
+          onReview={state.history.length ? onReview : undefined}
         />
       )}
     </div>

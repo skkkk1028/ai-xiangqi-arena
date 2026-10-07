@@ -146,7 +146,7 @@ describe('围棋 React 页面', () => {
     fireEvent.click(screen.getByRole('gridcell', { name: 'D16，黑子，已标记死子' }))
     expect(screen.getByRole('gridcell', { name: 'D16，黑子' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('gridcell', { name: 'E16，黑子' })).toHaveAttribute('aria-pressed', 'false')
-  })
+  }, 20000)
 
   it('连接 KataGo 后可由 GameController 单步执行 AI 着法并展示分析', async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

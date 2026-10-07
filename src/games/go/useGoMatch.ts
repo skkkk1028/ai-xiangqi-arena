@@ -25,7 +25,9 @@ import { getGoGroup } from './rules'
 import type { GoGameState, GoMove, GoMoveRecord, GoPlayer, GoPoint } from './types'
 import { useGoWinRateAnalysis } from './useGoWinRateAnalysis'
 import { loadLatestArchive } from '../core'
-import { restoreGoArchive } from './sgf'
+import { applyGoReplayMove, restoreGoArchive } from './sgf'
+import { createConfiguredKataGoTransport } from './ai/configured-transport'
+import { emptyGoGuessStats, goGuessPrefix, nextGoGuessStats, type GoGuessState } from './guess'
 
 export type GoMatchMode = 'local' | 'human' | 'ai' | 'battle'
 export type GoHumanColorChoice = GoPlayer | 'random'
@@ -80,6 +82,29 @@ export function useGoMatch() {
   const loopTokenRef = useRef(0)
   const autoRunningRef = useRef(false)
   const mountedRef = useRef(true)
+  const sessionGenerationRef = useRef(0)
+  const sessionAbortRef = useRef<AbortController | null>(null)
+  const sessionCreationRef = useRef<Promise<AISession> | null>(null)
+
+  const turnAbortRef = useRef<AbortController | null>(null)
+  const turnSettledRef = useRef<Promise<unknown>>(Promise.resolve())
+  const turnCancellationRef = useRef<Promise<unknown>>(Promise.resolve())
+  const [guess, setGuessValue] = useState<GoGuessState>({ phase: 'off', round: null, stats: emptyGoGuessStats() })
+  const guessRef = useRef(guess)
+  const guessIdRef = useRef(0)
+  const publishGuess = useCallback((next: GoGuessState) => {
+    guessRef.current = next
+    if (mountedRef.current) setGuessValue(next)
+  }, [])
+  const closeGuess = useCallback((resetStats = false) => {
+    turnAbortRef.current?.abort()
+    publishGuess({ phase: 'off', round: null, stats: resetStats ? emptyGoGuessStats() : guessRef.current.stats })
+  }, [publishGuess])
+  const voidGuess = useCallback(() => {
+    if (guessRef.current.phase === 'off') return
+    publishGuess({ ...guessRef.current, phase: 'void', round: null })
+    setAnalysisByPlayer({})
+  }, [publishGuess])
 
   const setState = useCallback((next: GoGameState) => {
     stateRef.current = next
@@ -90,6 +115,48 @@ export function useGoMatch() {
     runStateRef.current = next
     if (mountedRef.current) setRunStateValue(next)
   }, [])
+
+  const prepareGuess = useCallback(() => {
+    const before = stateRef.current
+    if (before.phase !== 'playing' || !sessionRef.current) return
+    autoRunningRef.current = false
+    loopTokenRef.current += 1
+    winRateAnalysis.reset()
+    setAnalysisByPlayer({})
+    setNotice(null)
+    setRunState('paused')
+    publishGuess({ phase: 'choosing', stats: guessRef.current.stats, round: {
+      id: ++guessIdRef.current, generation: sessionGenerationRef.current, before,
+      prefix: goGuessPrefix(before), selected: null, skipped: false,
+    } })
+  }, [publishGuess, setRunState, winRateAnalysis.reset])
+
+  const toggleGuess = useCallback((enabled: boolean) => {
+    if (guessRef.current.phase === 'searching') return
+    if (!enabled) {
+      closeGuess()
+      autoRunningRef.current = false
+      loopTokenRef.current += 1
+      setRunState('paused')
+      return
+    }
+    if (!['ai', 'battle'].includes(modeRef.current) || !sessionRef.current
+      || stateRef.current.phase !== 'playing' || runStateRef.current === 'connecting') return
+    winRateAnalysis.reset()
+    if (runStateRef.current === 'thinking') publishGuess({ ...guessRef.current, phase: 'armed', round: null })
+    else prepareGuess()
+  }, [closeGuess, prepareGuess, publishGuess, setRunState, winRateAnalysis.reset])
+
+  const selectGuess = useCallback((move: GoMove) => {
+    const current = guessRef.current
+    if (current.phase !== 'choosing' || !current.round) return
+    const selected = GO_ENGINE.getLegalActions(current.round.before).find((action) => GO_ENGINE.actionsEqual(action, move))
+    if (selected) publishGuess({ ...current, round: { ...current.round, selected } })
+  }, [publishGuess])
+
+  const nextGuess = useCallback(() => {
+    if (guessRef.current.phase === 'revealed' || guessRef.current.phase === 'void') prepareGuess()
+  }, [prepareGuess])
 
   const legalMoveKeys = useMemo(
     () => new Set(GO_ENGINE.getLegalMoves(state).map(pointKey)),
@@ -122,9 +189,15 @@ export function useGoMatch() {
     for (const transport of session.transports) await transport.dispose()
   }, [])
 
-  const createSession = useCallback(async (initialState?: GoGameState) => {
+  const buildSession = useCallback(async (generation: number, signal: AbortSignal, initialState?: GoGameState) => {
+    const assertCurrent = () => {
+      signal.throwIfAborted()
+      if (!mountedRef.current || generation !== sessionGenerationRef.current) throw new DOMException('围棋会话已切换。', 'AbortError')
+    }
+    assertCurrent()
     await winRateAnalysis.detachTransport(true)
     await disposeSession()
+    assertCurrent()
     const sessionMode = modeRef.current
     const seatIds: Record<GoPlayer, GoAIEngineId> = sessionMode === 'ai'
       ? { black: 'katago', white: 'katago' }
@@ -153,7 +226,8 @@ export function useGoMatch() {
       if (needsKataGo) {
         kataGoTransport = await createConfiguredKataGoTransport()
         transports.push(kataGoTransport)
-        kataGoCapabilities = await kataGoTransport.initialize()
+        kataGoCapabilities = await kataGoTransport.initialize(signal)
+        assertCurrent()
         const battleProfile = kataGoCapabilities.profiles['battle-matched']
         const activeProfile = sessionMode === 'battle' ? battleProfile : kataGoCapabilities.profiles[profileRef.current]
         if (!activeProfile) throw new Error('KataGo 服务未提供 battle-matched 独立搜索档位。')
@@ -168,7 +242,8 @@ export function useGoMatch() {
       if (needsLeelaZero) {
         leelaZeroTransport = new HttpLeelaZeroTransport()
         transports.push(leelaZeroTransport)
-        const details = await leelaZeroTransport.initialize()
+        const details = await leelaZeroTransport.initialize(signal)
+        assertCurrent()
         sessionEngineDetails['leela-zero'] = {
           engineVersion: details.engineVersion,
           modelName: details.modelName,
@@ -180,7 +255,8 @@ export function useGoMatch() {
       if (needsSayuri) {
         sayuriTransport = new HttpSayuriTransport()
         transports.push(sayuriTransport)
-        const details = await sayuriTransport.initialize()
+        const details = await sayuriTransport.initialize(signal)
+        assertCurrent()
         sessionEngineDetails.sayuri = {
           engineVersion: details.engineVersion,
           modelName: details.modelName,
@@ -222,11 +298,12 @@ export function useGoMatch() {
         }),
       )
       const publish = (analysis: GoAIAnalysis) => {
-        if (!mountedRef.current) return
+        if (!mountedRef.current || generation !== sessionGenerationRef.current || turnAbortRef.current?.signal.aborted) return
         setAnalysisByPlayer((current) => ({ ...current, [analysis.player]: analysis }))
       }
       unsubscribe = [...seatEngines.values()].map((engine) => engine.subscribe(publish))
       const snapshot = await controller.start()
+      assertCurrent()
       const session = {
         controller,
         transports,
@@ -248,13 +325,55 @@ export function useGoMatch() {
     }
   }, [disposeSession, setState, winRateAnalysis.detachTransport])
 
+  const createSession = useCallback((initialState?: GoGameState) => {
+    const previous = sessionCreationRef.current
+    const generation = ++sessionGenerationRef.current
+    sessionAbortRef.current?.abort()
+    const abort = new AbortController()
+    sessionAbortRef.current = abort
+    const operation = (previous ? previous.catch(() => undefined) : Promise.resolve()).then(() => buildSession(generation, abort.signal, initialState))
+    sessionCreationRef.current = operation
+    return operation
+  }, [buildSession])
+
+  const suspensionRef = useRef<Promise<GoGameState> | null>(null)
+  const suspendForStudy = useCallback((): Promise<GoGameState> => {
+    if (suspensionRef.current) return suspensionRef.current
+    closeGuess()
+    autoRunningRef.current = false
+    loopTokenRef.current += 1
+    const generation = ++sessionGenerationRef.current
+    sessionAbortRef.current?.abort()
+    setRunState(modeRef.current === 'local' ? 'offline' : 'paused')
+    winRateAnalysis.reset()
+    const session = sessionRef.current
+    const operation = (async () => {
+      await session?.controller.cancelPendingTurn('进入局面研习。')
+      await sessionCreationRef.current?.catch(() => undefined)
+      if (!mountedRef.current || generation !== sessionGenerationRef.current) throw new DOMException('局面已切换。', 'AbortError')
+      const stable = session?.controller.getSnapshot().state ?? stateRef.current
+      setState(stable)
+      await winRateAnalysis.detachTransport(true)
+      if (!mountedRef.current || generation !== sessionGenerationRef.current) throw new DOMException('局面已切换。', 'AbortError')
+      await disposeSession()
+      if (!mountedRef.current || generation !== sessionGenerationRef.current) throw new DOMException('局面已切换。', 'AbortError')
+      return stable
+    })()
+    suspensionRef.current = operation
+    void operation.finally(() => { if (suspensionRef.current === operation) suspensionRef.current = null }).catch(() => undefined)
+    return operation
+  }, [closeGuess, disposeSession, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
+
   const pauseAI = useCallback(async (message = 'AI 对弈已暂停。') => {
+    turnAbortRef.current?.abort()
+    voidGuess()
     autoRunningRef.current = false
     loopTokenRef.current += 1
     setRunState('paused')
     setNotice(message)
-    await sessionRef.current?.controller.cancelPendingTurn(message).catch(() => undefined)
-  }, [setRunState])
+    turnCancellationRef.current = sessionRef.current?.controller.cancelPendingTurn(message).catch(() => undefined) ?? Promise.resolve()
+    await turnCancellationRef.current
+  }, [setRunState, voidGuess])
 
   const playOneAITurn = useCallback(async (): Promise<boolean> => {
     const session = sessionRef.current
@@ -269,16 +388,59 @@ export function useGoMatch() {
       return false
     }
     setRunState('thinking')
-    const turn = await session.controller.playAITurn()
+    const abort = new AbortController()
+    turnAbortRef.current = abort
+    const generation = sessionGenerationRef.current
+    const prediction = guessRef.current
+    const operation = session.controller.playAITurn(abort.signal)
+    turnSettledRef.current = operation.catch(() => undefined)
+    const turn = await operation
+    if (!mountedRef.current || abort.signal.aborted || sessionRef.current !== session || generation !== sessionGenerationRef.current) return false
     setState(turn.snapshot.state)
+    if (prediction.phase === 'searching' && prediction.round
+      && guessRef.current.phase === 'searching' && guessRef.current.round?.id === prediction.round.id
+      && prediction.round.generation === generation && prediction.round.prefix === goGuessPrefix(current.state)) {
+      const actual = turn.snapshot.state.history.at(-1)!
+      publishGuess({ ...prediction, phase: 'revealed',
+        round: { ...prediction.round, actual, analysis: turn.decision.analysis },
+        stats: nextGoGuessStats(prediction.stats, prediction.round.skipped ? null : prediction.round.selected, actual) })
+      setRunState('paused')
+    }
     if (turn.snapshot.state.phase !== 'playing') {
       autoRunningRef.current = false
       setRunState('paused')
+      if (guessRef.current.phase === 'armed') closeGuess()
       setNotice('双方连续虚着，已进入计分确认。')
       return false
     }
+    if (guessRef.current.phase === 'armed') {
+      prepareGuess()
+      return false
+    }
     return true
-  }, [pauseAI, setRunState, setState])
+  }, [closeGuess, pauseAI, prepareGuess, publishGuess, setRunState, setState])
+
+  const submitGuess = useCallback(async (skip = false) => {
+    const current = guessRef.current
+    const round = current.round
+    if (current.phase !== 'choosing' || !round || !sessionRef.current
+      || round.generation !== sessionGenerationRef.current || round.prefix !== goGuessPrefix(stateRef.current)
+      || stateRef.current.phase !== 'playing') return
+    if (!skip && (!round.selected || !GO_ENGINE.getLegalActions(stateRef.current).some((move) => GO_ENGINE.actionsEqual(move, round.selected!)))) return
+    publishGuess({ ...current, phase: 'searching', round: { ...round, selected: skip ? null : round.selected, skipped: skip } })
+    setRunState('thinking')
+    try {
+      await winRateAnalysis.detachTransport(true)
+      await turnCancellationRef.current
+      if (!mountedRef.current || guessRef.current.phase !== 'searching' || guessRef.current.round?.id !== round.id) return
+      await playOneAITurn()
+    } catch (error) {
+      if (!mountedRef.current || guessRef.current.phase !== 'searching' || guessRef.current.round?.id !== round.id) return
+      voidGuess()
+      setRunState(isAbortError(error) ? 'paused' : 'error')
+      setNotice(errorMessage(error, 'AI 未完成落子，本题作废。'))
+    }
+  }, [playOneAITurn, publishGuess, setRunState, voidGuess, winRateAnalysis.detachTransport])
 
   const runAILoop = useCallback(async (token: number) => {
     try {
@@ -288,21 +450,25 @@ export function useGoMatch() {
         autoRunningRef.current &&
         token === loopTokenRef.current
       ) {
+        if (guessRef.current.phase !== 'off') break
         const shouldContinue = await playOneAITurn()
-        if (!shouldContinue) break
+        if (!shouldContinue || !autoRunningRef.current || token !== loopTokenRef.current) break
         setRunState('running')
         await delay(360)
       }
     } catch (error) {
-      if (!autoRunningRef.current || isAbortError(error)) return
+      if (!autoRunningRef.current || token !== loopTokenRef.current || isAbortError(error)) return
+      voidGuess()
       autoRunningRef.current = false
       setRunState('error')
       setNotice(errorMessage(error, 'KataGo 搜索失败，棋盘未发生变化。'))
     }
-  }, [playOneAITurn, setRunState])
+  }, [playOneAITurn, setRunState, voidGuess])
 
   const startAI = useCallback(async () => {
-    if (modeRef.current === 'local' || autoRunningRef.current) return
+    if (modeRef.current === 'local' || autoRunningRef.current || guessRef.current.phase !== 'off'
+      || runStateRef.current === 'thinking' || runStateRef.current === 'connecting') return
+    const entryToken = loopTokenRef.current
     try {
       if (!sessionRef.current) {
         setRunState('connecting')
@@ -310,12 +476,15 @@ export function useGoMatch() {
       }
       winRateAnalysis.reset()
       await winRateAnalysis.detachTransport(true)
+      await turnCancellationRef.current
+      if (!mountedRef.current || entryToken !== loopTokenRef.current || guessRef.current.phase !== 'off' || ['thinking'].includes(runStateRef.current)) return
       setNotice(null)
       autoRunningRef.current = true
       const token = ++loopTokenRef.current
       setRunState('running')
       void runAILoop(token)
     } catch (error) {
+      if (!mountedRef.current || entryToken !== loopTokenRef.current) return
       autoRunningRef.current = false
       setRunState('error')
       setNotice(errorMessage(error, '围棋 AI 无法启动。'))
@@ -323,7 +492,9 @@ export function useGoMatch() {
   }, [createSession, runAILoop, setRunState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
 
   const stepAI = useCallback(async () => {
-    if (modeRef.current === 'local' || autoRunningRef.current) return
+    if (modeRef.current === 'local' || autoRunningRef.current || guessRef.current.phase !== 'off'
+      || runStateRef.current === 'thinking' || runStateRef.current === 'connecting') return
+    const entryToken = loopTokenRef.current
     try {
       if (!sessionRef.current) {
         setRunState('connecting')
@@ -331,18 +502,24 @@ export function useGoMatch() {
       }
       winRateAnalysis.reset()
       await winRateAnalysis.detachTransport(true)
+      await turnCancellationRef.current
+      if (!mountedRef.current || entryToken !== loopTokenRef.current || guessRef.current.phase !== 'off' || ['thinking'].includes(runStateRef.current)) return
       setNotice(null)
       await playOneAITurn()
       if (stateRef.current.phase === 'playing') setRunState('paused')
     } catch (error) {
+      if (!mountedRef.current || entryToken !== loopTokenRef.current) return
       if (isAbortError(error)) return
+      voidGuess()
       setRunState('error')
       setNotice(errorMessage(error, '围棋 AI 单步搜索失败。'))
     }
-  }, [createSession, playOneAITurn, setRunState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
+  }, [createSession, playOneAITurn, setRunState, voidGuess, winRateAnalysis.detachTransport, winRateAnalysis.reset])
 
   const changeMode = useCallback(async (next: GoMatchMode) => {
     if (next === modeRef.current) return
+    if (runStateRef.current === 'connecting') return
+    closeGuess(true)
     autoRunningRef.current = false
     loopTokenRef.current += 1
     await sessionRef.current?.controller.cancelPendingTurn('对局模式已切换。').catch(() => undefined)
@@ -386,12 +563,13 @@ export function useGoMatch() {
       setRunState('error')
       setNotice(errorMessage(error, 'KataGo 初始化失败。'))
     }
-  }, [createSession, disposeSession, playOneAITurn, resetScoringReview, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
+  }, [closeGuess, createSession, disposeSession, playOneAITurn, resetScoringReview, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
 
   const changeBattleEngine = useCallback(async (player: GoPlayer, engineId: GoAIEngineId) => {
     if (modeRef.current !== 'battle' || autoRunningRef.current) return
     if (!GO_AI_ENGINES.some((engine) => engine.id === engineId)) return
     if (battleEnginesRef.current[player] === engineId) return
+    closeGuess(true)
     const next = { ...battleEnginesRef.current, [player]: engineId }
     battleEnginesRef.current = next
     setBattleEnginesValue(next)
@@ -409,7 +587,7 @@ export function useGoMatch() {
       setRunState('error')
       setNotice(errorMessage(error, '围棋 AI 组合初始化失败。'))
     }
-  }, [createSession, setRunState, setState, winRateAnalysis.reset])
+  }, [closeGuess, createSession, setRunState, setState, winRateAnalysis.reset])
 
   const changeHumanColor = useCallback(async (choice: GoHumanColorChoice) => {
     if (autoRunningRef.current) return
@@ -440,6 +618,7 @@ export function useGoMatch() {
 
   const changeProfile = useCallback(async (next: KataGoSearchProfile) => {
     if (next === profileRef.current || autoRunningRef.current) return
+    closeGuess(true)
     profileRef.current = next
     setProfileValue(next)
     setAnalysisByPlayer({})
@@ -463,7 +642,7 @@ export function useGoMatch() {
       setRunState('error')
       setNotice(errorMessage(error, 'KataGo 无法启动。'))
     }
-  }, [createSession, playOneAITurn, resetScoringReview, setRunState, setState, winRateAnalysis.reset])
+  }, [closeGuess, createSession, playOneAITurn, resetScoringReview, setRunState, setState, winRateAnalysis.reset])
 
   const execute = useCallback((move: GoMove) => {
     if (modeRef.current !== 'local' && modeRef.current !== 'human') return
@@ -493,7 +672,26 @@ export function useGoMatch() {
     }
   }, [playOneAITurn, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
 
+  const resumeHuman = useCallback(async () => {
+    if (modeRef.current !== 'human' || runStateRef.current === 'connecting' || runStateRef.current === 'thinking') return
+    try {
+      setRunState('connecting')
+      if (!sessionRef.current) await createSession(stateRef.current)
+      setRunState('paused')
+      if (stateRef.current.phase === 'playing' && stateRef.current.turn !== humanColorRef.current) {
+        await playOneAITurn()
+        setRunState('paused')
+      }
+    } catch (error) {
+      if (isAbortError(error)) return
+      setRunState('error')
+      setNotice(errorMessage(error, '无法继续人机对局。'))
+    }
+  }, [createSession, playOneAITurn, setRunState])
+
   const analyzePostgame = useCallback(async () => {
+    if (guessRef.current.phase !== 'off') return
+    const entryToken = loopTokenRef.current
     if (autoRunningRef.current || runStateRef.current === 'thinking') {
       setNotice('请先暂停 AI 对弈，再启动赛后分析。')
       return
@@ -505,6 +703,7 @@ export function useGoMatch() {
     winRateAnalysis.reset()
     const shared = sessionRef.current?.analysisTransport
     if (shared) await winRateAnalysis.attachTransport(shared)
+    if (!mountedRef.current || entryToken !== loopTokenRef.current || guessRef.current.phase !== 'off') return
     winRateAnalysis.enqueuePostgame(replayAnalysisPositions(stateRef.current))
     setNotice('已启动赛后分析；分析不会修改棋谱、结果或对局耗时。')
   }, [winRateAnalysis.attachTransport, winRateAnalysis.enqueuePostgame, winRateAnalysis.reset])
@@ -516,6 +715,7 @@ export function useGoMatch() {
         setNotice('没有可恢复的围棋棋局。')
         return
       }
+      closeGuess(true)
       autoRunningRef.current = false
       loopTokenRef.current += 1
       await winRateAnalysis.detachTransport(true)
@@ -523,14 +723,18 @@ export function useGoMatch() {
       modeRef.current = 'local'
       setModeValue('local')
       setState(restoreGoArchive(archive))
+      resetScoringReview()
+      setAnalysisByPlayer({})
+      winRateAnalysis.reset()
       setRunState('offline')
       setNotice('已逐手验证并恢复最近保存的围棋棋局。')
     } catch (error) {
       setNotice(errorMessage(error, '最近棋局无法恢复。'))
     }
-  }, [disposeSession, setRunState, setState, winRateAnalysis.detachTransport])
+  }, [closeGuess, disposeSession, resetScoringReview, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
 
   const newGame = useCallback(async () => {
+    closeGuess(true)
     autoRunningRef.current = false
     loopTokenRef.current += 1
     await winRateAnalysis.detachTransport(true)
@@ -553,7 +757,7 @@ export function useGoMatch() {
       setRunState('error')
       setNotice(errorMessage(error, 'KataGo 无法启动。'))
     }
-  }, [createSession, playOneAITurn, resetScoringReview, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
+  }, [closeGuess, createSession, playOneAITurn, resetScoringReview, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
 
   const toggleDeadGroup = useCallback((point: GoPoint) => {
     if (stateRef.current.phase !== 'scoring') return
@@ -590,6 +794,7 @@ export function useGoMatch() {
   }, [scoringConfirmations, scoringRequest, setState])
 
   const resumePlay = useCallback(async () => {
+    closeGuess(false)
     try {
       winRateAnalysis.reset()
       await winRateAnalysis.detachTransport(true)
@@ -606,18 +811,26 @@ export function useGoMatch() {
       setRunState(modeRef.current !== 'local' ? 'error' : 'offline')
       setNotice(errorMessage(error, '当前无法恢复落子。'))
     }
-  }, [createSession, resetScoringReview, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
+  }, [closeGuess, createSession, resetScoringReview, setRunState, setState, winRateAnalysis.detachTransport, winRateAnalysis.reset])
 
-  useEffect(() => () => {
-    mountedRef.current = false
-    autoRunningRef.current = false
-    loopTokenRef.current += 1
-    void disposeSession()
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      turnAbortRef.current?.abort()
+      sessionGenerationRef.current += 1
+      sessionAbortRef.current?.abort()
+      autoRunningRef.current = false
+      loopTokenRef.current += 1
+      void disposeSession()
+    }
   }, [disposeSession])
 
   return {
+    guess, toggleGuess, selectGuess, submitGuess, nextGuess,
     state,
     mode,
+    sessionReady: sessionRef.current !== null,
     profile,
     humanColor,
     battleEngines,
@@ -648,29 +861,22 @@ export function useGoMatch() {
     resumePlay,
     analyzePostgame,
     restoreLatest,
+    suspendForStudy,
+    resumeHuman,
   }
 }
 
-function replayAnalysisPositions(source: GoGameState): GoGameState[] {
+export function replayAnalysisPositions(source: GoGameState): GoGameState[] {
   let state = GO_ENGINE.init()
   const positions: GoGameState[] = []
   for (const record of source.history) {
     const move: GoMove = record.kind === 'pass'
       ? { kind: 'pass' }
       : { row: record.point!.row, col: record.point!.col }
-    state = GO_ENGINE.applyMove(state, move)
+    state = applyGoReplayMove(GO_ENGINE, state, move)
     positions.push(state)
   }
   return positions
-}
-
-async function createConfiguredKataGoTransport(): Promise<KataGoTransport> {
-  if (USE_NATIVE_KATAGO) {
-    const { HttpKataGoTransport } = await import('./ai/KataGoTransport')
-    return new HttpKataGoTransport()
-  }
-  const { BrowserKataGoTransport } = await import('./ai/BrowserKataGoTransport')
-  return new BrowserKataGoTransport()
 }
 
 class GoSessionGameEngine extends GoGameEngine {

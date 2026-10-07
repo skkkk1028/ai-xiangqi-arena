@@ -8,6 +8,8 @@ interface EngineSelectionScreenProps {
   engineStates: Record<'red' | 'black', EngineState>
   onBack: () => void
   onStart: (redId: string, blackId: string) => Promise<void>
+  guessEnabled: boolean
+  onGuessChange: (enabled: boolean) => void
 }
 
 export function EngineSelectionScreen({
@@ -15,6 +17,8 @@ export function EngineSelectionScreen({
   engineStates,
   onBack,
   onStart,
+  guessEnabled,
+  onGuessChange,
 }: EngineSelectionScreenProps) {
   const [redId, setRedId] = useState(engines[0]?.id ?? '')
   const [blackId, setBlackId] = useState(engines[1]?.id ?? engines[0]?.id ?? '')
@@ -79,6 +83,7 @@ export function EngineSelectionScreen({
       </div>
       {invalid && <p className="selection-error">请选择两个不同引擎或不同核心配置。</p>}
       {error && <p className="selection-error" role="alert">{error}</p>}
+      <label className="guess-toggle"><input type="checkbox" checked={guessEnabled} onChange={(event) => onGuessChange(event.target.checked)} />猜下一手（每手暂停作答）</label>
       <button className="start-button selection-start" onClick={() => void start()} disabled={invalid || starting}>
         <span>{starting ? '正在独立初始化双方引擎' : '开始引擎对战'}</span>
         {!starting && <PlayIcon />}

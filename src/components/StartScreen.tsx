@@ -6,8 +6,12 @@ interface StartScreenProps {
   onEngineBattle: () => void
   onHumanBattle: () => void
   onLocalBattle: () => void
+  onNotebook?: () => void
+  onOpeningPractice?: () => void
   onRetry: () => void
   engine: EngineState
+  guessEnabled: boolean
+  onGuessChange: (enabled: boolean) => void
 }
 
 function progressPercent(engine: EngineState): number {
@@ -17,7 +21,7 @@ function progressPercent(engine: EngineState): number {
   return progress.phase === 'downloading' ? 15 : 55
 }
 
-export function StartScreen({ onStart, onEngineBattle, onHumanBattle, onLocalBattle, onRetry, engine }: StartScreenProps) {
+export function StartScreen({ onStart, onEngineBattle, onHumanBattle, onLocalBattle, onNotebook, onOpeningPractice, onRetry, engine, guessEnabled, onGuessChange }: StartScreenProps) {
   const ready = engine.phase === 'ready'
   const failed = engine.phase === 'error' || engine.phase === 'unsupported'
   const percent = progressPercent(engine)
@@ -33,6 +37,8 @@ export function StartScreen({ onStart, onEngineBattle, onHumanBattle, onLocalBat
             <small>楚河汉界 · 智见胜负</small>
           </span>
         </a>
+      {onNotebook && <button className="header-archive-button" onClick={onNotebook}>个人练习本</button>}
+      {onOpeningPractice && <button className="header-archive-button" onClick={onOpeningPractice}>开局练习</button>}
         <div className={`local-badge ${ready ? 'is-ready' : ''}`}>
           <i />
           {ready ? '专业 NNUE 已就绪' : '浏览器本地运算'}
@@ -87,6 +93,7 @@ export function StartScreen({ onStart, onEngineBattle, onHumanBattle, onLocalBat
             </button>
           ) : (
             <div className="mode-actions">
+              <label className="guess-toggle"><input type="checkbox" checked={guessEnabled} onChange={(event) => onGuessChange(event.target.checked)} />猜下一手（每手暂停作答）</label>
               <button
                 className="mode-button mode-button--primary"
                 aria-label="开始对弈"

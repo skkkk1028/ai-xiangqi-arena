@@ -97,7 +97,9 @@ export function goEngineDescriptor(
     version: details?.engineVersion ?? '运行时检测',
     model: details?.modelName ?? '运行时检测',
     protocol: id === 'katago' ? 'KataGo Analysis' : 'GTP',
-    runtime: native ? 'native-bridge' : 'browser-webgpu',
+    runtime: native || details?.runtimeLabel?.includes('Native') ? 'native-bridge'
+      : details?.runtimeLabel?.includes('WASM') ? 'browser-wasm'
+      : details?.runtimeLabel?.includes('CPU') ? 'browser-worker' : 'browser-webgpu',
     capabilities: {
       winRate: id === 'katago',
       scoreLead: id === 'katago',

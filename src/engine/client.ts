@@ -141,6 +141,7 @@ export class WorkerEngineAdapter implements EngineAdapter {
         type: 'search',
         searchId: id,
         moves,
+        initialFen: options.initialFen,
         movetimeMs: effectiveMovetimeMs,
         multiPv: options.multiPv,
         maxDepth: options.maxDepth,

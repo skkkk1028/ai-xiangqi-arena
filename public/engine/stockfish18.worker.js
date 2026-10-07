@@ -122,13 +122,13 @@ function startSearch(message) {
   }
   activeSearchId = message.searchId
   self.postMessage({ type: 'search-started', searchId: message.searchId })
-  setPosition(message.moves)
+  setPosition(message.moves, message.initialFen)
   const depth = Number(message.maxDepth)
   send(`go movetime ${Math.max(50, Math.floor(message.movetimeMs))}${depth > 0 ? ` depth ${Math.floor(depth)}` : ''}`)
 }
 
-function setPosition(moves) {
-  send(`position startpos${moves.length ? ` moves ${moves.join(' ')}` : ''}`)
+function setPosition(moves, initialFen) {
+  send(`position ${initialFen ? `fen ${initialFen}` : 'startpos'}${moves.length ? ` moves ${moves.join(' ')}` : ''}`)
 }
 
 function stop() {

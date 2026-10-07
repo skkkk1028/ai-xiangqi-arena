@@ -1,9 +1,12 @@
+import { NotebookPage } from './NotebookPage'
 import { useEffect, useState } from 'react'
 import { GAME_ROUTES } from '../routes'
 import { ChessArenaPage } from './ChessArenaPage'
 import { ChessGamePage } from './ChessGamePage'
 import { ChessHumanPage } from './ChessHumanPage'
 import { ChessLocalPage } from './ChessLocalPage'
+import { ChessLibraryPage } from './ChessLibraryPage'
+import { ChessStudyPage } from './ChessStudyPage'
 import './chess.css'
 
 export function ChessModulePage() {
@@ -15,10 +18,13 @@ export function ChessModulePage() {
     return () => window.removeEventListener('hashchange', update)
   }, [])
 
+  if (route === '#/games/chess/study/notebook') return <NotebookPage onClose={() => { window.location.hash = GAME_ROUTES.chess }} />
   if (route === GAME_ROUTES.chessTheatre) return <ChessGamePage />
   if (route === GAME_ROUTES.chessArena) return <ChessArenaPage />
   if (route === GAME_ROUTES.chessHuman) return <ChessHumanPage />
   if (route === GAME_ROUTES.chessLocal) return <ChessLocalPage />
+  if (route === GAME_ROUTES.chessLibrary) return <ChessLibraryPage />
+  if (route.startsWith(`${GAME_ROUTES.chessStudy}/`)) return <ChessStudyPage gameId={decodeURIComponent(route.slice(GAME_ROUTES.chessStudy.length + 1))} />
   return <ChessModePage />
 }
 
@@ -33,7 +39,8 @@ function ChessModePage() {
           <p>选择双人格观战、独立引擎交锋、人机挑战，或者与身边的对手同屏对弈。</p>
         </div>
       </header>
-      <section className="chess-mode-grid" aria-label="国际象棋模式">
+      <section className="chess-mode-grid" aria-label="国际象棋模式"><a className="chess-mode-card" href="#/games/chess/study/notebook"><h2>个人练习本</h2><p>收藏局面、重走一手与按需分析。</p></a>
+        <a className="chess-mode-card" href={GAME_ROUTES.chessLibrary}><span className="chess-mode-card__icon" aria-hidden="true">♙</span><small>LOCAL LIBRARY</small><h2>棋谱库与复盘</h2><p>打开本机保存的对局，分析关键手并继续练习。</p><strong>查看棋谱库 →</strong></a>
         <a className="chess-mode-card" href={GAME_ROUTES.chessTheatre}>
           <span className="chess-mode-card__icon" aria-hidden="true">♞</span>
           <small>PERSONALITY THEATRE</small>

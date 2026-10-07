@@ -1,0 +1,40 @@
+.xiangqi-review { min-height: 100vh; padding: clamp(16px, 3vw, 40px); color: #eee3d0; background: #171c1c; }
+.review-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; max-width: 1400px; margin: 0 auto 24px; }
+.review-header h1 { margin: 4px 0; font-size: clamp(24px, 3vw, 36px); }
+.review-header p, .review-muted { color: #bdbaa9; font-size: 14px; line-height: 1.7; }
+.review-layout { display: grid; grid-template-columns: minmax(300px, 620px) minmax(300px, 1fr); gap: 28px; max-width: 1400px; margin: auto; align-items: start; }
+.review-board { position: sticky; top: 16px; min-width: 0; }
+.review-board .chess-board-shell { width: 100%; max-width: 590px; }
+.review-sidebar { display: grid; gap: 16px; min-width: 0; }
+.review-sidebar section { background: #232b29; border: 1px solid #455247; border-radius: 14px; padding: 18px; }
+.xiangqi-review h2 { font-size: 18px; margin: 0 0 14px; }
+.xiangqi-review h3 { font-size: 16px; }
+.xiangqi-review p { line-height: 1.7; overflow-wrap: anywhere; }
+.xiangqi-review button:not(.board-hit-target), .xiangqi-review select { padding: 9px 12px; border: 1px solid #75846b; background: #344739; color: #fff8e8; border-radius: 7px; cursor: pointer; font: inherit; }
+.xiangqi-review button:disabled { opacity: .45; cursor: default; }
+.xiangqi-review button:focus-visible, .xiangqi-review select:focus-visible, .xiangqi-review input:focus-visible { outline: 3px solid #e1ba71; outline-offset: 3px; }
+.review-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0; }
+.review-slider { display: flex; align-items: center; gap: 12px; }
+.review-slider input { flex: 1; min-width: 0; }
+.review-evidence { padding: 4px 14px; margin-top: 16px; background: #17211d; border-left: 3px solid #dbbd7b; }
+.review-moves { max-height: 300px; overflow: auto; margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.review-moves button { width: 100%; text-align: left; }
+.review-moves button[aria-current] { border-color: #e1ba71; background: #50603e; }
+.xiangqi-review [role="alert"] { color: #ffc3ad; }
+.turning-points .review-slider { flex-wrap: wrap; margin: 12px 0; }
+.turning-chart { width: 100%; overflow: visible; }
+.turning-chart text { fill: #bdbaa9; font-size: 12px; }
+.turning-chart path { fill: none; }
+.turning-grid { stroke: #536056; stroke-width: 1; }
+.turning-red { stroke: #ff9b91; stroke-width: 2; }
+.turning-black { stroke: #94caff; stroke-width: 2; }
+.turning-cursor { stroke: #e1ba71; stroke-dasharray: 4 4; }
+.turning-marker { stroke: #fff8e8; stroke-width: 2; cursor: pointer; }
+.turning-marker--mistake { fill: #e14444; }
+.turning-marker--brilliant { fill: #24975c; }
+.turning-marker:focus { outline: none; stroke: #ffe185; stroke-width: 4; }
+.turning-top { padding-left: 24px; }
+.turning-top li { margin: 8px 0; }
+.turning-top button { text-align: left; width: 100%; }
+.turning-report textarea { box-sizing: border-box; width: 100%; margin: 12px 0; padding: 10px; color: #fff8e8; background: #171c1c; font: inherit; line-height: 1.6; }
+@media (max-width: 850px) { .review-layout { grid-template-columns: 1fr; } .review-board { position: static; } .review-board .chess-board-shell { margin: auto; } }

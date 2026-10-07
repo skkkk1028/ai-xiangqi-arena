@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import { moveToUcci } from '../engine/ucci'
@@ -151,6 +152,19 @@ class BattleRecoveryWorker extends MockWorker {
 }
 
 describe('观战界面', () => {
+  it('首页开局练习可进入、沿谱不创建新引擎，返回恢复首页', async () => {
+    vi.stubGlobal('Worker', MockWorker)
+    vi.stubGlobal('crossOriginIsolated', true)
+    render(<App />)
+    await waitFor(() => expect(screen.getByRole('button', { name: '开始对弈' })).toBeEnabled())
+    const count = MockWorker.instances.length
+    fireEvent.click(screen.getByRole('button', { name: '开局练习' }))
+    expect(screen.getByRole('heading', { name: '开局练习', level: 1 })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '从此局面开始' }))
+    expect(MockWorker.instances).toHaveLength(count)
+    fireEvent.click(screen.getByRole('button', { name: '返回首页' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: '开始对弈' })).toBeEnabled())
+  })
   afterEach(() => {
     cleanup()
     MockWorker.instances = []
@@ -172,6 +186,60 @@ describe('观战界面', () => {
     expect(screen.getByRole('button', { name: /AI 引擎对战/ })).toHaveTextContent('AI 引擎大战')
     expect(screen.getByRole('button', { name: '真人 vs AI' })).toBeEnabled()
     expect(screen.getByRole('button', { name: '同屏双人对战' })).toBeEnabled()
+    view.unmount()
+  })
+
+  it('竞猜开启后每手先停住，跳过揭晓并统计本局结果', async () => {
+    vi.stubGlobal('Worker', MockWorker)
+    vi.stubGlobal('crossOriginIsolated', true)
+    const view = render(<App />)
+
+    await screen.findByRole('checkbox', { name: /猜下一手/ })
+    fireEvent.click(screen.getByRole('checkbox', { name: /猜下一手/ }))
+    fireEvent.click(screen.getByRole('button', { name: '开始对弈' }))
+    expect(await screen.findByText(/请猜/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '提交猜招' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: '跳过并揭晓' }))
+    expect(await screen.findByText(/AI 实战着/)).toBeInTheDocument()
+    expect(screen.getByText(/本题跳过/)).toBeInTheDocument()
+    expect(screen.getByText(/作答 0 · 命中 0/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '下一题' })).toBeEnabled()
+    view.unmount()
+  })
+
+  it('竞猜作答只计本局，新对局重置成绩', async () => {
+    vi.stubGlobal('Worker', MockWorker)
+    vi.stubGlobal('crossOriginIsolated', true)
+    const view = render(<App />)
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: /猜下一手/ }))
+    fireEvent.click(screen.getByRole('button', { name: '开始对弈' }))
+    await screen.findByText(/请猜/)
+    fireEvent.click(screen.getByRole('button', { name: '红方兵 7行1列' }))
+    fireEvent.click(screen.getByRole('button', { name: '6行1列空位' }))
+    expect(screen.getByRole('button', { name: '提交猜招' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: '提交猜招' }))
+    expect(await screen.findByText(/AI 实战着/, {}, { timeout: 5_000 })).toBeInTheDocument()
+    expect(screen.getByText(/作答 1 · 命中/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '开始新对局' }))
+    expect(await screen.findByText(/请猜/)).toBeInTheDocument()
+    expect(screen.getByText(/作答 0 · 命中 0/)).toBeInTheDocument()
+    view.unmount()
+  })
+
+  it('StrictMode 下揭晓只推进一手', async () => {
+    vi.stubGlobal('Worker', MockWorker)
+    vi.stubGlobal('crossOriginIsolated', true)
+    const view = render(<StrictMode><App /></StrictMode>)
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: /猜下一手/ }))
+    fireEvent.click(screen.getByRole('button', { name: '开始对弈' }))
+    await screen.findByText(/请猜/)
+    fireEvent.click(screen.getByRole('button', { name: '跳过并揭晓' }))
+    expect(await screen.findByText(/AI 实战着/, {}, { timeout: 5_000 })).toBeInTheDocument()
+    expect(screen.getByText('1 步')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '下一题' })).toBeEnabled()
     view.unmount()
   })
 
@@ -465,6 +533,38 @@ describe('观战界面', () => {
     expect(screen.getByText(/^红方开局：/)).toBeInTheDocument()
     expect(screen.getByText(/^黑方应手：/)).toBeInTheDocument()
     expect(screen.getAllByText(/^当前棋谱：/)).toHaveLength(2)
+    view.unmount()
+  })
+
+  it('竞猜选择期间暂停遮罩不阻挡棋盘输入', async () => {
+    vi.stubGlobal('Worker', MockWorker)
+    vi.stubGlobal('crossOriginIsolated', true)
+    const view = render(<StrictMode><App /></StrictMode>)
+    fireEvent.click(screen.getByRole('checkbox', { name: /猜下一手/ }))
+    fireEvent.click(await screen.findByRole('button', { name: '开始对弈' }))
+    await screen.findByRole('button', { name: '红方马 10行2列' })
+    expect(screen.queryByText('棋钟与双方思考均已停止')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: '红方马 10行2列' }))
+    fireEvent.click(screen.getByRole('button', { name: '8行3列空位' }))
+    expect(screen.getByRole('button', { name: '提交猜招' })).toBeEnabled()
+    expect(screen.getByText('0 步')).toBeInTheDocument()
+    view.unmount()
+  })
+
+  it('观战从初始局面接管，双击只进入一次，返回后原局仍暂停', async () => {
+    vi.stubGlobal('Worker', MockWorker)
+    vi.stubGlobal('crossOriginIsolated', true)
+    const view = render(<StrictMode><App /></StrictMode>)
+    fireEvent.click(await screen.findByRole('button', { name: '开始对弈' }))
+    const button = await screen.findByRole('button', { name: '从当前局面练习' })
+    fireEvent.click(button); fireEvent.click(button)
+    await screen.findByRole('heading', { name: '局面练习' })
+    expect(screen.getByText(/原棋谱 · 已走 0/)).toBeInTheDocument()
+    expect(screen.getByLabelText('练习执子')).toHaveValue('red')
+    fireEvent.click(screen.getByRole('button', { name: '返回来源' }))
+    expect(screen.getByRole('button', { name: '继续' })).toBeEnabled()
+    expect(screen.getByText('0 步')).toBeInTheDocument()
+    expect(screen.getByLabelText('红方剩余时间')).toHaveTextContent('20:00')
     view.unmount()
   })
 

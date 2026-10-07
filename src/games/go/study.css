@@ -1,0 +1,24 @@
+.go-study { min-height: 100vh; background: #f3f0e7; color: #20382e; padding: clamp(16px, 3vw, 38px); }
+.go-study>header { display:flex; justify-content:space-between; align-items:center; gap:20px; margin-bottom:20px; }
+.go-study h1 { font-size:clamp(24px,3vw,34px); margin:6px 0; }
+.go-study h2 { font-size:19px; margin:0 0 12px; }
+.go-study p { line-height:1.65; overflow-wrap:anywhere; }
+.go-study button, .go-study select, .go-study input:not([type=range]) { font:inherit; border:1px solid #829b88; border-radius:7px; padding:8px 12px; background:#fffef9; color:#20382e; }
+.go-study button { cursor:pointer; }
+.go-study button:disabled { opacity:.45; cursor:default; }
+.go-study button:focus-visible, .go-study input:focus-visible { outline:3px solid #c29b40; outline-offset:2px; }
+.go-study-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:12px 0; }
+.go-study-layout { display:grid; grid-template-columns:minmax(300px, 700px) minmax(280px,1fr); gap:24px; max-width:1450px; margin:auto; align-items:start; }
+.go-study-board { min-width:0; }
+.go-study-board-frame { padding:25px; border-radius:12px; background:#d5b078; }
+.go-study .go-board__point { padding:0; border:0; border-radius:50%; background:transparent; }
+.go-study-sidebar { display:grid; gap:16px; min-width:0; }
+.go-study-sidebar section, .go-library-list>section { background:#fffdf7; border:1px solid #cbd3c6; border-radius:12px; padding:18px; }
+.go-library-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px; }
+.go-study-moves { max-height:280px; overflow:auto; display:flex; flex-wrap:wrap; gap:6px; }
+.go-study button[aria-current=step] { background:#254936; color:#fff; }
+.go-study [role=alert] { color:#a12d23; }
+.go-study-progress { display:flex; align-items:center; gap:10px; }
+.go-study-progress input { flex:1; min-width:0; }
+.go-study-evidence { border-left:3px solid #77966c; padding-left:12px; margin:12px 0; }
+@media(max-width:850px) { .go-study-layout { grid-template-columns:1fr; } .go-study-board-frame { padding:15px; } }

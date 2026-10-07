@@ -4,6 +4,7 @@ import { GAME_ROUTES } from '../routes'
 import { ChessBoard } from './ChessBoard'
 import type { ChessColor, ChessGameState } from './types'
 import { CHESS_LOCAL_TIME_CONTROLS, useLocalChessMatch, type ChessLocalTimeControlId } from './useLocalChessMatch'
+import { ChessLibraryActions } from './ChessLibraryActions'
 import './chess.css'
 
 type LocalPanel = 'match' | 'moves' | 'rules'
@@ -28,6 +29,7 @@ export function ChessLocalPage() {
         <div className="chess-brand"><span>♜</span><div><strong>PROJECT10 · LOCAL MATCH</strong><small>HUMAN VS HUMAN</small></div></div>
         <div className={`chess-runtime chess-runtime--${match.runState}`}><i /><span>{match.runState.toUpperCase()}</span><b>{match.timeControl.label}</b></div>
       </header>
+      <ChessLibraryActions mode="local" id={match.libraryId} state={match.state} status={match.saveStatus} pause={match.pause} saveNow={match.saveNow} clock={{ controlId: match.timeControlId, totals: match.clock.totals, moveRemainingMs: match.clock.moveRemainingMs, runState: match.runState, result: match.clockResult }} />
       <section className="chess-arena" aria-labelledby="local-title">
         <div className="chess-stage">
           <div className="chess-heading"><div><p>同屏双人 · FIDE 棋盘规则 · 双重时限</p><h1 id="local-title">双人对战</h1></div><div className="chess-phase"><span>{status}</span><strong>{String(match.state.history.length).padStart(2, '0')} PLY</strong></div></div>

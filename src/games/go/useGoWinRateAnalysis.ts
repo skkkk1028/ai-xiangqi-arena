@@ -25,6 +25,8 @@ export function useGoWinRateAnalysis({ createTransport }: UseGoWinRateAnalysisOp
   const ownedCreationAllowedRef = useRef(true)
   const generationRef = useRef(0)
   const mountedRef = useRef(true)
+  const initializationRef = useRef<Promise<GoWinRateAnalyzer> | null>(null)
+  const initializationAbortRef = useRef<AbortController | null>(null)
 
   const publishStatus = useCallback((next: GoWinRateAnalysisStatus) => {
     if (mountedRef.current) setStatus(next)
@@ -32,18 +34,25 @@ export function useGoWinRateAnalysis({ createTransport }: UseGoWinRateAnalysisOp
 
   const ensureAnalyzer = useCallback(async () => {
     if (analyzerRef.current) return analyzerRef.current
+    if (initializationRef.current) return initializationRef.current
     if (!ownedCreationAllowedRef.current) throw new DOMException('等待共享 KataGo 分析实例。', 'AbortError')
     publishStatus('loading')
-    const transport = await createTransport()
-    await transport.initialize()
-    if (!mountedRef.current) {
-      await transport.dispose()
-      throw new DOMException('胜率分析已释放。', 'AbortError')
-    }
-    ownedTransportRef.current = transport
-    const analyzer = new GoWinRateAnalyzer(transport)
-    analyzerRef.current = analyzer
-    return analyzer
+    const controller = new AbortController()
+    initializationAbortRef.current = controller
+    const operation = (async () => {
+      const transport = await createTransport()
+      try {
+        controller.signal.throwIfAborted()
+        await transport.initialize(controller.signal)
+        if (!mountedRef.current || controller.signal.aborted) throw new DOMException('胜率分析已释放。', 'AbortError')
+        ownedTransportRef.current = transport
+        const analyzer = new GoWinRateAnalyzer(transport)
+        analyzerRef.current = analyzer
+        return analyzer
+      } catch (error) { await transport.dispose(); throw error }
+    })()
+    initializationRef.current = operation
+    try { return await operation } finally { if (initializationRef.current === operation) initializationRef.current = null }
   }, [createTransport, publishStatus])
 
   const processQueue = useCallback(async () => {
@@ -123,6 +132,8 @@ export function useGoWinRateAnalysis({ createTransport }: UseGoWinRateAnalysisOp
 
   const detachTransport = useCallback(async (allowOwnedCreation = true) => {
     activeAbortRef.current?.abort()
+    initializationAbortRef.current?.abort()
+    await initializationRef.current?.catch(() => undefined)
     ownedCreationAllowedRef.current = allowOwnedCreation
     analyzerRef.current = null
     const owned = ownedTransportRef.current
@@ -133,6 +144,7 @@ export function useGoWinRateAnalysis({ createTransport }: UseGoWinRateAnalysisOp
   const reset = useCallback(() => {
     generationRef.current += 1
     activeAbortRef.current?.abort()
+    initializationAbortRef.current?.abort()
     queueRef.current = []
     queuedMoveNumbersRef.current.clear()
     if (mountedRef.current) {
@@ -142,16 +154,20 @@ export function useGoWinRateAnalysis({ createTransport }: UseGoWinRateAnalysisOp
     }
   }, [])
 
-  useEffect(() => () => {
-    mountedRef.current = false
-    generationRef.current += 1
-    activeAbortRef.current?.abort()
-    queueRef.current = []
-    queuedMoveNumbersRef.current.clear()
-    const owned = ownedTransportRef.current
-    ownedTransportRef.current = null
-    analyzerRef.current = null
-    if (owned) void owned.dispose()
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+      generationRef.current += 1
+      activeAbortRef.current?.abort()
+      initializationAbortRef.current?.abort()
+      queueRef.current = []
+      queuedMoveNumbersRef.current.clear()
+      const owned = ownedTransportRef.current
+      ownedTransportRef.current = null
+      analyzerRef.current = null
+      if (owned) void owned.dispose()
+    }
   }, [])
 
   return {

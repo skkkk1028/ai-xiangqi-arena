@@ -35,6 +35,9 @@ import {
   type XiangqiTurnAnalysis,
 } from '../games/xiangqi'
 import { xiangqiResourceProfileId } from '../games/xiangqi/strength-profile'
+import { emptyGuessStats, guessPrefix, nextGuessStats, type GuessState } from '../games/xiangqi/guess'
+import { moveToUcci } from '../engine/ucci'
+import { replayXiangqiUcci } from '../games/xiangqi/archive'
 
 export type MatchMode = 'fairy-duel' | 'engine-battle'
 export type AppView = 'home' | 'engine-selection' | 'match'
@@ -171,6 +174,15 @@ function uniqueClients(clients: Record<Color, EngineAdapter | null>): EngineAdap
 }
 
 export function useAiMatch() {
+  const [guess, setGuess] = useState<GuessState>({ phase: 'off', round: null, stats: emptyGuessStats() })
+  const guessRef = useRef(guess)
+  const publishGuess = useCallback((next: GuessState) => { guessRef.current = next; setGuess(next) }, [])
+  const prepareGuess = useCallback((game: XiangqiGameState, reset = false) => {
+    const current = guessRef.current
+    publishGuess({ phase: current.phase === 'off' ? 'off' : 'choosing',
+      round: current.phase === 'off' ? null : { before: game, prefix: guessPrefix(game), selected: null, submitted: false },
+      stats: reset ? emptyGuessStats() : current.stats })
+  }, [publishGuess])
   const [view, setView] = useState<AppView>('home')
   const [state, setState] = useState<MatchState>(() => initialState())
   const [engineStates, setEngineStates] = useState<Record<Color, EngineState>>({
@@ -185,6 +197,8 @@ export function useAiMatch() {
   const clientsRef = useRef<Record<Color, EngineAdapter | null>>({ red: null, black: null })
   const controllerRef = useRef<AIMatchGameController | null>(null)
   const engineIdsRef = useRef<Record<Color, string>>({ red: DEFAULT_ENGINE_ID, black: DEFAULT_ENGINE_ID })
+  const practiceSuspendedRef = useRef(false)
+  const suspensionRef = useRef<Promise<XiangqiGameState> | null>(null)
   const requestRef = useRef(0)
   const resignationRef = useRef<Record<Color, number>>({ red: 0, black: 0 })
   const recoveryRef = useRef(0)
@@ -314,7 +328,7 @@ export function useAiMatch() {
         }
         if (viewRef.current === 'match') {
           setState((latest) => latest.phase === 'paused' && !latest.result
-            ? { ...latest, phase: 'running' }
+            ? { ...latest, phase: practiceSuspendedRef.current || ['choosing', 'revealed', 'void'].includes(guessRef.current.phase) ? 'paused' : 'running' }
             : latest)
         }
       } catch (error) {
@@ -401,10 +415,12 @@ export function useAiMatch() {
       red: DEFAULT_ENGINE_ID,
       black: DEFAULT_ENGINE_ID,
     }, snapshot.state)
+    prepareGuess(snapshot.state, true)
+    if (guessRef.current.phase === 'choosing') next.phase = 'paused'
     resetTrackers()
     setState(next)
     setView('match')
-  }, [createController, engineStates.red.phase, resetTrackers])
+  }, [createController, engineStates.red.phase, prepareGuess, resetTrackers])
 
   const openEngineSelection = useCallback(() => setView('engine-selection'), [])
   const closeEngineSelection = useCallback(() => setView('home'), [])
@@ -419,18 +435,22 @@ export function useAiMatch() {
         red: redId,
         black: blackId,
       }, snapshot.state)
+      prepareGuess(snapshot.state, true)
+      if (guessRef.current.phase === 'choosing') next.phase = 'paused'
       resetTrackers()
       setState(next)
       setView('match')
     },
-    [createController, initializeBattleEngines, resetTrackers],
+    [createController, initializeBattleEngines, prepareGuess, resetTrackers],
   )
 
   const newGame = useCallback(() => {
+    practiceSuspendedRef.current = false
     const current = stateRef.current
     if (viewRef.current !== 'match') return
     const seed = (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0
     const requestId = ++requestRef.current
+    void controllerRef.current?.cancelPendingTurn('开始新对局。')
     const controller = createController()
     controllerRef.current = controller
     void controller.start().then((snapshot) => {
@@ -439,10 +459,12 @@ export function useAiMatch() {
         red: current.players.red.engineId,
         black: current.players.black.engineId,
       }, snapshot.state)
+      prepareGuess(snapshot.state, true)
+      if (guessRef.current.phase === 'choosing') next.phase = 'paused'
       resetTrackers()
       setState(next)
     }).catch(() => undefined)
-  }, [createController, resetTrackers])
+  }, [createController, prepareGuess, resetTrackers])
 
   const pause = useCallback(() => {
     requestRef.current += 1
@@ -452,7 +474,29 @@ export function useAiMatch() {
     )
   }, [])
 
+  const suspendForPractice = useCallback((): Promise<XiangqiGameState> => {
+    if (suspensionRef.current) return suspensionRef.current
+    practiceSuspendedRef.current = true
+    requestRef.current += 1
+    const controller = controllerRef.current
+    const next = { ...stateRef.current, phase: stateRef.current.result ? 'finished' as const : 'paused' as const, thinking: false }
+    stateRef.current = next
+    setState(next)
+    publishGuess({ phase: 'off', round: null, stats: guessRef.current.stats })
+    const pending = (async () => {
+      await controller?.cancelPendingTurn('正在进入局面练习。')
+      if (controllerRef.current !== controller) throw new DOMException('原对局已改变。', 'AbortError')
+      return controller?.getSnapshot().state ?? replayXiangqiUcci(next.history.map((move) => move.ucci))
+    })()
+    suspensionRef.current = pending
+    void pending.finally(() => { if (suspensionRef.current === pending) suspensionRef.current = null }).catch(() => undefined)
+    return pending
+  }, [publishGuess])
+
   const resume = useCallback(() => {
+    if (suspensionRef.current) return
+    practiceSuspendedRef.current = false
+    if (['choosing', 'revealed', 'void'].includes(guessRef.current.phase)) return
     setState((current) =>
       current.phase === 'paused'
         ? { ...current, phase: 'running', liveInfo: { ...EMPTY_INFO }, liveInfoSide: current.turn }
@@ -460,7 +504,45 @@ export function useAiMatch() {
     )
   }, [])
 
+  const toggleGuess = useCallback((enabled: boolean) => {
+    const current = stateRef.current
+    if (!enabled) {
+      publishGuess({ ...guessRef.current, phase: 'off', round: null })
+      if (viewRef.current === 'match') pause()
+      return
+    }
+    if (current.result && viewRef.current === 'match') return
+    publishGuess({ ...guessRef.current, phase: 'armed', round: null })
+    if (viewRef.current === 'match' && current.phase === 'paused' && controllerRef.current) {
+      prepareGuess(controllerRef.current.getSnapshot().state)
+    }
+  }, [pause, prepareGuess, publishGuess])
+
+  const selectGuess = useCallback((move: Move) => {
+    const current = guessRef.current
+    if (current.phase !== 'choosing' || !current.round) return
+    const legal = xiangqiGame.getLegalActions(current.round.before).find((item) => xiangqiGame.actionsEqual(item, move))
+    if (legal) publishGuess({ ...current, round: { ...current.round, selected: legal } })
+  }, [publishGuess])
+
+  const submitGuess = useCallback((skip = false) => {
+    const current = guessRef.current
+    const game = controllerRef.current?.getSnapshot().state
+    if (current.phase !== 'choosing' || !current.round || (!skip && !current.round.selected)
+      || !game || guessPrefix(game) !== current.round.prefix || game.result) return
+    publishGuess({ ...current, phase: 'searching', round: { ...current.round, selected: skip ? null : current.round.selected, submitted: true } })
+    setState((latest) => ({ ...latest, phase: 'running', liveInfo: { ...EMPTY_INFO } }))
+  }, [publishGuess])
+
+  const nextGuess = useCallback(() => {
+    const game = controllerRef.current?.getSnapshot().state
+    if (guessRef.current.phase !== 'revealed' || !game || game.result) return
+    prepareGuess(game)
+  }, [prepareGuess])
+
   const returnHome = useCallback(() => {
+    practiceSuspendedRef.current = false
+    publishGuess({ phase: 'off', round: null, stats: emptyGuessStats() })
     requestRef.current += 1
     controllerRef.current = null
     disposeAll()
@@ -469,13 +551,14 @@ export function useAiMatch() {
     setState(next)
     setView('home')
     void initializeHomeEngine().catch(() => undefined)
-  }, [disposeAll, initializeHomeEngine, resetTrackers])
+  }, [disposeAll, initializeHomeEngine, publishGuess, resetTrackers])
 
   const releaseEngines = useCallback(() => {
     requestRef.current += 1
     controllerRef.current = null
     disposeAll()
-  }, [disposeAll])
+    publishGuess({ phase: 'off', round: null, stats: emptyGuessStats() })
+  }, [disposeAll, publishGuess])
 
   useEffect(() => {
     if (state.phase !== 'running' || view !== 'match') return
@@ -515,9 +598,15 @@ export function useAiMatch() {
     game: XiangqiGameState,
     info: SearchInfo,
     turnAtRequest: Color,
+    source: 'opening' | 'engine',
   ) => {
     const record = game.history.at(-1)
     if (!record || game.history.length !== current.history.length + 1) return false
+    const prediction = guessRef.current
+    if (prediction.phase === 'searching' && prediction.round?.prefix === JSON.stringify(current.history.map((move) => move.ucci))) {
+      publishGuess({ ...prediction, phase: 'revealed', round: { ...prediction.round, actual: record, source },
+        stats: nextGuessStats(prediction.stats, prediction.round.selected ? moveToUcci(prediction.round.selected) : null, record.ucci) })
+    } else if (prediction.phase === 'armed' && !game.result) prepareGuess(game)
     const history: MoveRecord[] = [
       ...current.history,
       {
@@ -535,7 +624,7 @@ export function useAiMatch() {
       history,
       lastMove: game.lastMove,
       checkColor: game.checkColor,
-      phase: game.result ? 'finished' : 'running',
+      phase: game.result ? 'finished' : guessRef.current.phase === 'off' ? 'running' : 'paused',
       result: game.result,
       thinking: false,
       liveInfo: info,
@@ -544,10 +633,11 @@ export function useAiMatch() {
       clocks: { ...current.clocks, turn: 0 },
     })
     return true
-  }, [])
+  }, [prepareGuess, publishGuess])
 
   useEffect(() => {
     if (view !== 'match' || state.phase !== 'running' || state.result) return
+    if (['choosing', 'revealed', 'void'].includes(guessRef.current.phase)) return
     if (engineStates[state.turn].phase !== 'ready') return
     const controller = controllerRef.current
     if (!clientsRef.current[state.turn] || !controller) return
@@ -574,7 +664,7 @@ export function useAiMatch() {
         current.result ||
         current.turn !== turnAtRequest
       ) return
-      syncControllerMove(current, snapshot.state, decision.analysis.info, turnAtRequest)
+      syncControllerMove(current, snapshot.state, decision.analysis.info, turnAtRequest, decision.analysis.source)
     }).catch((error) => {
       if (
         requestRef.current !== requestId ||
@@ -636,7 +726,18 @@ export function useAiMatch() {
     view,
   ])
 
+  useEffect(() => {
+    if (state.result && ['searching', 'armed', 'choosing'].includes(guessRef.current.phase)) {
+      publishGuess({ ...guessRef.current, phase: 'void' })
+    }
+  }, [state.result, publishGuess])
+
   return {
+    guess,
+    toggleGuess,
+    selectGuess,
+    submitGuess,
+    nextGuess,
     view,
     state,
     engineState: engineStates.red,
@@ -649,6 +750,7 @@ export function useAiMatch() {
     closeEngineSelection,
     startEngineBattle,
     pause,
+    suspendForPractice,
     resume,
     newGame,
     returnHome,

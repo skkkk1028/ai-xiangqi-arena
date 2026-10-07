@@ -22,6 +22,7 @@ interface GoBoardProps {
   deadStoneKeys: ReadonlySet<string>
   interactive: boolean
   scoring: boolean
+  guessPoint?: GoPlacementMove | null
   onPlay: (move: GoPlacementMove) => void
   onToggleDead: (point: GoPlacementMove) => void
 }
@@ -34,6 +35,7 @@ export function GoBoard({
   deadStoneKeys,
   interactive,
   scoring,
+  guessPoint,
   onPlay,
   onToggleDead,
 }: GoBoardProps) {
@@ -61,6 +63,7 @@ export function GoBoard({
           const legal = interactive && legalMoveKeys.has(key)
           const scorable = scoring && stone !== null
           const dead = deadStoneKeys.has(key)
+          const guessed = Boolean(guessPoint && pointsEqual(guessPoint, point))
           const isLastMove = lastMove?.kind === 'play' && lastMove.point
             ? pointsEqual(lastMove.point, point)
             : false
@@ -73,7 +76,7 @@ export function GoBoard({
               className={`go-board__point${legal ? ' go-board__point--legal' : ''}${scorable ? ' go-board__point--scoring' : ''}${dead ? ' go-board__point--dead' : ''}`}
               type="button"
               role="gridcell"
-              aria-label={label}
+              aria-label={`${label}${guessed ? '，竞猜已选' : ''}`}
               aria-selected={isLastMove}
               aria-pressed={scorable ? dead : undefined}
               disabled={!legal && !scorable}
@@ -90,6 +93,7 @@ export function GoBoard({
                 moveFocus(rowIndex, colIndex, direction[0], direction[1])
               }}
             >
+              {guessed && <span className="go-board__guess-marker" aria-hidden="true" />}
               {stone && (
                 <span className={`go-board__stone go-board__stone--${stone}`}>
                   {isLastMove && <i className="go-board__last-marker" aria-hidden="true" />}

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh"><meta charset="utf-8"><title>围棋 IndexedDB 回归验证</title>
+<body><h1>围棋 IndexedDB 回归验证</h1><p>在当前站点创建临时测试棋谱，结束后仅删除本次创建的测试记录。</p><button id="run">运行验证</button><pre id="result">等待执行</pre>
+<script type="module">
+import { goLibrary, parseGoLibraryFile, analysisKey, newGoId } from '/src/games/go/library.ts'
+import { createGoArchive } from '/src/games/go/sgf.ts'
+import { GoGameEngine } from '/src/games/go/game-engine.ts'
+const output = document.querySelector('#result')
+document.querySelector('#run').onclick = async () => {
+  const created = new Set(), lines = []
+  const assert = (condition, message) => { if (!condition) throw new Error(message); lines.push(`PASS ${message}`); output.textContent = lines.join('\n') }
+  try {
+    const before = await goLibrary.list()
+    const engine = new GoGameEngine()
+    const one = engine.applyMove(engine.init(), {row:3,col:3})
+    const two = engine.applyMove(one, {row:15,col:15})
+    const original = { id:newGoId(), title:'IndexedDB 临时测试', favorite:false, mode:'local', configuration:{}, archive:createGoArchive(one) }
+    created.add(original.id)
+    const next = {...original, archive:createGoArchive(two)}
+    await Promise.all([goLibrary.save(original), goLibrary.save(next)])
+    let stored = (await goLibrary.list()).find((g) => g.id === original.id)
+    assert(stored.archive.moves.length === 2 && (await goLibrary.list()).length === before.length + 1, '异步自动保存只更新同一局，保留较新状态')
+    await goLibrary.update(original.id, {title:'保留名称',favorite:true})
+    await goLibrary.save(next)
+    stored = (await goLibrary.list()).find((g) => g.id === original.id)
+    assert(stored.title === '保留名称' && stored.favorite && stored.archive.createdAt === original.archive.createdAt, '自动保存保留名称、收藏和创建时间')
+    const event = {type:'analysis',stage:'final',requestId:'test',profile:'winrate',engineVersion:'test',modelName:'test',runtimeBackend:'browser-wasm',requestedBackend:'browser-wasm',backendFallback:false,modelFallback:false,backendFallbackReason:null,modelFallbackReason:null,requestedVisits:256,elapsedMs:100,timedOut:false,truncated:false,stopReason:'visit-limit',root:{winrate:0.5,scoreLead:null,visits:256},candidates:[]}
+    const analysis = {key:analysisKey(original.id,stored.archive.ruleset,stored.archive.moves,event),gameId:original.id,ruleset:stored.archive.ruleset,prefix:stored.archive.moves,profile:'winrate',createdAt:new Date().toISOString(),event}
+    await goLibrary.saveAnalysis(analysis)
+    const exported = JSON.stringify({format:'project10-go-library',version:1,game:stored,analyses:await goLibrary.analyses(original.id)})
+    const imported = parseGoLibraryFile(exported)
+    created.add(imported.game.id)
+    await goLibrary.import(imported)
+    assert((await goLibrary.analyses(imported.game.id)).length === 1 && imported.game.id !== original.id, 'JSON 含分析往返导入为新记录')
+    let rejected = false
+    try { await goLibrary.import({...imported,analyses:[{...imported.analyses[0],prefix:['B:A1']}]}) } catch { rejected = true }
+    assert(rejected && (await goLibrary.analyses(imported.game.id))[0].prefix[0] === 'B:D16', '损坏分析在写入前被拒绝，已有记录不受影响')
+    await goLibrary.remove(imported.game.id)
+    assert(!(await goLibrary.list()).some((g) => g.id === imported.game.id) && !(await goLibrary.analyses(imported.game.id)).length, '删除棋局同时删除其分析，不影响原局')
+    assert((await goLibrary.list()).some((g) => g.id === original.id), '导入副本和原局相互独立')
+    output.textContent += '\n全部验证通过'
+  } catch (error) { output.textContent += `\nFAIL ${error.stack ?? error}` }
+  finally { for (const id of created) await goLibrary.remove(id) }
+}
+</script></body></html>

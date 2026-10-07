@@ -1,0 +1,184 @@
+{
+  "date": "2026-09-27",
+  "arenaProfile": {
+    "movetimeMs": 3000,
+    "threads": 1,
+    "hashMb": 64,
+    "multiPv": 1
+  },
+  "arena": [
+    {
+      "white": "stockfish-18",
+      "black": "stockfish-18",
+      "runtime": "白方 · Stockfish 18\nStockfish 18\n1 threads · 64 MB · c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911\n黑方 · Stockfish 18\nStockfish 18\n1 threads · 64 MB · c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911",
+      "history": [
+        "e2e4",
+        "e7e5"
+      ],
+      "practiceMove": "a2a4",
+      "returnedHistory": [
+        "e2e4",
+        "e7e5"
+      ],
+      "cancelAndTakeover": true,
+      "status": "passed"
+    },
+    {
+      "white": "stockfish-18",
+      "black": "obsidian-16",
+      "runtime": "白方 · Stockfish 18\nStockfish 18\n1 threads · 64 MB · c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911\n黑方 · Obsidian 16.0\nObsidian 16.0\n1 threads · 64 MB · 00f9f5566e815275e29fec85f1e4d1dff0b8301ceb23f6bb79de68dcdce98743",
+      "history": [
+        "e2e4",
+        "e7e5"
+      ],
+      "practiceMove": "a2a4",
+      "returnedHistory": [
+        "e2e4",
+        "e7e5"
+      ],
+      "cancelAndTakeover": true,
+      "status": "passed"
+    },
+    {
+      "white": "stockfish-18",
+      "black": "fairy-stockfish-chess",
+      "runtime": "白方 · Stockfish 18\nStockfish 18\n1 threads · 64 MB · c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911\n黑方 · Fairy-Stockfish Chess NNUE\nfairy-stockfish-nnue.wasm@1.1.11\n1 threads · 64 MB · 3475407dc19973ea44467678634cce023d620e419770c111cc8937fe6689ec87",
+      "history": [
+        "e2e4",
+        "c7c5"
+      ],
+      "practiceMove": "a2a4",
+      "returnedHistory": [
+        "e2e4",
+        "c7c5"
+      ],
+      "cancelAndTakeover": true,
+      "status": "passed"
+    },
+    {
+      "white": "obsidian-16",
+      "black": "stockfish-18",
+      "runtime": "白方 · Obsidian 16.0\nObsidian 16.0\n1 threads · 64 MB · 00f9f5566e815275e29fec85f1e4d1dff0b8301ceb23f6bb79de68dcdce98743\n黑方 · Stockfish 18\nStockfish 18\n1 threads · 64 MB · c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911",
+      "history": [
+        "e2e4",
+        "e7e5"
+      ],
+      "practiceMove": "a2a4",
+      "returnedHistory": [
+        "e2e4",
+        "e7e5"
+      ],
+      "cancelAndTakeover": true,
+      "status": "passed"
+    },
+    {
+      "white": "obsidian-16",
+      "black": "obsidian-16",
+      "runtime": "白方 · Obsidian 16.0\nObsidian 16.0\n1 threads · 64 MB · 00f9f5566e815275e29fec85f1e4d1dff0b8301ceb23f6bb79de68dcdce98743\n黑方 · Obsidian 16.0\nObsidian 16.0\n1 threads · 64 MB · 00f9f5566e815275e29fec85f1e4d1dff0b8301ceb23f6bb79de68dcdce98743",
+      "history": [
+        "e2e4",
+        "e7e5"
+      ],
+      "practiceMove": "a2a4",
+      "returnedHistory": [
+        "e2e4",
+        "e7e5"
+      ],
+      "cancelAndTakeover": true,
+      "status": "passed"
+    },
+    {
+      "white": "obsidian-16",
+      "black": "fairy-stockfish-chess",
+      "runtime": "白方 · Obsidian 16.0\nObsidian 16.0\n1 threads · 64 MB · 00f9f5566e815275e29fec85f1e4d1dff0b8301ceb23f6bb79de68dcdce98743\n黑方 · Fairy-Stockfish Chess NNUE\nfairy-stockfish-nnue.wasm@1.1.11\n1 threads · 64 MB · 3475407dc19973ea44467678634cce023d620e419770c111cc8937fe6689ec87",
+      "history": [
+        "e2e4",
+        "c7c5"
+      ],
+      "practiceMove": "a2a4",
+      "returnedHistory": [
+        "e2e4",
+        "c7c5"
+      ],
+      "cancelAndTakeover": true,
+      "status": "passed"
+    },
+    {
+      "white": "fairy-stockfish-chess",
+      "black": "stockfish-18",
+      "runtime": "白方 · Fairy-Stockfish Chess NNUE\nfairy-stockfish-nnue.wasm@1.1.11\n1 threads · 64 MB · 3475407dc19973ea44467678634cce023d620e419770c111cc8937fe6689ec87\n黑方 · Stockfish 18\nStockfish 18\n1 threads · 64 MB · c86215fa1977d53b82ed854540a4c7b025be4cd042276c85ba3de53fb9118911",
+      "history": [
+        "e2e4",
+        "e7e5"
+      ],
+      "practiceMove": "a2a4",
+      "returnedHistory": [
+        "e2e4",
+        "e7e5"
+      ],
+      "cancelAndTakeover": true,
+      "status": "passed"
+    },
+    {
+      "white": "fairy-stockfish-chess",
+      "black": "obsidian-16",
+      "runtime": "白方 · Fairy-Stockfish Chess NNUE\nfairy-stockfish-nnue.wasm@1.1.11\n1 threads · 64 MB · 3475407dc19973ea44467678634cce023d620e419770c111cc8937fe6689ec87\n黑方 · Obsidian 16.0\nObsidian 16.0\n1 threads · 64 MB · 00f9f5566e815275e29fec85f1e4d1dff0b8301ceb23f6bb79de68dcdce98743",
+      "history": [
+        "e2e4",
+        "e7e5"
+      ],
+      "practiceMove": "a2a4",
+      "returnedHistory": [
+        "e2e4",
+        "e7e5"
+      ],
+      "cancelAndTakeover": true,
+      "status": "passed"
+    },
+    {
+      "white": "fairy-stockfish-chess",
+      "black": "fairy-stockfish-chess",
+      "runtime": "白方 · Fairy-Stockfish Chess NNUE\nfairy-stockfish-nnue.wasm@1.1.11\n1 threads · 64 MB · 3475407dc19973ea44467678634cce023d620e419770c111cc8937fe6689ec87\n黑方 · Fairy-Stockfish Chess NNUE\nfairy-stockfish-nnue.wasm@1.1.11\n1 threads · 64 MB · 3475407dc19973ea44467678634cce023d620e419770c111cc8937fe6689ec87",
+      "history": [
+        "e2e4",
+        "c7c5"
+      ],
+      "practiceMove": "a2a4",
+      "returnedHistory": [
+        "e2e4",
+        "c7c5"
+      ],
+      "cancelAndTakeover": true,
+      "status": "passed"
+    }
+  ],
+  "nativeQuick": "分析我的猜招重新分析加深分析（每次 10 秒）\n\nStockfish 18 · Native UCI · Stockfish 18 · stockfish-18-native-bridge · 2 线程 · Hash 64 MB · 每次预算 3000 ms\n\n评价为出题方（白方）视角。分析不修改竞猜成绩。\n\n推荐：e4 · e2e4\n\n同根同深度候选比较 · 深度 20\n\n0.40 兵 · 相对推荐 0.00 兵\n\n合法变化：e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 Re1 Nd6 Nxe5 Be7 Bf1 Nxe5 Rxe5 O-O d4 Ne8 Na3\n\n耗时 3022 ms · 已完成\n\n你的着法：e4 · e2e4\n\n同根同深度候选比较 · 深度 20\n\n0.40 兵 · 相对推荐 0.00 兵\n\n合法变化：e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 Re1 Nd6 Nxe5 Be7 Bf1 Nxe5 Rxe5 O-O d4 Ne8 Na3\n\n耗时 3022 ms · 已完成\n\n历史参考：Nf3 · g1f3\n\n同根同深度候选比较 · 深度 20\n\n0.31 兵 · 相对推荐 -0.09 兵\n\n合法变化：Nf3 d5 d4 e6 c4 Nf6 Nc3 c5 cxd5 cxd4 Qxd4 exd5 Bg5 Be7\n\n耗时 3022 ms · 已完成",
+  "nativeDeep": "分析我的猜招重新分析加深分析（每次 10 秒）\n\nStockfish 18 · Native UCI · Stockfish 18 · stockfish-18-native-bridge · 2 线程 · Hash 64 MB · 每次预算 10000 ms\n\n评价为出题方（白方）视角。分析不修改竞猜成绩。\n\n推荐：e4 · e2e4\n\n同根同深度候选比较 · 深度 24\n\n0.36 兵 · 相对推荐 0.00 兵\n\n合法变化：e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 Re1 Nd6 Nxe5 Be7 Bf1 Nxe5 Rxe5 O-O d4 Ne8 d5 Bc5 Re1 d6 Nc3 f5 Be3 Bxe3 Rxe3 Nf6 Ne2 f4 Rf3 g5 Rc3 a5 Nd4 Nxd5\n\n耗时 10023 ms · 已完成\n\n你的着法：e4 · e2e4\n\n同根同深度候选比较 · 深度 24\n\n0.36 兵 · 相对推荐 0.00 兵\n\n合法变化：e4 e5 Nf3 Nc6 Bb5 Nf6 O-O Nxe4 Re1 Nd6 Nxe5 Be7 Bf1 Nxe5 Rxe5 O-O d4 Ne8 d5 Bc5 Re1 d6 Nc3 f5 Be3 Bxe3 Rxe3 Nf6 Ne2 f4 Rf3 g5 Rc3 a5 Nd4 Nxd5\n\n耗时 10023 ms · 已完成\n\n历史参考：Nf3 · g1f3\n\n同根同深度候选比较 · 深度 24\n\n0.29 兵 · 相对推荐 -0.07 兵\n\n合法变化：Nf3 Nf6 d4 d5 c4 e6 Nc3 Nbd7 Bg5 h6 Bh4 Be7 e3 O-O Rc1 c6 Bd3 dxc4 Bxc4 a6 a4 b5 Bd3 Bb7 O-O Rc8 Nb1\n\n耗时 10023 ms · 已完成",
+  "limitations": [
+    "各组合完成双方各一手、搜索取消接管和临时练习返回；未做长局棋力或稳定性测评",
+    "竞技场仅快速档，标准及深思资源档不在本轮覆盖范围"
+  ],
+  "nativeArenaPractice": {
+    "before": [
+      "e2e4",
+      "e7e5"
+    ],
+    "temporaryPlies": 3,
+    "returned": [
+      "e2e4",
+      "e7e5"
+    ],
+    "status": "passed"
+  },
+  "nativeStudy": {
+    "initialPlies": 0,
+    "afterAiPlies": 1,
+    "returnedSourcePlies": 0,
+    "status": "passed"
+  },
+  "nativeCancellation": {
+    "quickStopRetry": "passed",
+    "deepStopRetry": "passed",
+    "guessStatsUnchanged": "0/1"
+  }
+}

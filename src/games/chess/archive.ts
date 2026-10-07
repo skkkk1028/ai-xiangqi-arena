@@ -37,17 +37,19 @@ export function createChessArchive({
   state,
   players,
   now = new Date(),
+  createdAt,
 }: {
   state: ChessGameState
   players: readonly MatchArchivePlayer[]
   now?: Date
+  createdAt?: string
 }): MatchArchiveV1<'chess'> {
   const timestamp = now.toISOString()
   return {
     version: 1,
     game: 'chess',
     ruleset: CHESS_RULESET,
-    createdAt: timestamp,
+    createdAt: createdAt ?? timestamp,
     updatedAt: timestamp,
     status: state.result ? 'finished' : 'playing',
     players,
@@ -102,7 +104,8 @@ export function restoreChessArchive(value: unknown): ChessGameState {
   }
   const metadata = archive.metadata
   const openingId = typeof metadata?.openingId === 'string' ? metadata.openingId : ''
-  const opening = CHESS_OPENINGS.find((candidate) => candidate.id === openingId)
+  const local = openingId === 'local-standard' && archive.initialPosition === CHESS_INITIAL_FEN
+  const opening = local ? { id: 'local-standard', name: '标准初始局面' } : CHESS_OPENINGS.find((candidate) => candidate.id === openingId)
   if (
     !metadata
     || typeof archive.initialPosition !== 'string'
@@ -111,7 +114,7 @@ export function restoreChessArchive(value: unknown): ChessGameState {
     || Number(metadata.seed) < 0
     || Number(metadata.seed) > 0xffffffff
     || !opening
-    || selectChessOpening(Number(metadata.seed)).id !== opening.id
+    || (!local && selectChessOpening(Number(metadata.seed)).id !== opening.id)
     || metadata.moveFormat !== 'uci'
     || typeof metadata.openingName !== 'string'
     || typeof metadata.pgn !== 'string'
