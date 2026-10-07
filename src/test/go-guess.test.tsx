@@ -12,6 +12,8 @@ import { saveLatestArchive, clearLatestArchive } from '../games/core/archive'
 import { createGoArchive } from '../games/go/sgf'
 import { HttpLeelaZeroTransport } from '../games/go/ai/LeelaZeroTransport'
 
+vi.hoisted(() => { vi.stubEnv('VITE_KATAGO_BRIDGE', '1') })
+
 vi.mock('../games/go/ai/configured-transport', () => ({ createConfiguredKataGoTransport: async () => transport }))
 const capabilities: KataGoCapabilities = {
   ready: true, engineVersion: 'test', modelName: 'test', runtimeBackend: 'native-katago', requestedBackend: 'native-katago',
@@ -44,8 +46,8 @@ async function ready() {
 async function submit(hook: Awaited<ReturnType<typeof ready>>, skip = false) {
   await act(async () => { void hook.result.current.submitGuess(skip) })
 }
-beforeEach(() => { pending = []; vi.clearAllMocks() })
-afterEach(() => { cleanup(); clearLatestArchive('go'); vi.restoreAllMocks() })
+beforeEach(() => { pending = []; vi.clearAllMocks(); vi.stubEnv('VITE_KATAGO_BRIDGE', '1') })
+afterEach(() => { cleanup(); clearLatestArchive('go'); vi.restoreAllMocks(); vi.unstubAllEnvs() })
 
 describe('围棋竞猜回合', () => {
   it('统计区分命中、未命中和跳过，虚着可命中', () => {

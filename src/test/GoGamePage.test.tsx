@@ -1,11 +1,16 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GoGamePage } from '../games/go/GoGamePage'
 
+vi.hoisted(() => { vi.stubEnv('VITE_KATAGO_BRIDGE', '1') })
+
 describe('围棋 React 页面', () => {
+  // These tests mock the HTTP bridge; do not depend on a developer's .env.
+  beforeEach(() => { vi.stubEnv('VITE_KATAGO_BRIDGE', '1') })
   afterEach(() => {
     cleanup()
     vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
   })
 
   it('渲染十九路棋盘、对局数据和 KataGo 待命面板', () => {

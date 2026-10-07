@@ -1,0 +1,2 @@
+# Preserve the exact bytes of this SHA-256-pinned vendor loader on every OS.
+public/engine/pikafish-2025.js -text
